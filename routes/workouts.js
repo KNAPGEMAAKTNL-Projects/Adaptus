@@ -62,6 +62,12 @@ router.put('/skip', (req, res) => {
   res.json(session);
 });
 
+router.put('/:id/unskip', (req, res) => {
+  const id = parseInt(req.params.id);
+  run('DELETE FROM workout_sessions WHERE id = ? AND skipped_at IS NOT NULL', [id]);
+  res.json({ unskipped: true });
+});
+
 router.delete('/:id', (req, res) => {
   const id = parseInt(req.params.id);
   run('DELETE FROM set_logs WHERE workout_session_id = ?', [id]);

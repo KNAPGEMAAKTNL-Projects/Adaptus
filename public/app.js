@@ -799,7 +799,10 @@ async function renderWorkout(templateId) {
 
       ${isSkipped ? `
         <div class="border-2 border-ink/10 bg-ink/5 p-5 mb-5 text-center">
-          <p class="text-sm font-bold text-ink/40 uppercase tracking-widest">This workout was skipped</p>
+          <p class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-4">This workout was skipped</p>
+          <button onclick="unskipWorkout()" class="px-6 py-2.5 border-2 border-ink/15 font-bold uppercase tracking-tight text-sm transition-colors duration-200 active:bg-ink active:text-canvas">
+            Undo Skip
+          </button>
         </div>
       ` : `
         <div class="flex flex-col gap-2">
@@ -1257,8 +1260,8 @@ async function logSet(exerciseId, exerciseName, setNumber, totalSets, targetRpe,
   if (!state.sessionSets[exerciseId]) state.sessionSets[exerciseId] = [];
   state.sessionSets[exerciseId].push(set);
 
-  // PR celebration
-  if (!previousPr || weight > previousPr.weight_kg) {
+  // PR celebration (only when beating an existing PR, not on first-ever set)
+  if (previousPr && weight > previousPr.weight_kg) {
     showPrCelebration(exerciseName, weight);
   }
 
@@ -1371,6 +1374,14 @@ async function confirmSkipWorkout(templateId, workoutName) {
     workoutTemplateId: templateId,
     workoutName: workoutName,
   });
+  navigate('#workouts');
+}
+
+async function unskipWorkout() {
+  if (!state.currentSession) return;
+  await api('PUT', `/workouts/${state.currentSession.id}/unskip`);
+  state.currentSession = null;
+  state.sessionSets = {};
   navigate('#workouts');
 }
 
