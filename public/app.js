@@ -2835,8 +2835,8 @@ function buildFoodsTab(foods) {
     <div class="flex items-center gap-2 mb-3">
       <input type="text" placeholder="Search foods..."
         oninput="filterFoodItems(this.value)"
-        class="flex-1 h-10 px-3 border-2 border-ink/15 rounded-lg text-sm font-bold focus:border-ink focus:outline-none transition-colors duration-200">
-      <button onclick="navigate('#nutrition/food/new')" class="h-10 px-3 border-2 border-ink/15 rounded-lg text-xs font-bold uppercase tracking-tight whitespace-nowrap active:bg-white/20 active:text-white transition-colors duration-200">+ New</button>
+        class="flex-1 h-10 px-3 bg-white/5 border border-white/10 rounded-lg text-sm font-bold focus:border-white/30 focus:outline-none transition-colors duration-200 placeholder:text-ink/30">
+      <button onclick="navigate('#nutrition/food/new')" class="h-10 px-3 bg-white/5 border border-white/10 rounded-lg text-xs font-bold uppercase tracking-tight whitespace-nowrap active:bg-white/20 active:text-white transition-colors duration-200">+ New</button>
     </div>
     <div class="food-list">${foodsHtml}</div>
   `;
@@ -2863,7 +2863,7 @@ function buildMealsTab(meals) {
 
   return `
     <div class="flex items-center justify-end mb-3">
-      <button onclick="navigate('#nutrition/meal/new')" class="h-10 px-3 border-2 border-ink/15 rounded-lg text-xs font-bold uppercase tracking-tight whitespace-nowrap active:bg-white/20 active:text-white transition-colors duration-200">+ New</button>
+      <button onclick="navigate('#nutrition/meal/new')" class="h-10 px-3 bg-white/5 border border-white/10 rounded-lg text-xs font-bold uppercase tracking-tight whitespace-nowrap active:bg-white/20 active:text-white transition-colors duration-200">+ New</button>
     </div>
     ${mealsHtml}
   `;
