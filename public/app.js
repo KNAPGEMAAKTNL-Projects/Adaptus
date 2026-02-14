@@ -1708,7 +1708,7 @@ async function renderExercise(index) {
     const loggedSet = logged.find(l => l.set_number === s);
     const setIsLast = s === totalSets;
     const rpe = (isSingleSet || setIsLast) ? exercise.lastSetRpe : exercise.earlySetRpe;
-    const rpeLabel = (isSingleSet || setIsLast) && showTechnique ? `${rpe} · ${technique}` : rpe;
+    const rpeLabel = rpe;
 
     if (loggedSet) {
       // Logged set row — display values with green checkmark (tap to undo/delete)
