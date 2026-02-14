@@ -1225,7 +1225,7 @@ async function renderWorkouts() {
           <p class="text-sm font-bold text-ink/40 mt-1">${new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</p>
         </div>
         <div class="text-right">
-          <span class="text-4xl font-black leading-none">${state.progress.week}</span>
+          <span class="text-2xl font-black leading-none">${state.progress.week}</span>
           <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Week</p>
         </div>
       </div>
