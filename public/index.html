@@ -45,14 +45,6 @@
     <!-- Views rendered here by app.js -->
   </div>
 
-  <!-- Workout timer (persistent top bar) -->
-  <div id="workout-timer" class="fixed top-2 left-1/2 -translate-x-1/2 z-[60] hidden">
-    <button onclick="navigateToCurrentExercise()" class="text-xs font-bold uppercase tracking-widest text-canvas bg-ink px-3 py-1.5 flex items-center gap-2 active:bg-ink/80 transition-colors duration-200 cursor-pointer">
-      <span class="w-1.5 h-1.5 rounded-full bg-acid animate-pulse"></span>
-      <span id="workout-elapsed">0:00</span>
-    </button>
-  </div>
-
   <!-- Offline queue badge -->
   <div id="offline-badge" class="fixed top-2 right-2 z-[60] hidden">
     <span class="text-xs font-bold uppercase tracking-widest text-canvas bg-electric px-2 py-1">
@@ -61,7 +53,7 @@
   </div>
 
   <!-- Rest timer (persistent floating bar) -->
-  <div id="rest-timer" class="fixed bottom-0 left-0 right-0 z-50 hidden" style="padding-bottom: env(safe-area-inset-bottom);">
+  <div id="rest-timer" class="fixed bottom-0 left-0 right-0 z-50 hidden">
     <div id="timer-bar" class="bg-ink text-canvas px-4 py-3 flex items-center justify-between">
       <div class="flex items-center gap-3">
         <span id="timer-label" class="text-xs font-bold uppercase tracking-widest text-white/60">Rest</span>
@@ -72,6 +64,7 @@
     <div class="h-1 bg-ink/20">
       <div id="timer-progress" class="h-full bg-acid transition-all duration-1000 linear" style="width: 100%"></div>
     </div>
+    <div class="bg-ink" style="height: env(safe-area-inset-bottom);"></div>
   </div>
 
   <script>

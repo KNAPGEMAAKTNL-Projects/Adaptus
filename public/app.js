@@ -346,6 +346,18 @@ document.addEventListener('click', (e) => {
 });
 
 // ─── Workout Timer ──────────────────────────────────────────────────────────
+function getElapsedText() {
+  if (!state.currentSession?.started_at) return '';
+  if (state.currentSession.completed_at || state.currentSession.skipped_at) return '';
+  const elapsed = Math.floor((Date.now() - parseUtc(state.currentSession.started_at).getTime()) / 1000);
+  const h = Math.floor(elapsed / 3600);
+  const m = Math.floor((elapsed % 3600) / 60);
+  const s = elapsed % 60;
+  return h > 0
+    ? `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+    : `${m}:${s.toString().padStart(2, '0')}`;
+}
+
 function startWorkoutTimer() {
   stopWorkoutTimer();
   if (!state.currentSession || !state.currentSession.started_at) return;
@@ -358,37 +370,13 @@ function stopWorkoutTimer() {
     clearInterval(state.workoutTimer.intervalId);
     state.workoutTimer.intervalId = null;
   }
-  const el = document.getElementById('workout-timer');
-  if (el) el.classList.add('hidden');
 }
 
 function updateWorkoutTimer() {
-  const el = document.getElementById('workout-timer');
-  const display = document.getElementById('workout-elapsed');
-  if (!el || !display || !state.currentSession?.started_at) {
-    if (el) el.classList.add('hidden');
-    return;
-  }
-  if (state.currentSession.completed_at || state.currentSession.skipped_at) {
-    el.classList.add('hidden');
-    return;
-  }
-  const elapsed = Math.floor((Date.now() - parseUtc(state.currentSession.started_at).getTime()) / 1000);
-  const h = Math.floor(elapsed / 3600);
-  const m = Math.floor((elapsed % 3600) / 60);
-  const s = elapsed % 60;
-  display.textContent = h > 0
-    ? `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
-    : `${m}:${s.toString().padStart(2, '0')}`;
-  el.classList.remove('hidden');
-}
-
-function formatElapsed(startedAt) {
-  const elapsed = Math.floor((Date.now() - parseUtc(startedAt).getTime()) / 1000);
-  const h = Math.floor(elapsed / 3600);
-  const m = Math.floor((elapsed % 3600) / 60);
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
+  const text = getElapsedText();
+  document.querySelectorAll('.workout-elapsed').forEach(el => {
+    el.textContent = text;
+  });
 }
 
 function findFirstIncompleteExercise(workout) {
@@ -435,7 +423,10 @@ async function renderDashboard() {
   if (hasActiveSession) {
     nextUpHtml = `
       <div class="bg-ink text-canvas p-5 mb-5">
-        <h3 class="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-2">In Progress</h3>
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-[10px] font-bold uppercase tracking-widest text-white/40">In Progress</h3>
+          <span class="workout-elapsed text-sm font-bold tabular-nums text-acid">${getElapsedText()}</span>
+        </div>
         <h2 class="text-xl font-black uppercase tracking-tight leading-tight">${state.currentSession.workout_name.split('(')[0].trim()}</h2>
         <p class="text-sm text-white/50 font-bold uppercase tracking-widest mt-1">Cycle ${state.progress.cycle} &middot; Week ${state.progress.week}${deload ? ' &middot; Deload' : ''}</p>
         <button onclick="resumeWorkout()" class="w-full mt-4 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
@@ -630,7 +621,7 @@ async function renderWorkouts() {
       badge = '<span class="text-xs font-bold text-ink/60 bg-ink/20 px-2 py-0.5">Skipped</span>';
       bgClass = 'bg-ink/40';
     } else if (isActive) {
-      badge = `<span class="text-xs font-bold text-canvas bg-ink px-2 py-0.5">In Progress${state.currentSession?.started_at ? ' · ' + formatElapsed(state.currentSession.started_at) : ''}</span>`;
+      badge = `<span class="text-xs font-bold text-canvas bg-ink px-2 py-0.5 flex items-center gap-1.5">In Progress <span class="workout-elapsed tabular-nums text-acid">${getElapsedText()}</span></span>`;
     }
     return `
       <button onclick="startWorkoutFlow('${wo.templateId}')" class="w-full ${bgClass} text-canvas p-5 text-left transition-colors duration-200 active:bg-ink/80">
@@ -884,9 +875,12 @@ async function renderWorkout(templateId) {
 
   document.getElementById('app').innerHTML = `
     <div class="px-3 pt-6 pb-32">
-      <button onclick="navigate('#workouts')" class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-4 flex items-center gap-1 active:text-ink transition-colors duration-200">
-        <span class="text-lg leading-none">&larr;</span> Back
-      </button>
+      <div class="flex items-center justify-between mb-4">
+        <button onclick="navigate('#workouts')" class="text-sm font-bold text-ink/40 uppercase tracking-widest flex items-center gap-1 active:text-ink transition-colors duration-200">
+          <span class="text-lg leading-none">&larr;</span> Back
+        </button>
+        ${isActive ? `<span class="workout-elapsed text-sm font-bold tabular-nums text-electric min-w-[3.5rem] text-right">${getElapsedText()}</span>` : ''}
+      </div>
 
       <div class="mb-6">
         <div class="flex items-center gap-2.5">
@@ -1152,9 +1146,12 @@ async function renderExercise(index) {
 
   document.getElementById('app').innerHTML = `
     <div class="px-3 pt-6 pb-40">
-      <button onclick="navigate('#workout/${workout.templateId}')" class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-4 flex items-center gap-1 active:text-ink transition-colors duration-200">
-        <span class="text-lg leading-none">&larr;</span> ${workoutName}
-      </button>
+      <div class="flex items-center justify-between mb-4">
+        <button onclick="navigate('#workout/${workout.templateId}')" class="text-sm font-bold text-ink/40 uppercase tracking-widest flex items-center gap-1 active:text-ink transition-colors duration-200">
+          <span class="text-lg leading-none">&larr;</span> ${workoutName}
+        </button>
+        ${state.currentSession && !state.currentSession.completed_at ? `<span class="workout-elapsed text-sm font-bold tabular-nums text-electric min-w-[3.5rem] text-right">${getElapsedText()}</span>` : ''}
+      </div>
 
       <!-- Exercise name -->
       <div class="mb-5">
