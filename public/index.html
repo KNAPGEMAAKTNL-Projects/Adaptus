@@ -45,6 +45,13 @@
     <!-- Views rendered here by app.js -->
   </div>
 
+  <!-- Offline queue badge -->
+  <div id="offline-badge" class="fixed top-2 right-2 z-[60] hidden">
+    <span class="text-xs font-bold uppercase tracking-widest text-canvas bg-electric px-2 py-1">
+      <span id="offline-count">0</span> pending
+    </span>
+  </div>
+
   <!-- Rest timer (persistent floating bar) -->
   <div id="rest-timer" class="fixed bottom-0 left-0 right-0 z-50 hidden" style="padding-bottom: env(safe-area-inset-bottom);">
     <div id="timer-bar" class="bg-ink text-canvas px-4 py-3 flex items-center justify-between">
