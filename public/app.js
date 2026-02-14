@@ -752,18 +752,18 @@ async function renderWorkout(templateId) {
     const technique = ex.lastSetIntensityTechnique !== 'N/A' ? ex.lastSetIntensityTechnique : '';
 
     return `
-      <button onclick="navigate('#exercise/${i}')" class="w-full p-4 border-2 ${done ? 'border-acid bg-acid/5' : partial ? 'border-ink/20' : 'border-ink/10'} text-left transition-colors duration-200 active:bg-ink/5">
+      <button onclick="navigate('#exercise/${i}')" class="w-full p-4 border-2 ${done ? 'border-ink/10' : partial ? 'border-ink/20' : 'border-ink/10'} text-left transition-colors duration-200 active:bg-ink/5">
         <div class="flex items-start justify-between gap-3">
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
-              <span class="text-xs font-black text-ink/30">${i + 1}</span>
-              <h3 class="font-bold text-[15px] leading-tight truncate">${name}</h3>
+              <span class="text-xs font-black ${done ? 'text-ink/15' : 'text-ink/30'}">${i + 1}</span>
+              <h3 class="font-bold text-[15px] leading-tight truncate ${done ? 'text-ink/35' : ''}">${name}</h3>
               ${isSubbed ? '<span class="text-[10px] font-bold uppercase tracking-widest text-electric">Swap</span>' : ''}
             </div>
-            <p class="text-xs text-ink/50 mt-1">${ex.workingSets} sets &middot; ${ex.reps} reps${technique ? ` &middot; ${technique}` : ''}</p>
+            <p class="text-xs ${done ? 'text-ink/30' : 'text-ink/50'} mt-1">${ex.workingSets} sets &middot; ${ex.reps} reps${technique ? ` &middot; ${technique}` : ''}</p>
           </div>
           <div class="flex-shrink-0 mt-0.5">
-            ${done ? '<span class="text-xs font-bold text-acid bg-ink px-2 py-1">DONE</span>'
+            ${done ? '<span class="text-xs font-bold text-ink/25">&#10003;</span>'
               : partial ? `<span class="text-xs font-bold text-ink/50">${logged.length}/${totalSets}</span>`
               : '<span class="w-2 h-2 rounded-full bg-ink/15 inline-block"></span>'}
           </div>
@@ -819,13 +819,56 @@ async function renderWorkout(templateId) {
         ` : ''}
 
         ${state.currentSession && !isCompleted ? `
-          <button onclick="showCancelWorkoutModal()" class="w-full mt-4 py-3 text-xs font-bold uppercase tracking-widest text-ink/30 text-center transition-colors duration-200 active:text-red-500">
+          <button onclick="showCancelWorkoutModal()" class="w-full mt-4 py-3 text-xs font-bold uppercase tracking-widest text-red-400 text-center transition-colors duration-200 active:text-red-600">
             Cancel Workout
           </button>
         ` : ''}
       `}
+
+      ${isCompleted ? `
+        <button onclick="showDeleteWorkoutModal()" class="w-full mt-4 py-3 text-xs font-bold uppercase tracking-widest text-red-400 text-center transition-colors duration-200 active:text-red-600">
+          Delete Workout
+        </button>
+      ` : ''}
     </div>
   `;
+}
+
+function showDeleteWorkoutModal() {
+  const modal = document.createElement('div');
+  modal.id = 'delete-modal';
+  modal.className = 'fixed inset-0 z-[80] flex items-center justify-center';
+  modal.innerHTML = `
+    <div class="absolute inset-0 bg-ink/50" onclick="closeDeleteModal()"></div>
+    <div class="relative bg-canvas mx-4 p-5 max-w-sm w-full">
+      <h2 class="text-lg font-black uppercase tracking-tight mb-2">Delete Workout</h2>
+      <p class="text-sm text-ink/60 mb-5">This will permanently delete this workout and all its logged sets.</p>
+      <div class="flex gap-2">
+        <button onclick="closeDeleteModal()" class="flex-1 py-3 border-2 border-ink/15 font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-canvas">
+          Keep
+        </button>
+        <button onclick="confirmDeleteWorkout()" class="flex-1 py-3 bg-red-500 text-canvas font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-red-700">
+          Delete
+        </button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+function closeDeleteModal() {
+  const modal = document.getElementById('delete-modal');
+  if (modal) modal.remove();
+}
+
+async function confirmDeleteWorkout() {
+  closeDeleteModal();
+  if (state.currentSession) {
+    await api('DELETE', `/workouts/${state.currentSession.id}`);
+  }
+  state.currentSession = null;
+  state.sessionSets = {};
+  navigate('#workouts');
 }
 
 function renderLastExerciseButton(index, workout) {
