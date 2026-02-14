@@ -1711,14 +1711,13 @@ async function renderExercise(index) {
     const rpeLabel = (isSingleSet || setIsLast) && showTechnique ? `${rpe} · ${technique}` : rpe;
 
     if (loggedSet) {
-      // Logged set row — display values with green checkmark and delete button
+      // Logged set row — display values with green checkmark (tap to undo/delete)
       setRowsHtml.push(`
         <div class="flex items-center gap-3 py-2.5 ${s < totalSets ? 'border-b border-ink/10' : ''}">
           <span class="w-10 text-xs font-bold text-ink/40 uppercase">Set ${s}</span>
           <span class="flex-1 font-bold text-sm">${loggedSet.weight_kg}kg &times; ${loggedSet.reps}</span>
           <span class="text-[10px] font-bold text-ink/30 uppercase">${rpeLabel}</span>
-          <span class="text-acid text-xl font-black w-8 h-8 flex items-center justify-center">&#10003;</span>
-          <button onclick="deleteSet(${loggedSet.id}, '${exercise.id}')" class="text-ink/25 hover:text-red-500 w-8 h-8 flex items-center justify-center text-xl font-bold transition-colors duration-200">&times;</button>
+          <button onclick="deleteSet(${loggedSet.id}, '${exercise.id}')" class="text-acid text-xl font-black w-8 h-8 flex items-center justify-center active:text-red-500 transition-colors duration-200">&#10003;</button>
         </div>
       `);
     } else {
@@ -1753,19 +1752,25 @@ async function renderExercise(index) {
       setRowsHtml.push(`
         <div class="flex items-center gap-2 py-2.5 ${s < totalSets ? 'border-b border-ink/10' : ''}">
           <span class="w-10 text-xs font-bold text-ink/40 uppercase flex-shrink-0">Set ${s}</span>
-          <input id="weight-${s}" type="number" inputmode="decimal" step="0.5"
-            value="${isSuggested ? '' : prefillWeight}" placeholder="${isSuggested ? prefillWeight : 'kg'}"
-            data-suggested="${isSuggested ? prefillWeight : ''}"
-            onfocus="clearSuggested(this)" onblur="restoreSuggested(this)"
-            oninput="handleInputRow(this, '${exercise.id}', ${s}, '${escapedName}')"
-            class="w-20 h-9 bg-transparent border-2 border-ink/15 rounded-lg text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200 ${isSuggested ? 'placeholder:text-ink/30' : ''}">
-          <input id="reps-${s}" type="number" inputmode="numeric" step="1"
-            value="${isSuggested ? '' : prefillReps}" placeholder="${isSuggested ? prefillReps : 'reps'}"
-            data-suggested="${isSuggested ? prefillReps : ''}"
-            onfocus="clearSuggested(this)" onblur="restoreSuggested(this)"
-            oninput="handleInputRow(this, '${exercise.id}', ${s}, '${escapedName}')"
-            class="w-16 h-9 bg-transparent border-2 border-ink/15 rounded-lg text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200 ${isSuggested ? 'placeholder:text-ink/30' : ''}">
-          <span class="text-[10px] font-bold text-ink/30 uppercase w-10 text-right flex-shrink-0">${rpeLabel}</span>
+          <div class="relative flex-shrink-0">
+            <input id="weight-${s}" type="number" inputmode="decimal" step="0.5"
+              value="${isSuggested ? '' : prefillWeight}" placeholder="${isSuggested ? prefillWeight : '0'}"
+              data-suggested="${isSuggested ? prefillWeight : ''}"
+              onfocus="clearSuggested(this)" onblur="restoreSuggested(this)"
+              oninput="handleInputRow(this, '${exercise.id}', ${s}, '${escapedName}')"
+              class="w-20 h-9 bg-transparent border-2 border-ink/15 rounded-lg text-center font-bold text-sm pr-7 focus:border-acid focus:outline-none transition-colors duration-200 ${isSuggested ? 'placeholder:text-ink/30' : ''}">
+            <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-ink/30 pointer-events-none">kg</span>
+          </div>
+          <div class="relative flex-shrink-0">
+            <input id="reps-${s}" type="number" inputmode="numeric" step="1"
+              value="${isSuggested ? '' : prefillReps}" placeholder="${isSuggested ? prefillReps : '0'}"
+              data-suggested="${isSuggested ? prefillReps : ''}"
+              onfocus="clearSuggested(this)" onblur="restoreSuggested(this)"
+              oninput="handleInputRow(this, '${exercise.id}', ${s}, '${escapedName}')"
+              class="w-20 h-9 bg-transparent border-2 border-ink/15 rounded-lg text-center font-bold text-sm pr-9 focus:border-acid focus:outline-none transition-colors duration-200 ${isSuggested ? 'placeholder:text-ink/30' : ''}">
+            <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-ink/30 pointer-events-none">reps</span>
+          </div>
+          <span class="text-[10px] font-bold text-ink/30 uppercase flex-1 text-right">${rpeLabel}</span>
           <button id="check-${s}" onclick="logSetRow('${exercise.id}', '${escapedName}', ${s}, ${totalSets}, '${rpe}', '${exercise.rest}')"
             class="w-8 h-8 flex items-center justify-center rounded-lg text-xl font-bold transition-colors duration-200 ${checkBtnClass}">&#10003;</button>
         </div>
