@@ -43,6 +43,8 @@ async function api(method, path, body) {
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(`/api${path}`, opts);
   if (!res.ok) throw new Error(`API ${method} ${path}: ${res.status}`);
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) throw new Error(`API ${method} ${path}: unexpected content-type ${contentType}`);
   return res.json();
 }
 
@@ -330,7 +332,7 @@ async function renderDashboard() {
     api('GET', `/stats/week-summary?cycle=${state.progress.cycle}&week=${state.progress.week}`),
     api('GET', '/stats/streak'),
     api('GET', `/workouts/status?cycle=${state.progress.cycle}&week=${state.progress.week}`),
-    api('GET', '/weight/summary'),
+    api('GET', '/weight/summary').catch(() => ({ current: null })),
   ]);
 
   const deload = isDeloadWeek(state.progress.week);
@@ -601,7 +603,7 @@ function showMilestoneCelebration(milestone) {
 async function renderStats() {
   const [summary, weightHistory, streakData] = await Promise.all([
     api('GET', '/stats/summary'),
-    api('GET', '/weight/history?limit=60'),
+    api('GET', '/weight/history?limit=60').catch(() => []),
     api('GET', '/stats/streak'),
   ]);
 
