@@ -71,6 +71,10 @@ async function init() {
 let isTransitioning = false;
 
 function navigate(hash) {
+  // Close drawer immediately on any navigation
+  document.getElementById('drawer-panel')?.classList.add('translate-x-full');
+  document.getElementById('drawer-overlay')?.classList.add('hidden');
+
   if (!hash || hash === '#') hash = '#home';
   location.hash = hash;
   const parts = hash.replace('#', '').split('/');
@@ -83,6 +87,13 @@ function navigate(hash) {
     case 'exercise': renderFn = () => renderExercise(parseInt(parts[1])); break;
     case 'stats': renderFn = () => renderStats(); break;
     case 'exercise-stats': renderFn = () => renderExerciseStats(decodeURIComponent(parts[1])); break;
+    case 'nutrition': renderFn = () => {
+      if (parts[1] === 'add') return renderNutritionAdd();
+      if (parts[1] === 'food') return renderFoodForm(parts[2] === 'new' ? null : parts[2]);
+      if (parts[1] === 'meal') return renderMealForm(parts[2] === 'new' ? null : parts[2]);
+      if (parts[1] === 'settings') return renderNutritionSettings();
+      return renderNutrition();
+    }; break;
     default: renderFn = () => renderDashboard();
   }
   transitionTo(renderFn).catch(err => {
@@ -96,6 +107,7 @@ function navigate(hash) {
         <button onclick="location.reload()" class="px-4 py-2 bg-ink text-canvas font-bold uppercase text-sm">Reload</button>
       </div>`;
   });
+  updateActiveTab(hash);
 }
 
 async function transitionTo(renderFn) {
@@ -119,6 +131,48 @@ async function transitionTo(renderFn) {
 }
 
 window.addEventListener('hashchange', () => navigate(location.hash));
+
+function updateActiveTab(hash) {
+  const h = (hash || location.hash || '#home').replace('#', '');
+  const view = h.split('/')[0];
+  const tabMap = {
+    home: 'home',
+    workouts: 'workouts', workout: 'workouts', exercise: 'workouts',
+    nutrition: 'nutrition',
+    stats: 'stats', 'exercise-stats': 'stats',
+  };
+  const activeTab = tabMap[view] || 'home';
+  document.querySelectorAll('.nav-tab').forEach(btn => {
+    if (btn.dataset.tab === activeTab) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+}
+
+// ─── Drawer ─────────────────────────────────────────────────────────────────
+function openDrawer() {
+  document.getElementById('drawer-overlay').classList.remove('hidden');
+  document.getElementById('drawer-panel').classList.remove('translate-x-full');
+}
+
+function closeDrawer() {
+  const panel = document.getElementById('drawer-panel');
+  const overlay = document.getElementById('drawer-overlay');
+  panel.classList.add('translate-x-full');
+  setTimeout(() => overlay.classList.add('hidden'), 300);
+}
+
+function drawerLogWeight() {
+  closeDrawer();
+  setTimeout(() => showWeightLogModal(), 300);
+}
+
+function drawerNutritionTargets() {
+  closeDrawer();
+  setTimeout(() => navigate('#nutrition/settings'), 300);
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 async function getWeekData(weekNum) {
@@ -399,13 +453,9 @@ async function renderDashboard() {
   }).join('') : '';
 
   document.getElementById('app').innerHTML = `
-    <div class="px-3 pt-8 pb-32">
-      <div class="flex items-center justify-between mb-8">
-        <div>
-          <h1 class="text-3xl font-black uppercase tracking-tight leading-none">Adaptus</h1>
-          <p class="text-sm font-bold text-ink/40 uppercase tracking-widest mt-1">Cycle ${state.progress.cycle} &middot; Week ${state.progress.week}</p>
-        </div>
-        ${deload ? '<span class="text-[10px] font-bold uppercase tracking-widest text-acid bg-ink px-2 py-1 rounded-full">Deload</span>' : ''}
+    <div class="px-3 pt-8 pb-20">
+      <div class="mb-8">
+        <h1 class="text-3xl font-black uppercase tracking-tight leading-none">Adaptus</h1>
       </div>
 
       ${nextUpHtml}
@@ -601,10 +651,11 @@ function showMilestoneCelebration(milestone) {
 
 // ─── View: Stats ────────────────────────────────────────────────────────────
 async function renderStats() {
-  const [summary, weightHistory, streakData] = await Promise.all([
+  const [summary, weightHistory, streakData, exercises] = await Promise.all([
     api('GET', '/stats/summary'),
     api('GET', '/weight/history?limit=60').catch(() => []),
     api('GET', '/stats/streak'),
+    api('GET', '/stats/exercises').catch(() => []),
   ]);
 
   const earned = computeEarnedMilestones(summary, streakData.streak);
@@ -620,22 +671,36 @@ async function renderStats() {
     `;
   }).join('');
 
-  const prsHtml = summary.prs.length > 0 ? summary.prs.map(pr => `
-    <button onclick="navigate('#exercise-stats/${encodeURIComponent(pr.exercise_name)}')" class="flex items-center justify-between py-3 border-b border-ink/10 last:border-0 w-full text-left active:bg-ink/5 transition-colors duration-200">
-      <span class="font-bold text-[15px] truncate flex-1 mr-3">${pr.exercise_name}</span>
-      <span class="flex-shrink-0 text-right">
-        <span class="font-black text-lg">${pr.max_weight}<span class="text-sm font-bold text-ink/40 ml-0.5">kg</span></span>
-        ${pr.estimated_1rm ? `<span class="text-xs font-bold text-electric ml-2">${pr.estimated_1rm} e1rm</span>` : ''}
-      </span>
-    </button>
-  `).join('') : '<p class="text-sm text-ink/30 py-4">No data yet. Log some sets!</p>';
+  const exerciseBrowserHtml = exercises.length > 0 ? `
+    <div class="border-2 border-ink/10 p-5 mb-5">
+      <div class="flex items-center gap-2 mb-4">
+        <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Exercise History</h3>
+        <span class="text-xs font-bold text-canvas bg-ink px-2 py-0.5">${exercises.length}</span>
+      </div>
+      <input id="exercise-search" type="text" placeholder="Search exercises..."
+        oninput="filterExerciseList(this.value)"
+        class="w-full h-10 px-3 border-2 border-ink/15 text-sm font-bold focus:border-ink focus:outline-none transition-colors duration-200 mb-3">
+      <div id="exercise-list">
+        ${exercises.map(ex => `
+          <button onclick="navigate('#exercise-stats/${encodeURIComponent(ex.exercise_name)}')"
+            class="exercise-row flex items-center justify-between py-3 border-b border-ink/10 last:border-0 w-full text-left active:bg-ink/5 transition-colors duration-200"
+            data-name="${ex.exercise_name.toLowerCase()}">
+            <div class="flex-1 min-w-0 mr-3">
+              <span class="font-bold text-[15px] truncate block">${ex.exercise_name}</span>
+              <span class="text-xs text-ink/40">${ex.total_sets} sets &middot; last ${parseUtc(ex.last_logged).toLocaleDateString()}</span>
+            </div>
+            <span class="flex-shrink-0 text-right">
+              <span class="font-black text-lg">${ex.best_weight}<span class="text-sm font-bold text-ink/40 ml-0.5">kg</span></span>
+              ${ex.best_e1rm ? `<span class="text-xs font-bold text-electric ml-2">${ex.best_e1rm} e1rm</span>` : ''}
+            </span>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  ` : '';
 
   document.getElementById('app').innerHTML = `
-    <div class="px-3 pt-6 pb-32">
-      <button onclick="navigate('#home')" class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-4 flex items-center gap-1 active:text-ink transition-colors duration-200">
-        <span class="text-lg leading-none">&larr;</span> Dashboard
-      </button>
-
+    <div class="px-3 pt-6 pb-20">
       <h1 class="text-2xl font-black uppercase tracking-tight leading-none mb-6">Stats</h1>
 
       <div class="border-2 border-ink/10 p-5 mb-5">
@@ -677,20 +742,19 @@ async function renderStats() {
         </div>
       </div>
 
-      <div class="border-2 border-ink/10 p-5">
-        <div class="flex items-center gap-2 mb-4">
-          <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Personal Records</h3>
-          <span class="text-xs font-bold text-canvas bg-electric px-2 py-0.5">${summary.prs.length}</span>
-        </div>
-        <div>
-          ${prsHtml}
-        </div>
-      </div>
+      ${exerciseBrowserHtml}
     </div>
   `;
   if (weightHistory.length >= 2) {
     requestAnimationFrame(() => drawWeightChart(weightHistory));
   }
+}
+
+function filterExerciseList(query) {
+  const q = query.toLowerCase();
+  document.querySelectorAll('.exercise-row').forEach(row => {
+    row.style.display = row.dataset.name.includes(q) ? '' : 'none';
+  });
 }
 
 // ─── View: Workouts ─────────────────────────────────────────────────────────
@@ -743,12 +807,8 @@ async function renderWorkouts() {
   }).join('');
 
   document.getElementById('app').innerHTML = `
-    <div class="px-3 pt-6 pb-2">
-      <button onclick="navigate('#home')" class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-3 flex items-center gap-1 active:text-ink transition-colors duration-200">
-        <span class="text-lg leading-none">&larr;</span> Dashboard
-      </button>
-
-      <div class="flex items-center justify-between mb-4">
+    <div class="px-3 pt-6 pb-20">
+      <div class="flex items-center justify-between mb-4 pr-12">
         <div>
           <h1 class="text-2xl font-black uppercase tracking-tight leading-none">Workouts</h1>
           <p class="text-sm font-bold text-ink/40 uppercase tracking-widest mt-1">Cycle ${state.progress.cycle}</p>
@@ -968,8 +1028,8 @@ async function renderWorkout(templateId) {
   const hasLoggedSets = Object.values(state.sessionSets).some(sets => sets.length > 0);
 
   document.getElementById('app').innerHTML = `
-    <div class="px-3 pt-6 pb-2">
-      <div class="flex items-center justify-between mb-3">
+    <div class="px-3 pt-6 pb-20">
+      <div class="flex items-center justify-between mb-3 pr-12">
         <button onclick="navigate('#workouts')" class="text-sm font-bold text-ink/40 uppercase tracking-widest flex items-center gap-1 active:text-ink transition-colors duration-200">
           <span class="text-lg leading-none">&larr;</span> Back
         </button>
@@ -1239,7 +1299,7 @@ async function renderExercise(index) {
 
   document.getElementById('app').innerHTML = `
     <div class="px-3 pt-6 pb-40">
-      <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center justify-between mb-4 pr-12">
         <button onclick="navigate('#workout/${workout.templateId}')" class="text-sm font-bold text-ink/40 uppercase tracking-widest flex items-center gap-1 active:text-ink transition-colors duration-200">
           <span class="text-lg leading-none">&larr;</span> ${workoutName}
         </button>
@@ -1668,7 +1728,7 @@ async function renderExerciseStats(exerciseName) {
   }).join('') : '<p class="text-sm text-ink/30 py-4">No history yet</p>';
 
   document.getElementById('app').innerHTML = `
-    <div class="px-3 pt-6 pb-32">
+    <div class="px-3 pt-6 pb-20">
       <button onclick="history.back()" class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-4 flex items-center gap-1 active:text-ink transition-colors duration-200">
         <span class="text-lg leading-none">&larr;</span> Back
       </button>
@@ -1892,6 +1952,561 @@ function drawWeightChart(history) {
     ctx.fillStyle = '#CCFF00';
     ctx.fill();
   });
+}
+
+// ─── Nutrition State ─────────────────────────────────────────────────────────
+let nutritionDate = new Date().toISOString().split('T')[0];
+
+function getNutritionDateLabel() {
+  const today = new Date().toISOString().split('T')[0];
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  if (nutritionDate === today) return 'Today';
+  if (nutritionDate === yesterday) return 'Yesterday';
+  return new Date(nutritionDate + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+function changeNutritionDate(dir) {
+  const d = new Date(nutritionDate + 'T12:00:00');
+  d.setDate(d.getDate() + dir);
+  nutritionDate = d.toISOString().split('T')[0];
+  renderNutrition();
+}
+
+// ─── View: Nutrition (Main) ─────────────────────────────────────────────────
+async function renderNutrition() {
+  const [logData, targets] = await Promise.all([
+    api('GET', `/nutrition/log?date=${nutritionDate}`),
+    api('GET', '/nutrition/targets'),
+  ]);
+
+  const { entries, totals } = logData;
+
+  function macroBar(label, current, target, color) {
+    const pct = target > 0 ? Math.min((current / target) * 100, 100) : 0;
+    const unit = label === 'Calories' ? '' : 'g';
+    return `
+      <div class="mb-3">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">${label}</span>
+          <span class="text-xs font-bold">${Math.round(current)}${unit} <span class="text-ink/30">/ ${Math.round(target)}${unit}</span></span>
+        </div>
+        <div class="h-2 bg-ink/10 rounded-full overflow-hidden">
+          <div class="h-full rounded-full transition-all duration-300" style="width: ${pct}%; background: ${color};"></div>
+        </div>
+      </div>
+    `;
+  }
+
+  const entriesHtml = entries.length > 0 ? entries.map(e => `
+    <div class="flex items-center justify-between py-3 border-b border-ink/10 last:border-0">
+      <div class="flex-1 min-w-0 mr-3">
+        <span class="font-bold text-[15px] block truncate">${e.name}</span>
+        <span class="text-xs text-ink/40">${Math.round(e.calories)} cal &middot; ${Math.round(e.protein)}p &middot; ${Math.round(e.carbs)}c &middot; ${Math.round(e.fat)}f${e.servings !== 1 ? ` &middot; ${e.servings}x` : ''}</span>
+      </div>
+      <button onclick="deleteLogEntry(${e.id})" class="text-ink/20 hover:text-red-500 text-xs font-bold uppercase transition-colors duration-200 flex-shrink-0">&times;</button>
+    </div>
+  `).join('') : '<p class="text-sm text-ink/30 py-4">No entries yet. Tap + to add.</p>';
+
+  document.getElementById('app').innerHTML = `
+    <div class="px-3 pt-6 pb-20">
+      <div class="mb-5">
+        <h1 class="text-2xl font-black uppercase tracking-tight leading-none">Nutrition</h1>
+      </div>
+
+      <div class="flex items-center justify-between mb-5">
+        <button onclick="changeNutritionDate(-1)" class="w-10 h-10 flex items-center justify-center border-2 border-ink/15 font-bold text-lg active:bg-ink active:text-canvas transition-colors duration-200">&larr;</button>
+        <span class="font-bold text-lg">${getNutritionDateLabel()}</span>
+        <button onclick="changeNutritionDate(1)" class="w-10 h-10 flex items-center justify-center border-2 border-ink/15 font-bold text-lg active:bg-ink active:text-canvas transition-colors duration-200">&rarr;</button>
+      </div>
+
+      <div class="border-2 border-ink/10 p-4 mb-5">
+        ${macroBar('Calories', totals.calories, targets.calories, '#CCFF00')}
+        ${macroBar('Protein', totals.protein, targets.protein, '#7C3AED')}
+        ${macroBar('Carbs', totals.carbs, targets.carbs, '#3B82F6')}
+        ${macroBar('Fat', totals.fat, targets.fat, '#F59E0B')}
+      </div>
+
+      <div class="border-2 border-ink/10 p-4 mb-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Log</h3>
+        </div>
+        ${entriesHtml}
+      </div>
+
+      <button onclick="navigate('#nutrition/add')" class="w-full py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
+        + Add Entry
+      </button>
+    </div>
+  `;
+}
+
+async function deleteLogEntry(id) {
+  await api('DELETE', `/nutrition/log/${id}`);
+  renderNutrition();
+}
+
+// ─── View: Nutrition Add ────────────────────────────────────────────────────
+async function renderNutritionAdd() {
+  const [meals, foods] = await Promise.all([
+    api('GET', '/nutrition/meals'),
+    api('GET', '/nutrition/foods'),
+  ]);
+
+  const mealsHtml = meals.length > 0 ? meals.map(m => `
+    <div class="border-2 border-ink/10 p-4 mb-2">
+      <div class="flex items-center justify-between mb-1">
+        <h3 class="font-bold text-[15px] truncate flex-1 mr-2">${m.name}</h3>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <button onclick="navigate('#nutrition/meal/${m.id}')" class="text-ink/30 active:text-ink transition-colors duration-200">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 1.5l2.5 2.5M1 13l1-4L10.5 0.5l2.5 2.5L4.5 12z"/></svg>
+          </button>
+        </div>
+      </div>
+      <p class="text-xs text-ink/40 mb-3">${Math.round(m.totalCalories)} cal &middot; ${Math.round(m.totalProtein)}p &middot; ${Math.round(m.totalCarbs)}c &middot; ${Math.round(m.totalFat)}f</p>
+      <button onclick="quickLogMeal(${m.id})" class="w-full py-2 bg-ink text-canvas font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink/80">
+        Log Meal
+      </button>
+    </div>
+  `).join('') : '<p class="text-sm text-ink/30 py-2">No meals yet.</p>';
+
+  const foodsHtml = foods.length > 0 ? foods.map(f => `
+    <button onclick="showFoodServingsModal(${f.id}, '${f.name.replace(/'/g, "\\'")}', ${f.calories}, ${f.protein}, ${f.carbs}, ${f.fat})"
+      class="flex items-center justify-between py-3 border-b border-ink/10 last:border-0 w-full text-left active:bg-ink/5 transition-colors duration-200 food-item"
+      data-name="${f.name.toLowerCase()}">
+      <div class="flex-1 min-w-0 mr-3">
+        <span class="font-bold text-[15px] block truncate">${f.name}</span>
+        <span class="text-xs text-ink/40">${f.serving_size}${f.serving_unit} &middot; ${Math.round(f.calories)} cal</span>
+      </div>
+      <span class="text-xs text-ink/40 flex-shrink-0">${Math.round(f.protein)}p &middot; ${Math.round(f.carbs)}c &middot; ${Math.round(f.fat)}f</span>
+    </button>
+  `).join('') : '<p class="text-sm text-ink/30 py-2">No foods yet.</p>';
+
+  document.getElementById('app').innerHTML = `
+    <div class="px-3 pt-6 pb-20">
+      <button onclick="navigate('#nutrition')" class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-4 flex items-center gap-1 active:text-ink transition-colors duration-200">
+        <span class="text-lg leading-none">&larr;</span> Back
+      </button>
+
+      <h1 class="text-2xl font-black uppercase tracking-tight leading-none mb-5">Add Entry</h1>
+
+      <div class="mb-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Your Meals</h3>
+          <button onclick="navigate('#nutrition/meal/new')" class="text-xs font-bold text-ink/40 uppercase tracking-widest active:text-ink transition-colors duration-200">+ New</button>
+        </div>
+        ${mealsHtml}
+      </div>
+
+      <details class="mb-5">
+        <summary class="text-[10px] font-bold uppercase tracking-widest text-ink/40 cursor-pointer select-none mb-3">Foods</summary>
+        <div class="mt-3">
+          <div class="flex items-center justify-between mb-3">
+            <input id="food-search" type="text" placeholder="Search foods..."
+              oninput="filterFoodItems(this.value)"
+              class="flex-1 h-10 px-3 border-2 border-ink/15 text-sm font-bold focus:border-ink focus:outline-none transition-colors duration-200 mr-2">
+            <button onclick="navigate('#nutrition/food/new')" class="text-xs font-bold text-ink/40 uppercase tracking-widest active:text-ink transition-colors duration-200 whitespace-nowrap">+ New</button>
+          </div>
+          ${foodsHtml}
+        </div>
+      </details>
+    </div>
+  `;
+}
+
+function filterFoodItems(query) {
+  const q = query.toLowerCase();
+  document.querySelectorAll('.food-item').forEach(row => {
+    row.style.display = row.dataset.name.includes(q) ? '' : 'none';
+  });
+}
+
+async function quickLogMeal(mealId) {
+  await api('POST', '/nutrition/log/meal', { mealId, servings: 1, date: nutritionDate });
+  navigate('#nutrition');
+}
+
+function showFoodServingsModal(foodId, foodName, cal, pro, carb, fat) {
+  const modal = document.createElement('div');
+  modal.id = 'servings-modal';
+  modal.className = 'fixed inset-0 z-[80] flex items-center justify-center';
+  modal.innerHTML = `
+    <div class="absolute inset-0 bg-ink/50" onclick="closeFoodServingsModal()"></div>
+    <div class="relative bg-canvas mx-4 p-5 max-w-sm w-full">
+      <h2 class="text-lg font-black uppercase tracking-tight mb-1">${foodName}</h2>
+      <p class="text-xs text-ink/40 mb-4">${Math.round(cal)} cal &middot; ${Math.round(pro)}p &middot; ${Math.round(carb)}c &middot; ${Math.round(fat)}f per serving</p>
+      <div class="mb-4">
+        <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Servings</label>
+        <input id="food-servings-input" type="number" inputmode="decimal" step="0.5" value="1"
+          class="w-full h-12 border-2 border-ink/15 text-center font-bold text-xl focus:border-ink focus:outline-none transition-colors duration-200">
+      </div>
+      <div class="flex gap-2">
+        <button onclick="closeFoodServingsModal()" class="flex-1 py-3 border-2 border-ink/15 font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-canvas">Cancel</button>
+        <button onclick="confirmLogFood(${foodId})" class="flex-1 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-acid">Log</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  requestAnimationFrame(() => document.getElementById('food-servings-input')?.select());
+}
+
+function closeFoodServingsModal() {
+  document.getElementById('servings-modal')?.remove();
+}
+
+async function confirmLogFood(foodId) {
+  const servings = parseFloat(document.getElementById('food-servings-input')?.value) || 1;
+  closeFoodServingsModal();
+  await api('POST', '/nutrition/log/food', { foodId, servings, date: nutritionDate });
+  navigate('#nutrition');
+}
+
+// ─── View: Food Form ────────────────────────────────────────────────────────
+async function renderFoodForm(id) {
+  let food = { name: '', calories: '', protein: '', carbs: '', fat: '', serving_size: 100, serving_unit: 'g' };
+  if (id) {
+    const foods = await api('GET', '/nutrition/foods');
+    food = foods.find(f => f.id === parseInt(id)) || food;
+  }
+
+  const units = ['g', 'ml', 'piece', 'scoop', 'slice', 'cup', 'tbsp'];
+
+  document.getElementById('app').innerHTML = `
+    <div class="px-3 pt-6 pb-20">
+      <button onclick="history.back()" class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-4 flex items-center gap-1 active:text-ink transition-colors duration-200">
+        <span class="text-lg leading-none">&larr;</span> Back
+      </button>
+
+      <h1 class="text-2xl font-black uppercase tracking-tight leading-none mb-5">${id ? 'Edit Food' : 'New Food'}</h1>
+
+      <div class="space-y-4 mb-6">
+        <div>
+          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Name</label>
+          <input id="food-name" type="text" value="${food.name}" placeholder="e.g. Chicken Breast"
+            class="w-full h-12 px-3 border-2 border-ink/15 font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Calories</label>
+            <input id="food-calories" type="number" inputmode="decimal" value="${food.calories}" placeholder="0"
+              class="w-full h-12 px-3 border-2 border-ink/15 text-center font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+          </div>
+          <div>
+            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Protein (g)</label>
+            <input id="food-protein" type="number" inputmode="decimal" value="${food.protein}" placeholder="0"
+              class="w-full h-12 px-3 border-2 border-ink/15 text-center font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+          </div>
+          <div>
+            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Carbs (g)</label>
+            <input id="food-carbs" type="number" inputmode="decimal" value="${food.carbs}" placeholder="0"
+              class="w-full h-12 px-3 border-2 border-ink/15 text-center font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+          </div>
+          <div>
+            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Fat (g)</label>
+            <input id="food-fat" type="number" inputmode="decimal" value="${food.fat}" placeholder="0"
+              class="w-full h-12 px-3 border-2 border-ink/15 text-center font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Serving Size</label>
+            <input id="food-serving-size" type="number" inputmode="decimal" value="${food.serving_size}" placeholder="100"
+              class="w-full h-12 px-3 border-2 border-ink/15 text-center font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+          </div>
+          <div>
+            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Unit</label>
+            <select id="food-serving-unit" class="w-full h-12 px-3 border-2 border-ink/15 font-bold bg-canvas focus:border-ink focus:outline-none transition-colors duration-200">
+              ${units.map(u => `<option value="${u}" ${food.serving_unit === u ? 'selected' : ''}>${u}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <button onclick="saveFood(${id || 'null'})" class="w-full py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
+        ${id ? 'Update Food' : 'Create Food'}
+      </button>
+
+      ${id ? `
+        <button onclick="deleteFood(${id})" class="w-full mt-3 py-3 text-xs font-bold uppercase tracking-widest text-red-400 text-center transition-colors duration-200 active:text-red-600">
+          Delete Food
+        </button>
+      ` : ''}
+    </div>
+  `;
+}
+
+async function saveFood(id) {
+  const data = {
+    name: document.getElementById('food-name').value.trim(),
+    calories: parseFloat(document.getElementById('food-calories').value) || 0,
+    protein: parseFloat(document.getElementById('food-protein').value) || 0,
+    carbs: parseFloat(document.getElementById('food-carbs').value) || 0,
+    fat: parseFloat(document.getElementById('food-fat').value) || 0,
+    servingSize: parseFloat(document.getElementById('food-serving-size').value) || 100,
+    servingUnit: document.getElementById('food-serving-unit').value || 'g',
+  };
+  if (!data.name) return;
+  if (id) {
+    await api('PUT', `/nutrition/foods/${id}`, data);
+  } else {
+    await api('POST', '/nutrition/foods', data);
+  }
+  navigate('#nutrition/add');
+}
+
+async function deleteFood(id) {
+  await api('DELETE', `/nutrition/foods/${id}`);
+  navigate('#nutrition/add');
+}
+
+// ─── View: Meal Form ────────────────────────────────────────────────────────
+async function renderMealForm(id) {
+  const allFoods = await api('GET', '/nutrition/foods');
+  let meal = { name: '', foods: [] };
+  if (id) {
+    const meals = await api('GET', '/nutrition/meals');
+    const found = meals.find(m => m.id === parseInt(id));
+    if (found) {
+      meal.name = found.name;
+      meal.foods = found.foods.map(f => ({ foodId: f.food_id, name: f.name, servings: f.servings, calories: f.calories, protein: f.protein, carbs: f.carbs, fat: f.fat }));
+    }
+  }
+
+  // Store meal foods in a temporary global for manipulation
+  window._mealFormFoods = meal.foods.map(f => ({ ...f }));
+
+  renderMealFormInner(id, meal.name, allFoods);
+}
+
+function renderMealFormInner(id, mealName, allFoods) {
+  const foods = window._mealFormFoods || [];
+
+  const totalCal = foods.reduce((s, f) => s + (f.calories || 0) * f.servings, 0);
+  const totalPro = foods.reduce((s, f) => s + (f.protein || 0) * f.servings, 0);
+  const totalCarb = foods.reduce((s, f) => s + (f.carbs || 0) * f.servings, 0);
+  const totalFat = foods.reduce((s, f) => s + (f.fat || 0) * f.servings, 0);
+
+  const foodListHtml = foods.length > 0 ? foods.map((f, i) => `
+    <div class="flex items-center justify-between py-2 border-b border-ink/10 last:border-0">
+      <div class="flex-1 min-w-0 mr-2">
+        <span class="font-bold text-sm truncate block">${f.name}</span>
+        <span class="text-xs text-ink/40">${Math.round(f.calories * f.servings)} cal</span>
+      </div>
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <button onclick="adjustMealFoodServings(${i}, -0.5, ${id || 'null'}, '${(mealName || '').replace(/'/g, "\\'")}', ${JSON.stringify(allFoods).length > 5000 ? 'null' : 'null'})" class="w-8 h-8 border border-ink/15 font-bold text-sm active:bg-ink active:text-canvas transition-colors duration-200">&minus;</button>
+        <span class="text-sm font-bold w-8 text-center">${f.servings}</span>
+        <button onclick="adjustMealFoodServings(${i}, 0.5, ${id || 'null'}, '${(mealName || '').replace(/'/g, "\\'")}', null)" class="w-8 h-8 border border-ink/15 font-bold text-sm active:bg-ink active:text-canvas transition-colors duration-200">+</button>
+        <button onclick="removeMealFood(${i}, ${id || 'null'}, '${(mealName || '').replace(/'/g, "\\'")}', null)" class="text-ink/20 hover:text-red-500 text-xs font-bold transition-colors duration-200 ml-1">&times;</button>
+      </div>
+    </div>
+  `).join('') : '<p class="text-sm text-ink/30 py-2">No foods added yet.</p>';
+
+  document.getElementById('app').innerHTML = `
+    <div class="px-3 pt-6 pb-20">
+      <button onclick="navigate('#nutrition/add')" class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-4 flex items-center gap-1 active:text-ink transition-colors duration-200">
+        <span class="text-lg leading-none">&larr;</span> Back
+      </button>
+
+      <h1 class="text-2xl font-black uppercase tracking-tight leading-none mb-5">${id ? 'Edit Meal' : 'New Meal'}</h1>
+
+      <div class="mb-4">
+        <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Meal Name</label>
+        <input id="meal-name" type="text" value="${mealName || ''}" placeholder="e.g. Weekday Breakfast"
+          class="w-full h-12 px-3 border-2 border-ink/15 font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+      </div>
+
+      <div class="border-2 border-ink/10 p-4 mb-4">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Foods in Meal</h3>
+        </div>
+        ${foodListHtml}
+      </div>
+
+      <button onclick="showMealFoodPicker()" class="w-full py-2.5 border-2 border-ink/15 font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-canvas mb-4">
+        + Add Food
+      </button>
+
+      <div class="border-2 border-ink/10 p-4 mb-5">
+        <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-2">Meal Totals</h3>
+        <div class="grid grid-cols-4 gap-2 text-center">
+          <div>
+            <span class="text-lg font-black block">${Math.round(totalCal)}</span>
+            <span class="text-[10px] font-bold uppercase text-ink/40">Cal</span>
+          </div>
+          <div>
+            <span class="text-lg font-black block">${Math.round(totalPro)}</span>
+            <span class="text-[10px] font-bold uppercase text-ink/40">Pro</span>
+          </div>
+          <div>
+            <span class="text-lg font-black block">${Math.round(totalCarb)}</span>
+            <span class="text-[10px] font-bold uppercase text-ink/40">Carb</span>
+          </div>
+          <div>
+            <span class="text-lg font-black block">${Math.round(totalFat)}</span>
+            <span class="text-[10px] font-bold uppercase text-ink/40">Fat</span>
+          </div>
+        </div>
+      </div>
+
+      <button onclick="saveMeal(${id || 'null'})" class="w-full py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
+        ${id ? 'Update Meal' : 'Create Meal'}
+      </button>
+
+      ${id ? `
+        <button onclick="deleteMeal(${id})" class="w-full mt-3 py-3 text-xs font-bold uppercase tracking-widest text-red-400 text-center transition-colors duration-200 active:text-red-600">
+          Delete Meal
+        </button>
+      ` : ''}
+    </div>
+  `;
+}
+
+function adjustMealFoodServings(index, delta) {
+  if (!window._mealFormFoods) return;
+  const f = window._mealFormFoods[index];
+  f.servings = Math.max(0.5, f.servings + delta);
+  reRenderMealForm();
+}
+
+function removeMealFood(index) {
+  if (!window._mealFormFoods) return;
+  window._mealFormFoods.splice(index, 1);
+  reRenderMealForm();
+}
+
+function reRenderMealForm() {
+  const id = location.hash.match(/meal\/(\d+)/)?.[1] || null;
+  const mealName = document.getElementById('meal-name')?.value || '';
+  // Re-fetch allFoods is not needed since we stored it — just re-render the inner
+  renderMealFormInner(id, mealName, []);
+}
+
+async function showMealFoodPicker() {
+  const allFoods = await api('GET', '/nutrition/foods');
+  const currentMealName = document.getElementById('meal-name')?.value || '';
+
+  const modal = document.createElement('div');
+  modal.id = 'food-picker-modal';
+  modal.className = 'fixed inset-0 z-[80] flex items-end';
+  modal.innerHTML = `
+    <div class="absolute inset-0 bg-ink/50" onclick="closeFoodPickerModal()"></div>
+    <div class="relative w-full bg-canvas p-5 max-h-[70vh] overflow-y-auto" style="padding-bottom: calc(2rem + env(safe-area-inset-bottom))">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-black uppercase tracking-tight">Pick Food</h2>
+        <button onclick="closeFoodPickerModal()" class="text-ink/40 font-bold text-2xl leading-none">&times;</button>
+      </div>
+      <input type="text" placeholder="Search..."
+        oninput="filterPickerFoods(this.value)"
+        class="w-full h-10 px-3 border-2 border-ink/15 text-sm font-bold focus:border-ink focus:outline-none transition-colors duration-200 mb-3">
+      <div id="picker-food-list">
+        ${allFoods.length > 0 ? allFoods.map(f => `
+          <button onclick="pickFoodForMeal(${f.id}, '${f.name.replace(/'/g, "\\'")}', ${f.calories}, ${f.protein}, ${f.carbs}, ${f.fat})"
+            class="picker-food-row flex items-center justify-between py-3 border-b border-ink/10 last:border-0 w-full text-left active:bg-ink/5 transition-colors duration-200"
+            data-name="${f.name.toLowerCase()}">
+            <span class="font-bold text-[15px] truncate flex-1 mr-3">${f.name}</span>
+            <span class="text-xs text-ink/40 flex-shrink-0">${Math.round(f.calories)} cal</span>
+          </button>
+        `).join('') : '<p class="text-sm text-ink/30 py-4">No foods. Create one first.</p>'}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  // Store the meal name so we can restore it
+  window._mealFormName = currentMealName;
+}
+
+function filterPickerFoods(query) {
+  const q = query.toLowerCase();
+  document.querySelectorAll('.picker-food-row').forEach(row => {
+    row.style.display = row.dataset.name.includes(q) ? '' : 'none';
+  });
+}
+
+function closeFoodPickerModal() {
+  document.getElementById('food-picker-modal')?.remove();
+}
+
+function pickFoodForMeal(foodId, name, cal, pro, carb, fat) {
+  if (!window._mealFormFoods) window._mealFormFoods = [];
+  window._mealFormFoods.push({ foodId, name, servings: 1, calories: cal, protein: pro, carbs: carb, fat: fat });
+  closeFoodPickerModal();
+  reRenderMealForm();
+  // Restore meal name
+  if (window._mealFormName) {
+    const nameInput = document.getElementById('meal-name');
+    if (nameInput) nameInput.value = window._mealFormName;
+  }
+}
+
+async function saveMeal(id) {
+  const name = document.getElementById('meal-name')?.value.trim();
+  if (!name) return;
+  const foods = (window._mealFormFoods || []).map(f => ({ foodId: f.foodId, servings: f.servings }));
+  if (id) {
+    await api('PUT', `/nutrition/meals/${id}`, { name, foods });
+  } else {
+    await api('POST', '/nutrition/meals', { name, foods });
+  }
+  window._mealFormFoods = null;
+  navigate('#nutrition/add');
+}
+
+async function deleteMeal(id) {
+  await api('DELETE', `/nutrition/meals/${id}`);
+  window._mealFormFoods = null;
+  navigate('#nutrition/add');
+}
+
+// ─── View: Nutrition Settings ───────────────────────────────────────────────
+async function renderNutritionSettings() {
+  const targets = await api('GET', '/nutrition/targets');
+
+  document.getElementById('app').innerHTML = `
+    <div class="px-3 pt-6 pb-20">
+      <button onclick="navigate('#nutrition')" class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-4 flex items-center gap-1 active:text-ink transition-colors duration-200">
+        <span class="text-lg leading-none">&larr;</span> Back
+      </button>
+
+      <h1 class="text-2xl font-black uppercase tracking-tight leading-none mb-5">Daily Targets</h1>
+
+      <div class="space-y-4 mb-6">
+        <div>
+          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Calories</label>
+          <input id="target-calories" type="number" inputmode="numeric" value="${targets.calories}"
+            class="w-full h-12 px-3 border-2 border-ink/15 text-center font-bold text-xl focus:border-ink focus:outline-none transition-colors duration-200">
+        </div>
+        <div>
+          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Protein (g)</label>
+          <input id="target-protein" type="number" inputmode="numeric" value="${targets.protein}"
+            class="w-full h-12 px-3 border-2 border-ink/15 text-center font-bold text-xl focus:border-ink focus:outline-none transition-colors duration-200">
+        </div>
+        <div>
+          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Carbs (g)</label>
+          <input id="target-carbs" type="number" inputmode="numeric" value="${targets.carbs}"
+            class="w-full h-12 px-3 border-2 border-ink/15 text-center font-bold text-xl focus:border-ink focus:outline-none transition-colors duration-200">
+        </div>
+        <div>
+          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Fat (g)</label>
+          <input id="target-fat" type="number" inputmode="numeric" value="${targets.fat}"
+            class="w-full h-12 px-3 border-2 border-ink/15 text-center font-bold text-xl focus:border-ink focus:outline-none transition-colors duration-200">
+        </div>
+      </div>
+
+      <button onclick="saveTargets()" class="w-full py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
+        Save Targets
+      </button>
+    </div>
+  `;
+}
+
+async function saveTargets() {
+  const data = {
+    calories: parseFloat(document.getElementById('target-calories').value) || 2500,
+    protein: parseFloat(document.getElementById('target-protein').value) || 180,
+    carbs: parseFloat(document.getElementById('target-carbs').value) || 250,
+    fat: parseFloat(document.getElementById('target-fat').value) || 80,
+  };
+  await api('PUT', '/nutrition/targets', data);
+  navigate('#nutrition');
 }
 
 // ─── Boot ────────────────────────────────────────────────────────────────────
