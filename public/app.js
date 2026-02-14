@@ -16,17 +16,9 @@ const state = {
 async function api(method, path, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
   if (body) opts.body = JSON.stringify(body);
-  try {
-    const res = await fetch(`/api${path}`, opts);
-    if (!res.ok) throw new Error(`API ${method} ${path}: ${res.status}`);
-    return res.json();
-  } catch (err) {
-    // Queue write operations on network failure
-    if (method !== 'GET' && (err.name === 'TypeError' || err.message === 'Failed to fetch')) {
-      return queueOfflineRequest(method, path, body);
-    }
-    throw err;
-  }
+  const res = await fetch(`/api${path}`, opts);
+  if (!res.ok) throw new Error(`API ${method} ${path}: ${res.status}`);
+  return res.json();
 }
 
 // ─── Init ────────────────────────────────────────────────────────────────────
@@ -46,12 +38,6 @@ async function init() {
     startWorkoutTimer();
   }
   navigate(location.hash || '#home');
-
-  // Offline queue: show badge and sync if online
-  updateQueueBadge();
-  if (navigator.onLine && getOfflineQueue().length > 0) {
-    syncOfflineQueue();
-  }
 }
 
 // ─── Router ──────────────────────────────────────────────────────────────────
@@ -144,131 +130,6 @@ function parseUtc(dateStr) {
   return new Date(dateStr);
 }
 
-// ─── Offline Queue ───────────────────────────────────────────────────────────
-function getOfflineQueue() {
-  try { return JSON.parse(localStorage.getItem('adaptus-offline-queue') || '[]'); }
-  catch { return []; }
-}
-
-function saveOfflineQueue(queue) {
-  localStorage.setItem('adaptus-offline-queue', JSON.stringify(queue));
-  updateQueueBadge();
-}
-
-function generateTempId() {
-  return `temp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function queueOfflineRequest(method, path, body) {
-  const queue = getOfflineQueue();
-  const id = generateTempId();
-  const entry = { id, method, path, body, timestamp: new Date().toISOString() };
-
-  // Temp ID system for session creation
-  if (method === 'POST' && path === '/workouts') {
-    entry.tempId = id;
-    const synthetic = { id, started_at: new Date().toISOString(), completed_at: null, skipped_at: null, ...body };
-    queue.push(entry);
-    saveOfflineQueue(queue);
-    return synthetic;
-  }
-
-  if (method === 'POST' && path === '/sets') {
-    const tempSetId = generateTempId();
-    entry.tempId = tempSetId;
-    // Check if workoutSessionId is a temp ID
-    if (body && typeof body.workoutSessionId === 'string' && body.workoutSessionId.startsWith('temp_')) {
-      entry.dependsOnTempId = body.workoutSessionId;
-    }
-    const synthetic = { id: tempSetId, logged_at: new Date().toISOString(), ...body };
-    queue.push(entry);
-    saveOfflineQueue(queue);
-    return synthetic;
-  }
-
-  // PUT/DELETE
-  queue.push(entry);
-  saveOfflineQueue(queue);
-  return { queued: true };
-}
-
-async function syncOfflineQueue() {
-  const queue = getOfflineQueue();
-  if (queue.length === 0) return;
-
-  showSyncToast(`Syncing ${queue.length} pending...`);
-  const tempIdMap = {};
-  const failed = [];
-
-  for (const entry of queue) {
-    try {
-      let { method, path, body } = entry;
-
-      // Resolve temp IDs in body
-      if (body && entry.dependsOnTempId && tempIdMap[entry.dependsOnTempId]) {
-        body = { ...body, workoutSessionId: tempIdMap[entry.dependsOnTempId] };
-      }
-
-      // Resolve temp IDs in path
-      for (const [tempId, realId] of Object.entries(tempIdMap)) {
-        if (path.includes(tempId)) {
-          path = path.replace(tempId, realId);
-        }
-      }
-
-      const opts = { method, headers: { 'Content-Type': 'application/json' } };
-      if (body) opts.body = JSON.stringify(body);
-      const res = await fetch(`/api${path}`, opts);
-      if (!res.ok) throw new Error(`${res.status}`);
-      const data = await res.json();
-
-      // Map temp IDs to real IDs
-      if (entry.tempId && data && data.id) {
-        tempIdMap[entry.tempId] = data.id;
-      }
-    } catch {
-      failed.push(entry);
-    }
-  }
-
-  saveOfflineQueue(failed);
-  if (failed.length === 0) {
-    showSyncToast('All changes synced');
-  } else {
-    showSyncToast(`${failed.length} still pending`);
-  }
-}
-
-function updateQueueBadge() {
-  const badge = document.getElementById('offline-badge');
-  const count = document.getElementById('offline-count');
-  if (!badge || !count) return;
-  const queue = getOfflineQueue();
-  if (queue.length > 0) {
-    count.textContent = queue.length;
-    badge.classList.remove('hidden');
-  } else {
-    badge.classList.add('hidden');
-  }
-}
-
-function showSyncToast(message) {
-  let toast = document.getElementById('sync-toast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'sync-toast';
-    toast.className = 'fixed top-2 left-1/2 -translate-x-1/2 z-[70] transition-opacity duration-300';
-    document.body.appendChild(toast);
-  }
-  toast.innerHTML = `<span class="text-xs font-bold uppercase tracking-widest text-canvas bg-ink px-3 py-1.5">${message}</span>`;
-  toast.style.opacity = '1';
-  clearTimeout(toast._hideTimeout);
-  toast._hideTimeout = setTimeout(() => {
-    toast.style.opacity = '0';
-    setTimeout(() => { if (toast.parentNode) toast.remove(); }, 300);
-  }, 3000);
-}
-
 // ─── Rest Timer ──────────────────────────────────────────────────────────────
 function startRestTimer(restStr) {
   const total = parseRestSeconds(restStr);
@@ -346,6 +207,18 @@ document.addEventListener('click', (e) => {
 });
 
 // ─── Workout Timer ──────────────────────────────────────────────────────────
+function getElapsedText() {
+  if (!state.currentSession?.started_at) return '';
+  if (state.currentSession.completed_at || state.currentSession.skipped_at) return '';
+  const elapsed = Math.floor((Date.now() - parseUtc(state.currentSession.started_at).getTime()) / 1000);
+  const h = Math.floor(elapsed / 3600);
+  const m = Math.floor((elapsed % 3600) / 60);
+  const s = elapsed % 60;
+  return h > 0
+    ? `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+    : `${m}:${s.toString().padStart(2, '0')}`;
+}
+
 function startWorkoutTimer() {
   stopWorkoutTimer();
   if (!state.currentSession || !state.currentSession.started_at) return;
@@ -358,37 +231,13 @@ function stopWorkoutTimer() {
     clearInterval(state.workoutTimer.intervalId);
     state.workoutTimer.intervalId = null;
   }
-  const el = document.getElementById('workout-timer');
-  if (el) el.classList.add('hidden');
 }
 
 function updateWorkoutTimer() {
-  const el = document.getElementById('workout-timer');
-  const display = document.getElementById('workout-elapsed');
-  if (!el || !display || !state.currentSession?.started_at) {
-    if (el) el.classList.add('hidden');
-    return;
-  }
-  if (state.currentSession.completed_at || state.currentSession.skipped_at) {
-    el.classList.add('hidden');
-    return;
-  }
-  const elapsed = Math.floor((Date.now() - parseUtc(state.currentSession.started_at).getTime()) / 1000);
-  const h = Math.floor(elapsed / 3600);
-  const m = Math.floor((elapsed % 3600) / 60);
-  const s = elapsed % 60;
-  display.textContent = h > 0
-    ? `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
-    : `${m}:${s.toString().padStart(2, '0')}`;
-  el.classList.remove('hidden');
-}
-
-function formatElapsed(startedAt) {
-  const elapsed = Math.floor((Date.now() - parseUtc(startedAt).getTime()) / 1000);
-  const h = Math.floor(elapsed / 3600);
-  const m = Math.floor((elapsed % 3600) / 60);
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
+  const text = getElapsedText();
+  document.querySelectorAll('.workout-elapsed').forEach(el => {
+    el.textContent = text;
+  });
 }
 
 function findFirstIncompleteExercise(workout) {
@@ -435,7 +284,10 @@ async function renderDashboard() {
   if (hasActiveSession) {
     nextUpHtml = `
       <div class="bg-ink text-canvas p-5 mb-5">
-        <h3 class="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-2">In Progress</h3>
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-[10px] font-bold uppercase tracking-widest text-white/40">In Progress</h3>
+          <span class="workout-elapsed text-sm font-bold tabular-nums text-acid">${getElapsedText()}</span>
+        </div>
         <h2 class="text-xl font-black uppercase tracking-tight leading-tight">${state.currentSession.workout_name.split('(')[0].trim()}</h2>
         <p class="text-sm text-white/50 font-bold uppercase tracking-widest mt-1">Cycle ${state.progress.cycle} &middot; Week ${state.progress.week}${deload ? ' &middot; Deload' : ''}</p>
         <button onclick="resumeWorkout()" class="w-full mt-4 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
@@ -630,7 +482,7 @@ async function renderWorkouts() {
       badge = '<span class="text-xs font-bold text-ink/60 bg-ink/20 px-2 py-0.5">Skipped</span>';
       bgClass = 'bg-ink/40';
     } else if (isActive) {
-      badge = `<span class="text-xs font-bold text-canvas bg-ink px-2 py-0.5">In Progress${state.currentSession?.started_at ? ' · ' + formatElapsed(state.currentSession.started_at) : ''}</span>`;
+      badge = `<span class="text-xs font-bold text-canvas bg-ink px-2 py-0.5 flex items-center gap-1.5">In Progress <span class="workout-elapsed tabular-nums text-acid">${getElapsedText()}</span></span>`;
     }
     return `
       <button onclick="startWorkoutFlow('${wo.templateId}')" class="w-full ${bgClass} text-canvas p-5 text-left transition-colors duration-200 active:bg-ink/80">
@@ -884,9 +736,12 @@ async function renderWorkout(templateId) {
 
   document.getElementById('app').innerHTML = `
     <div class="px-3 pt-6 pb-32">
-      <button onclick="navigate('#workouts')" class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-4 flex items-center gap-1 active:text-ink transition-colors duration-200">
-        <span class="text-lg leading-none">&larr;</span> Back
-      </button>
+      <div class="flex items-center justify-between mb-4">
+        <button onclick="navigate('#workouts')" class="text-sm font-bold text-ink/40 uppercase tracking-widest flex items-center gap-1 active:text-ink transition-colors duration-200">
+          <span class="text-lg leading-none">&larr;</span> Back
+        </button>
+        ${isActive ? `<span class="workout-elapsed text-sm font-bold tabular-nums text-electric min-w-[3.5rem] text-right">${getElapsedText()}</span>` : ''}
+      </div>
 
       <div class="mb-6">
         <div class="flex items-center gap-2.5">
@@ -1035,17 +890,7 @@ function closeCancelModal() {
 async function confirmCancelWorkout() {
   closeCancelModal();
   if (state.currentSession) {
-    const sessionId = state.currentSession.id;
-    // If session has a temp ID, remove related queue entries instead of sending DELETE
-    if (typeof sessionId === 'string' && sessionId.startsWith('temp_')) {
-      const queue = getOfflineQueue();
-      const cleaned = queue.filter(e =>
-        e.tempId !== sessionId && e.dependsOnTempId !== sessionId
-      );
-      saveOfflineQueue(cleaned);
-    } else {
-      await api('DELETE', `/workouts/${sessionId}`);
-    }
+    await api('DELETE', `/workouts/${state.currentSession.id}`);
   }
   dismissTimer();
   stopWorkoutTimer();
@@ -1152,9 +997,12 @@ async function renderExercise(index) {
 
   document.getElementById('app').innerHTML = `
     <div class="px-3 pt-6 pb-40">
-      <button onclick="navigate('#workout/${workout.templateId}')" class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-4 flex items-center gap-1 active:text-ink transition-colors duration-200">
-        <span class="text-lg leading-none">&larr;</span> ${workoutName}
-      </button>
+      <div class="flex items-center justify-between mb-4">
+        <button onclick="navigate('#workout/${workout.templateId}')" class="text-sm font-bold text-ink/40 uppercase tracking-widest flex items-center gap-1 active:text-ink transition-colors duration-200">
+          <span class="text-lg leading-none">&larr;</span> ${workoutName}
+        </button>
+        ${state.currentSession && !state.currentSession.completed_at ? `<span class="workout-elapsed text-sm font-bold tabular-nums text-electric min-w-[3.5rem] text-right">${getElapsedText()}</span>` : ''}
+      </div>
 
       <!-- Exercise name -->
       <div class="mb-5">
@@ -1692,17 +1540,6 @@ function drawProgressChart(history, pr) {
     }
   });
 }
-
-// ─── Online/Offline Events ───────────────────────────────────────────────────
-window.addEventListener('online', async () => {
-  showSyncToast('Back online');
-  await syncOfflineQueue();
-  navigate(location.hash || '#home');
-});
-
-window.addEventListener('offline', () => {
-  showSyncToast('You are offline');
-});
 
 // ─── Boot ────────────────────────────────────────────────────────────────────
 init();
