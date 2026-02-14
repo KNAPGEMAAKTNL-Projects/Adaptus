@@ -75,6 +75,9 @@ function navigate(hash) {
   document.getElementById('drawer-panel')?.classList.add('translate-x-full');
   document.getElementById('drawer-overlay')?.classList.add('hidden');
 
+  // Hide nutrition search bar when leaving nutrition main page
+  hideNutritionSearchBar();
+
   if (!hash || hash === '#') hash = '#home';
   location.hash = hash;
   const parts = hash.replace('#', '').split('/');
@@ -88,10 +91,12 @@ function navigate(hash) {
     case 'stats': renderFn = () => renderStats(); break;
     case 'exercise-stats': renderFn = () => renderExerciseStats(decodeURIComponent(parts[1])); break;
     case 'nutrition': renderFn = () => {
-      if (parts[1] === 'add') return renderNutritionAdd();
+      if (parts[1] === 'add') return renderNutritionAdd('meals');
+      if (parts[1] === 'foods') return renderNutritionAdd('foods');
+      if (parts[1] === 'meals') return renderNutritionAdd('meals');
       if (parts[1] === 'food') return renderFoodForm(parts[2] === 'new' ? null : parts[2]);
       if (parts[1] === 'meal') return renderMealForm(parts[2] === 'new' ? null : parts[2]);
-      if (parts[1] === 'settings') return renderNutritionSettings();
+      if (parts[1] === 'settings') { openDrawer(drawerShowNutritionGoals); return; }
       return renderNutrition();
     }; break;
     default: renderFn = () => renderDashboard();
@@ -152,26 +157,457 @@ function updateActiveTab(hash) {
 }
 
 // ─── Drawer ─────────────────────────────────────────────────────────────────
-function openDrawer() {
+function openDrawer(subPage) {
   document.getElementById('drawer-overlay').classList.remove('hidden');
   document.getElementById('drawer-panel').classList.remove('translate-x-full');
+  if (subPage) subPage(); else drawerShowOverview();
 }
 
 function closeDrawer() {
   const panel = document.getElementById('drawer-panel');
   const overlay = document.getElementById('drawer-overlay');
   panel.classList.add('translate-x-full');
-  setTimeout(() => overlay.classList.add('hidden'), 300);
+  setTimeout(() => { overlay.classList.add('hidden'); }, 500);
 }
 
-function drawerLogWeight() {
-  closeDrawer();
-  setTimeout(() => showWeightLogModal(), 300);
+async function drawerShowOverview() {
+  document.getElementById('drawer-content').innerHTML = `
+    <div class="flex items-center justify-between px-5 pt-6 pb-4">
+      <h2 class="text-lg font-black uppercase tracking-tight">You</h2>
+      <button onclick="closeDrawer()" class="w-8 h-8 flex items-center justify-center text-white/40 hover:text-white transition-colors duration-200">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="flex items-center justify-center h-40">
+      <p class="text-sm font-bold uppercase tracking-tight text-white/20">Loading...</p>
+    </div>
+  `;
+
+  let profile, summary, streakData;
+  try {
+    [profile, summary, streakData] = await Promise.all([
+      api('GET', '/nutrition/profile').catch(() => null),
+      api('GET', '/stats/summary').catch(() => null),
+      api('GET', '/stats/streak').catch(() => null),
+    ]);
+  } catch (e) {
+    profile = null; summary = null; streakData = null;
+  }
+  if (!profile) profile = {};
+  if (!summary) summary = { totalWorkouts: 0, totalSets: 0, totalVolume: 0 };
+  if (!streakData) streakData = { streak: 0 };
+
+  const earned = computeEarnedMilestones(summary, streakData.streak);
+  const earnedCount = earned.length;
+  const totalCount = MILESTONES.length;
+  const pct = totalCount > 0 ? Math.round((earnedCount / totalCount) * 100) : 0;
+
+  document.getElementById('drawer-content').innerHTML = `
+    <div class="flex items-center justify-between px-5 pt-6 pb-4">
+      <h2 class="text-lg font-black uppercase tracking-tight">You</h2>
+      <button onclick="closeDrawer()" class="w-8 h-8 flex items-center justify-center text-white/40 hover:text-white transition-colors duration-200">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="px-5">
+      <div class="grid grid-cols-3 gap-3 mb-5">
+        <div class="border-2 border-white/10 p-3 text-center">
+          <span class="text-2xl font-black leading-none block text-acid">${profile.current_weight_kg || '--'}</span>
+          <span class="text-[10px] font-bold uppercase tracking-widest text-white/40 mt-1 block">kg</span>
+        </div>
+        <div class="border-2 border-white/10 p-3 text-center">
+          <span class="text-2xl font-black leading-none block">${profile.age || '--'}</span>
+          <span class="text-[10px] font-bold uppercase tracking-widest text-white/40 mt-1 block">age</span>
+        </div>
+        <div class="border-2 border-white/10 p-3 text-center">
+          <span class="text-2xl font-black leading-none block">${streakData.streak || 0}</span>
+          <span class="text-[10px] font-bold uppercase tracking-widest text-white/40 mt-1 block">wk streak</span>
+        </div>
+      </div>
+
+      <button onclick="drawerShowMilestones()" class="w-full border-2 border-white/10 p-4 mb-5 text-left active:bg-white/5 transition-colors duration-200">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[10px] font-bold uppercase tracking-widest text-white/40">Milestones</span>
+          <span class="text-xs font-bold bg-acid text-ink px-2 py-0.5">${earnedCount}/${totalCount}</span>
+        </div>
+        <div class="h-1.5 bg-white/10 rounded-full overflow-hidden">
+          <div class="h-full bg-acid rounded-full" style="width: ${pct}%"></div>
+        </div>
+      </button>
+
+      <div class="space-y-1">
+        <button onclick="drawerShowProfile()" class="w-full text-left px-4 py-3.5 text-[15px] font-bold uppercase tracking-tight text-white hover:bg-white/10 active:bg-white/10 transition-colors duration-200 flex items-center gap-3">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Edit Profile
+        </button>
+        <button onclick="drawerShowNutritionGoals()" class="w-full text-left px-4 py-3.5 text-[15px] font-bold uppercase tracking-tight text-white hover:bg-white/10 active:bg-white/10 transition-colors duration-200 flex items-center gap-3">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+          Nutrition Goals
+        </button>
+      </div>
+    </div>
+  `;
 }
 
-function drawerNutritionTargets() {
-  closeDrawer();
-  setTimeout(() => navigate('#nutrition/settings'), 300);
+async function drawerShowMilestones() {
+  const [summary, streakData] = await Promise.all([
+    api('GET', '/stats/summary'),
+    api('GET', '/stats/streak'),
+  ]);
+  const earned = computeEarnedMilestones(summary, streakData.streak);
+  earned.forEach(m => markMilestoneShown(m.id));
+  const earnedIds = new Set(earned.map(m => m.id));
+
+  const milestonesHtml = MILESTONES.map(m => {
+    const isEarned = earnedIds.has(m.id);
+    return `
+      <div class="p-3 border-2 ${isEarned ? 'border-acid bg-acid/10' : 'border-white/10 opacity-30'} text-center">
+        <div class="text-xs font-bold uppercase tracking-tight leading-tight">${m.label}</div>
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('drawer-content').innerHTML = `
+    <div class="flex items-center justify-between px-5 pt-6 pb-4">
+      <button onclick="drawerShowOverview()" class="text-sm font-bold text-white/40 uppercase tracking-widest flex items-center gap-1 active:text-white transition-colors duration-200">
+        <span class="text-lg leading-none">&larr;</span> Back
+      </button>
+      <button onclick="closeDrawer()" class="w-8 h-8 flex items-center justify-center text-white/40 hover:text-white transition-colors duration-200">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="px-5 overflow-y-auto" style="max-height: calc(100vh - 80px - env(safe-area-inset-top) - env(safe-area-inset-bottom))">
+      <h1 class="text-2xl font-black uppercase tracking-tight leading-none mb-2">Milestones</h1>
+      <p class="text-sm font-bold text-white/40 mb-5">${earned.length} of ${MILESTONES.length} unlocked</p>
+      <div class="grid grid-cols-3 gap-2 mb-5">
+        ${milestonesHtml}
+      </div>
+    </div>
+  `;
+}
+
+async function drawerShowProfile() {
+  const [profile, weightHistory] = await Promise.all([
+    api('GET', '/nutrition/profile').catch(() => ({ gender: 'male', age: 28, height_cm: 183, current_weight_kg: null })),
+    api('GET', '/weight/history?limit=10').catch(() => []),
+  ]);
+
+  function genderBtn(val, label) {
+    const active = profile.gender === val;
+    return `<button onclick="document.querySelectorAll('.gender-btn').forEach(b=>b.className='gender-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 text-white/40 transition-colors duration-200');this.className='gender-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid transition-colors duration-200'" class="gender-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 ${active ? 'border-acid text-acid' : 'border-white/20 text-white/40'} transition-colors duration-200" data-val="${val}">${label}</button>`;
+  }
+
+  document.getElementById('drawer-content').innerHTML = `
+    <div class="flex items-center justify-between px-5 pt-6 pb-4">
+      <button onclick="drawerShowOverview()" class="text-sm font-bold text-white/40 uppercase tracking-widest flex items-center gap-1 active:text-white transition-colors duration-200">
+        <span class="text-lg leading-none">&larr;</span> Back
+      </button>
+      <button onclick="closeDrawer()" class="w-8 h-8 flex items-center justify-center text-white/40 hover:text-white transition-colors duration-200">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="px-5 overflow-y-auto" style="max-height: calc(100vh - 80px - env(safe-area-inset-top) - env(safe-area-inset-bottom))">
+      <h1 class="text-2xl font-black uppercase tracking-tight leading-none mb-5">Edit Profile</h1>
+
+      <div class="space-y-4 mb-6">
+        <div>
+          <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-2">Gender</label>
+          <div class="flex gap-2">${genderBtn('male', 'Male')}${genderBtn('female', 'Female')}</div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-1">Age</label>
+            <input id="drawer-age" type="number" inputmode="numeric" value="${profile.age}"
+              class="w-full h-12 px-3 border-2 border-white/20 bg-transparent text-center text-white font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
+          </div>
+          <div>
+            <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-1">Height (cm)</label>
+            <input id="drawer-height" type="number" inputmode="decimal" value="${profile.height_cm}"
+              class="w-full h-12 px-3 border-2 border-white/20 bg-transparent text-center text-white font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
+          </div>
+        </div>
+        <div>
+          <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-1">Current Weight (kg)</label>
+          <input id="drawer-weight" type="number" inputmode="decimal" step="0.1" value="${profile.current_weight_kg || ''}" placeholder="e.g. 82.5"
+            class="w-full h-12 px-3 border-2 border-white/20 bg-transparent text-center text-white font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200 placeholder:text-white/20">
+        </div>
+      </div>
+
+      <button onclick="drawerSaveProfile()" class="w-full py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid mb-5">
+        Save
+      </button>
+
+      ${weightHistory.length > 0 ? `
+        <div class="border-t border-white/10 pt-5 mb-5">
+          <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-3">Weight History</label>
+          <div class="space-y-1">
+            ${weightHistory.map(w => {
+              const d = new Date(w.logged_at);
+              const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+              const dateLabel = months[d.getMonth()] + ' ' + d.getDate();
+              return `
+                <div class="flex items-center justify-between py-1.5">
+                  <div class="flex items-center gap-3">
+                    <span class="text-sm font-bold text-white/40">${dateLabel}</span>
+                    <span class="text-sm font-black text-white">${w.weight_kg} kg</span>
+                  </div>
+                  <button onclick="drawerDeleteWeight(${w.id})" class="w-7 h-7 flex items-center justify-center text-white/20 hover:text-red-400 transition-colors duration-200 text-lg leading-none">&times;</button>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+async function drawerDeleteWeight(id) {
+  await api('DELETE', '/weight/' + id);
+  drawerShowProfile();
+}
+
+async function drawerSaveProfile() {
+  const current = await api('GET', '/nutrition/profile');
+  const gender = document.querySelector('.gender-btn.border-acid')?.dataset.val || current.gender || 'male';
+  const age = parseInt(document.getElementById('drawer-age')?.value) || current.age || 28;
+  const height_cm = parseFloat(document.getElementById('drawer-height')?.value) || current.height_cm || 183;
+
+  // Log weight if entered and not already logged today
+  const weightVal = parseFloat(document.getElementById('drawer-weight')?.value);
+  if (weightVal && weightVal > 0) {
+    const latest = await api('GET', '/weight/latest').catch(() => null);
+    const today = new Date().toISOString().split('T')[0];
+    const latestDate = latest?.logged_at ? latest.logged_at.split('T')[0] : null;
+    if (latestDate !== today) {
+      await api('POST', '/weight', { weightKg: weightVal });
+    }
+  }
+
+  await api('PUT', '/nutrition/profile', {
+    gender, age, height_cm,
+    activity_level: current.activity_level || 'moderate',
+  });
+  document.getElementById('drawer-content').innerHTML = `
+    <div class="flex items-center justify-center h-40">
+      <p class="text-lg font-bold uppercase tracking-tight text-acid">Profile saved!</p>
+    </div>
+  `;
+  setTimeout(() => drawerShowOverview(), 800);
+}
+
+function formatPhaseDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${months[d.getMonth()]} ${d.getDate()}`;
+}
+
+async function drawerShowNutritionGoals() {
+  const [profile, phasesData, tdeeData] = await Promise.all([
+    api('GET', '/nutrition/profile').catch(() => ({ activity_level: 'moderate', phase: 'maintain' })),
+    api('GET', '/nutrition/phases').catch(() => ({ phases: [], active_phase: 'maintain', stabilization: { in_stabilization: false } })),
+    api('GET', '/nutrition/adaptive-tdee').catch(() => null),
+  ]);
+  const activityLabels = { sedentary: 'Sedentary', light: 'Light', moderate: 'Moderate', very_active: 'Very Active', extra_active: 'Extra Active' };
+
+  function activityBtn(val, label) {
+    const active = profile.activity_level === val;
+    return `<button onclick="document.querySelectorAll('.activity-btn').forEach(b=>b.className='activity-btn w-full py-2 px-3 text-left text-sm font-bold uppercase tracking-tight border-2 border-white/20 text-white/40 transition-colors duration-200 mb-1');this.className='activity-btn w-full py-2 px-3 text-left text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid transition-colors duration-200 mb-1'" class="activity-btn w-full py-2 px-3 text-left text-sm font-bold uppercase tracking-tight border-2 ${active ? 'border-acid text-acid' : 'border-white/20 text-white/40'} transition-colors duration-200 mb-1" data-val="${val}">${label}</button>`;
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+  const phaseColors = { cut: 'text-red-400', maintain: 'text-white/60', bulk: 'text-green-400' };
+
+  // Build phase list
+  let phasesHtml = '';
+  for (const p of phasesData.phases) {
+    const isPast = p.end_date <= today;
+    const dimClass = isPast ? 'opacity-40' : '';
+    const color = phaseColors[p.phase_type] || 'text-white/60';
+    phasesHtml += `
+      <div class="flex items-center justify-between py-2 ${dimClass}">
+        <div class="flex items-center gap-3">
+          <span class="text-sm font-bold text-white/60">${formatPhaseDate(p.start_date)} — ${formatPhaseDate(p.end_date)}</span>
+          <span class="text-sm font-black uppercase ${color}">${p.phase_type}</span>
+        </div>
+        <button onclick="deletePhase(${p.id})" class="w-7 h-7 flex items-center justify-center text-white/20 hover:text-red-400 transition-colors duration-200 text-lg leading-none">&times;</button>
+      </div>
+    `;
+  }
+
+  // Stabilization notice
+  const stab = phasesData.stabilization;
+  const stabHtml = stab && stab.in_stabilization
+    ? `<div class="flex items-center gap-2 px-3 py-2 border-2 border-amber-500/30 bg-amber-500/10 mb-3">
+        <span class="text-amber-400 text-sm font-bold">Stabilization — ${stab.days_remaining} days remaining</span>
+      </div>`
+    : '';
+
+  // Calculation breakdown
+  let breakdownHtml = '';
+  if (tdeeData && tdeeData.data_status !== 'no_weight') {
+    const actMult = tdeeData.activity_multiplier || 1.55;
+    const phaseMult = tdeeData.phase_multiplier || 1.0;
+    const phaseLabel = tdeeData.data_status === 'adaptive'
+      ? `Adaptive`
+      : `Phase (\u00d7${phaseMult.toFixed(2)})`;
+    const phaseCalLabel = tdeeData.data_status === 'adaptive'
+      ? `${tdeeData.adaptive_calories.toLocaleString()} kcal`
+      : `${tdeeData.formula_calories.toLocaleString()} kcal`;
+
+    breakdownHtml = `
+      <div class="border-t border-white/10 pt-5 mb-5">
+        <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-3">Calculation Breakdown</label>
+        <div class="space-y-2">
+          <div class="flex justify-between text-sm">
+            <span class="text-white/40 font-bold">BMR</span>
+            <span class="text-white font-bold tabular-nums">${tdeeData.bmr.toLocaleString()} kcal</span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-white/40 font-bold">TDEE (\u00d7${actMult.toFixed(2)})</span>
+            <span class="text-white font-bold tabular-nums">${tdeeData.base_tdee.toLocaleString()} kcal</span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-white/40 font-bold">${phaseLabel}</span>
+            <span class="text-acid font-bold tabular-nums">${phaseCalLabel}</span>
+          </div>
+          <div class="border-t border-white/10 pt-2 mt-2"></div>
+          <div class="flex justify-between text-sm">
+            <span class="text-white/40 font-bold">Protein (2.2g/kg)</span>
+            <span class="text-white font-bold tabular-nums">${tdeeData.protein_g}g</span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-white/40 font-bold">Fat (25%)</span>
+            <span class="text-white font-bold tabular-nums">${tdeeData.fat_g}g</span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-white/40 font-bold">Carbs (fill)</span>
+            <span class="text-white font-bold tabular-nums">${tdeeData.carbs_g}g</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  document.getElementById('drawer-content').innerHTML = `
+    <div class="flex items-center justify-between px-5 pt-6 pb-4">
+      <button onclick="drawerShowOverview()" class="text-sm font-bold text-white/40 uppercase tracking-widest flex items-center gap-1 active:text-white transition-colors duration-200">
+        <span class="text-lg leading-none">&larr;</span> Back
+      </button>
+      <button onclick="closeDrawer()" class="w-8 h-8 flex items-center justify-center text-white/40 hover:text-white transition-colors duration-200">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="px-5 overflow-y-auto" style="max-height: calc(100vh - 80px - env(safe-area-inset-top) - env(safe-area-inset-bottom))">
+      <h1 class="text-2xl font-black uppercase tracking-tight leading-none mb-5">Nutrition Goals</h1>
+
+      <div class="mb-5">
+        <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-2">Activity Level</label>
+        ${Object.entries(activityLabels).map(([k, v]) => activityBtn(k, v)).join('')}
+      </div>
+
+      <button onclick="drawerSaveNutritionGoals()" class="w-full py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid mb-5">
+        Save Activity Level
+      </button>
+
+      <div class="border-t border-white/10 pt-5 mb-5">
+        <div class="flex items-center justify-between mb-3">
+          <label class="text-[10px] font-bold uppercase tracking-widest text-white/40">Phase Schedule</label>
+          <span class="text-xs font-black uppercase tracking-tight ${phaseColors[phasesData.active_phase] || 'text-white/60'}">Active: ${phasesData.active_phase}</span>
+        </div>
+        ${stabHtml}
+        <div id="phase-list" class="mb-3">
+          ${phasesHtml || '<p class="text-sm text-white/20 italic">No phases scheduled</p>'}
+        </div>
+        <div id="add-phase-area">
+          <button onclick="showAddPhaseForm()" id="add-phase-btn" class="w-full py-2 border-2 border-dashed border-white/20 text-white/40 text-sm font-bold uppercase tracking-tight hover:border-acid hover:text-acid transition-colors duration-200">
+            + Add Phase
+          </button>
+          <div id="add-phase-form" class="hidden">
+            <div class="space-y-3 border-2 border-white/20 p-3">
+              <div>
+                <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-2">Phase Type</label>
+                <div class="flex gap-2">
+                  <button onclick="document.querySelectorAll('.new-phase-btn').forEach(b=>b.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 text-white/40 transition-colors duration-200');this.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid transition-colors duration-200'" class="new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 text-white/40 transition-colors duration-200" data-val="cut">Cut</button>
+                  <button onclick="document.querySelectorAll('.new-phase-btn').forEach(b=>b.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 text-white/40 transition-colors duration-200');this.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid transition-colors duration-200'" class="new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 text-white/40 transition-colors duration-200" data-val="maintain">Maintain</button>
+                  <button onclick="document.querySelectorAll('.new-phase-btn').forEach(b=>b.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 text-white/40 transition-colors duration-200');this.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid transition-colors duration-200'" class="new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 text-white/40 transition-colors duration-200" data-val="bulk">Bulk</button>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-1">Start</label>
+                  <input id="new-phase-start" type="date" class="w-full h-10 px-2 border-2 border-white/20 bg-transparent text-white text-sm font-bold focus:border-acid focus:outline-none transition-colors duration-200">
+                </div>
+                <div>
+                  <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-1">End</label>
+                  <input id="new-phase-end" type="date" class="w-full h-10 px-2 border-2 border-white/20 bg-transparent text-white text-sm font-bold focus:border-acid focus:outline-none transition-colors duration-200">
+                </div>
+              </div>
+              <div id="phase-error" class="text-red-400 text-xs font-bold hidden"></div>
+              <div class="flex gap-2">
+                <button onclick="addPhase()" class="flex-1 py-2 bg-acid text-ink font-bold uppercase tracking-tight text-sm transition-colors duration-200 active:bg-ink active:text-acid">Add</button>
+                <button onclick="hideAddPhaseForm()" class="flex-1 py-2 border-2 border-white/20 text-white/40 font-bold uppercase tracking-tight text-sm transition-colors duration-200">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      ${breakdownHtml}
+    </div>
+  `;
+}
+
+function showAddPhaseForm() {
+  document.getElementById('add-phase-btn').classList.add('hidden');
+  document.getElementById('add-phase-form').classList.remove('hidden');
+}
+
+function hideAddPhaseForm() {
+  document.getElementById('add-phase-btn').classList.remove('hidden');
+  document.getElementById('add-phase-form').classList.add('hidden');
+  const errEl = document.getElementById('phase-error');
+  if (errEl) errEl.classList.add('hidden');
+}
+
+async function addPhase() {
+  const phase_type = document.querySelector('.new-phase-btn.border-acid')?.dataset.val;
+  const start_date = document.getElementById('new-phase-start')?.value;
+  const end_date = document.getElementById('new-phase-end')?.value;
+  const errEl = document.getElementById('phase-error');
+
+  if (!phase_type || !start_date || !end_date) {
+    if (errEl) { errEl.textContent = 'Select a phase type and both dates'; errEl.classList.remove('hidden'); }
+    return;
+  }
+
+  try {
+    await api('POST', '/nutrition/phases', { phase_type, start_date, end_date });
+    drawerShowNutritionGoals();
+  } catch (e) {
+    if (errEl) { errEl.textContent = 'Phase overlaps with an existing phase'; errEl.classList.remove('hidden'); }
+  }
+}
+
+async function deletePhase(id) {
+  await api('DELETE', `/nutrition/phases/${id}`);
+  drawerShowNutritionGoals();
+}
+
+async function drawerSaveNutritionGoals() {
+  const current = await api('GET', '/nutrition/profile');
+  const activity_level = document.querySelector('.activity-btn.border-acid')?.dataset.val || current.activity_level || 'moderate';
+
+  await api('PUT', '/nutrition/profile', {
+    gender: current.gender, age: current.age, height_cm: current.height_cm,
+    activity_level,
+  });
+  document.getElementById('drawer-content').innerHTML = `
+    <div class="flex items-center justify-center h-40">
+      <p class="text-lg font-bold uppercase tracking-tight text-acid">Goals saved!</p>
+    </div>
+  `;
+  setTimeout(() => drawerShowOverview(), 800);
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -426,7 +862,7 @@ async function renderDashboard() {
       <div class="bg-ink text-canvas p-5 mb-5 cursor-pointer active:bg-ink/80 transition-colors duration-200" onclick="startWorkoutFlow('${nextWorkout.templateId}')">
         <h3 class="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-2">Next Up</h3>
         <h2 class="text-xl font-black uppercase tracking-tight leading-tight">${nextWorkout.name.split('(')[0].trim()}</h2>
-        <p class="text-sm text-white/50 font-bold uppercase tracking-widest mt-1">${nextWorkout.focus} &middot; Cycle ${state.progress.cycle} &middot; Week ${state.progress.week}${deload ? ' &middot; Deload' : ''}</p>
+        <p class="text-sm text-white/50 font-bold uppercase tracking-widest mt-1">Cycle ${state.progress.cycle} &middot; Week ${state.progress.week}${deload ? ' &middot; Deload' : ''}</p>
         <button onclick="event.stopPropagation(); startWorkoutFlow('${nextWorkout.templateId}', true)" class="w-full mt-4 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
           Start Workout
         </button>
@@ -456,6 +892,7 @@ async function renderDashboard() {
     <div class="px-3 pt-8 pb-20">
       <div class="mb-8">
         <h1 class="text-3xl font-black uppercase tracking-tight leading-none">Adaptus</h1>
+        <p class="text-sm font-bold text-ink/40 mt-1">${new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</p>
       </div>
 
       ${nextUpHtml}
@@ -651,25 +1088,12 @@ function showMilestoneCelebration(milestone) {
 
 // ─── View: Stats ────────────────────────────────────────────────────────────
 async function renderStats() {
-  const [summary, weightHistory, streakData, exercises] = await Promise.all([
+  const [summary, weightHistory, exercises, tdeeData] = await Promise.all([
     api('GET', '/stats/summary'),
     api('GET', '/weight/history?limit=60').catch(() => []),
-    api('GET', '/stats/streak'),
     api('GET', '/stats/exercises').catch(() => []),
+    api('GET', '/nutrition/adaptive-tdee').catch(() => null),
   ]);
-
-  const earned = computeEarnedMilestones(summary, streakData.streak);
-  earned.forEach(m => markMilestoneShown(m.id));
-  const earnedIds = new Set(earned.map(m => m.id));
-
-  const achievementsHtml = MILESTONES.map(m => {
-    const isEarned = earnedIds.has(m.id);
-    return `
-      <div class="p-3 border-2 ${isEarned ? 'border-acid bg-acid/5' : 'border-ink/10 opacity-30'} text-center">
-        <div class="text-xs font-bold uppercase tracking-tight leading-tight">${m.label}</div>
-      </div>
-    `;
-  }).join('');
 
   const exerciseBrowserHtml = exercises.length > 0 ? `
     <div class="border-2 border-ink/10 p-5 mb-5">
@@ -701,7 +1125,10 @@ async function renderStats() {
 
   document.getElementById('app').innerHTML = `
     <div class="px-3 pt-6 pb-20">
-      <h1 class="text-2xl font-black uppercase tracking-tight leading-none mb-6">Stats</h1>
+      <div class="mb-6">
+        <h1 class="text-2xl font-black uppercase tracking-tight leading-none">Stats</h1>
+        <p class="text-sm font-bold text-ink/40 mt-1">${new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+      </div>
 
       <div class="border-2 border-ink/10 p-5 mb-5">
         <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-4">All Time</h3>
@@ -728,19 +1155,10 @@ async function renderStats() {
       ${weightHistory.length >= 2 ? `
         <div class="border-2 border-ink/10 p-5 mb-5">
           <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-3">Body Weight</h3>
-          <canvas id="weight-chart" class="w-full" height="160"></canvas>
+          ${buildWeightTrend(tdeeData)}
+          <canvas id="weight-chart" class="w-full mt-3" height="160"></canvas>
         </div>
       ` : ''}
-
-      <div class="border-2 border-ink/10 p-5 mb-5">
-        <div class="flex items-center gap-2 mb-4">
-          <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Milestones</h3>
-          <span class="text-xs font-bold text-canvas bg-acid text-ink px-2 py-0.5">${earned.length}/${MILESTONES.length}</span>
-        </div>
-        <div class="grid grid-cols-3 gap-2">
-          ${achievementsHtml}
-        </div>
-      </div>
 
       ${exerciseBrowserHtml}
     </div>
@@ -799,11 +1217,7 @@ async function renderWorkouts() {
   const weekDots = Array.from({ length: 12 }, (_, i) => {
     const w = i + 1;
     const active = w === state.progress.week;
-    const deloadW = isDeloadWeek(w);
-    return `<div class="flex flex-col items-center gap-1">
-      <div class="w-2 h-2 rounded-full ${active ? 'bg-acid scale-125' : 'bg-ink/15'} transition-all duration-300"></div>
-      ${deloadW ? '<span class="text-[8px] font-bold uppercase tracking-widest text-ink/30">D</span>' : ''}
-    </div>`;
+    return `<div class="${active ? 'w-5 h-2 rounded-full bg-acid' : 'w-2 h-2 rounded-full bg-ink/15'} transition-all duration-300"></div>`;
   }).join('');
 
   document.getElementById('app').innerHTML = `
@@ -811,14 +1225,11 @@ async function renderWorkouts() {
       <div class="flex items-center justify-between mb-4 pr-12">
         <div>
           <h1 class="text-2xl font-black uppercase tracking-tight leading-none">Workouts</h1>
-          <p class="text-sm font-bold text-ink/40 uppercase tracking-widest mt-1">Cycle ${state.progress.cycle}</p>
+          <p class="text-sm font-bold text-ink/40 mt-1">${new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</p>
         </div>
-        <div class="flex items-center gap-2.5">
-          ${deload ? '<span class="text-[10px] font-bold uppercase tracking-widest text-acid bg-ink px-2 py-1 rounded-full">Deload</span>' : ''}
-          <div class="text-right">
-            <span class="text-4xl font-black leading-none">${state.progress.week}</span>
-            <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Week</p>
-          </div>
+        <div class="text-right">
+          <span class="text-4xl font-black leading-none">${state.progress.week}</span>
+          <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Week</p>
         </div>
       </div>
 
@@ -836,7 +1247,7 @@ async function renderWorkouts() {
         <button onclick="changeWeek(-1)" class="flex-shrink-0 px-4 py-2.5 border-2 border-ink/15 font-bold uppercase tracking-tight text-xs transition-colors duration-200 active:bg-ink active:text-canvas ${state.progress.week === 1 && state.progress.cycle === 1 ? 'opacity-30 pointer-events-none' : ''}">
           Prev
         </button>
-        <div class="flex items-end gap-1.5 flex-1 justify-center">
+        <div class="flex items-center gap-1.5 flex-1 justify-center">
           ${weekDots}
         </div>
         <button onclick="changeWeek(1)" class="flex-shrink-0 px-4 py-2.5 border-2 border-ink/15 font-bold uppercase tracking-tight text-xs transition-colors duration-200 active:bg-ink active:text-canvas">
@@ -1956,130 +2367,412 @@ function drawWeightChart(history) {
 
 // ─── Nutrition State ─────────────────────────────────────────────────────────
 let nutritionDate = new Date().toISOString().split('T')[0];
+let _searchFoods = null;
 
 function getNutritionDateLabel() {
-  const today = new Date().toISOString().split('T')[0];
-  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-  if (nutritionDate === today) return 'Today';
-  if (nutritionDate === yesterday) return 'Yesterday';
-  return new Date(nutritionDate + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  return new Date(nutritionDate + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
-function changeNutritionDate(dir) {
-  const d = new Date(nutritionDate + 'T12:00:00');
-  d.setDate(d.getDate() + dir);
-  nutritionDate = d.toISOString().split('T')[0];
-  renderNutrition();
+// ─── Week Date Picker Helpers ───────────────────────────────────────────────
+function getWeekDays(offset) {
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  const todayStr = today.toISOString().split('T')[0];
+  // Get Monday of current week
+  const dayOfWeek = today.getDay();
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - ((dayOfWeek + 6) % 7) + (offset * 7));
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const dateStr = d.toISOString().split('T')[0];
+    days.push({
+      date: dateStr,
+      dayNum: d.getDate(),
+      dayName: d.toLocaleDateString(undefined, { weekday: 'short' }).slice(0, 2).toUpperCase(),
+      isToday: dateStr === todayStr,
+    });
+  }
+  return days;
 }
 
-// ─── View: Nutrition (Main) ─────────────────────────────────────────────────
-async function renderNutrition() {
+function calculateWeekOffset(dateStr) {
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  const dayOfWeek = today.getDay();
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - ((dayOfWeek + 6) % 7));
+  monday.setHours(0, 0, 0, 0);
+  const target = new Date(dateStr + 'T12:00:00');
+  const diff = Math.floor((target - monday) / (7 * 86400000));
+  return diff;
+}
+
+function buildWeekDayButtons(days) {
+  return days.map(d => `
+    <button onclick="selectNutritionDate('${d.date}')" class="flex-1 flex flex-col items-center gap-1 py-2">
+      <span class="text-[10px] font-bold text-ink/40">${d.dayName}</span>
+      <span class="w-9 h-9 flex items-center justify-center text-sm font-black rounded-full
+        ${d.date === nutritionDate ? 'border-2 border-[#CCFF00] bg-[#CCFF00]/10' : ''}
+        ${d.isToday && d.date !== nutritionDate ? 'text-ink' : d.date === nutritionDate ? 'text-ink' : 'text-ink/60'}">${d.dayNum}</span>
+      ${d.isToday ? '<span class="w-1 h-1 rounded-full bg-ink"></span>' : '<span class="w-1 h-1"></span>'}
+    </button>
+  `).join('');
+}
+
+function initWeekPicker() {
+  const picker = document.getElementById('week-picker');
+  if (!picker) return;
+  // Scroll to middle (current) week
+  requestAnimationFrame(() => {
+    const slides = picker.querySelectorAll('.week-picker-week');
+    if (slides.length >= 2) {
+      slides[1].scrollIntoView({ inline: 'center', block: 'nearest' });
+    }
+  });
+
+  let scrollTimer = null;
+  picker.addEventListener('scroll', () => {
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(() => {
+      const scrollLeft = picker.scrollLeft;
+      const slideWidth = picker.offsetWidth;
+      const index = Math.round(scrollLeft / slideWidth);
+      const slides = picker.querySelectorAll('.week-picker-week');
+      // If scrolled to first slide, prepend a new week
+      if (index === 0 && slides.length > 0) {
+        const firstOffset = parseInt(slides[0].dataset.offset);
+        const newDays = getWeekDays(firstOffset - 1);
+        const newSlide = document.createElement('div');
+        newSlide.className = 'week-picker-week flex';
+        newSlide.dataset.offset = firstOffset - 1;
+        newSlide.innerHTML = buildWeekDayButtons(newDays);
+        picker.prepend(newSlide);
+        picker.scrollLeft = slideWidth;
+      }
+      // If scrolled to last slide, append a new week
+      if (index >= slides.length - 1 && slides.length > 0) {
+        const lastOffset = parseInt(slides[slides.length - 1].dataset.offset);
+        const newDays = getWeekDays(lastOffset + 1);
+        const newSlide = document.createElement('div');
+        newSlide.className = 'week-picker-week flex';
+        newSlide.dataset.offset = lastOffset + 1;
+        newSlide.innerHTML = buildWeekDayButtons(newDays);
+        picker.appendChild(newSlide);
+      }
+    }, 100);
+  });
+}
+
+function selectNutritionDate(dateStr) {
+  nutritionDate = dateStr;
+  // Update selection ring visually without re-rendering picker
+  const picker = document.getElementById('week-picker');
+  if (picker) {
+    picker.querySelectorAll('button > span:nth-child(2)').forEach(span => {
+      const btn = span.parentElement;
+      const btnDate = btn.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
+      if (btnDate === dateStr) {
+        span.className = 'w-9 h-9 flex items-center justify-center text-sm font-black rounded-full border-2 border-[#CCFF00] bg-[#CCFF00]/10 text-ink';
+      } else {
+        const isToday = btn.querySelector('span:nth-child(3)')?.classList.contains('bg-ink');
+        span.className = `w-9 h-9 flex items-center justify-center text-sm font-black rounded-full ${isToday ? 'text-ink' : 'text-ink/60'}`;
+      }
+    });
+  }
+  // Update date label
+  const label = document.getElementById('nutrition-date-label');
+  if (label) label.textContent = getNutritionDateLabel();
+  // Refresh content sections
+  refreshNutritionContent();
+}
+
+async function refreshNutritionContent() {
   const [logData, targets] = await Promise.all([
     api('GET', `/nutrition/log?date=${nutritionDate}`),
     api('GET', '/nutrition/targets'),
   ]);
+  const macroEl = document.getElementById('nutrition-macro-bar');
+  if (macroEl) macroEl.innerHTML = buildCompactMacroBar(logData.totals, targets);
+  const logEl = document.getElementById('nutrition-log-section');
+  if (logEl) logEl.innerHTML = buildTimeGroupedLog(logData.entries);
+  const label = document.getElementById('nutrition-date-label');
+  if (label) label.textContent = getNutritionDateLabel();
+}
 
-  const { entries, totals } = logData;
-
-  function macroBar(label, current, target, color) {
+// ─── Compact Macro Bar ──────────────────────────────────────────────────────
+function buildCompactMacroBar(totals, targets) {
+  function miniBar(current, target, color) {
     const pct = target > 0 ? Math.min((current / target) * 100, 100) : 0;
-    const unit = label === 'Calories' ? '' : 'g';
-    return `
-      <div class="mb-3">
-        <div class="flex items-center justify-between mb-1">
-          <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">${label}</span>
-          <span class="text-xs font-bold">${Math.round(current)}${unit} <span class="text-ink/30">/ ${Math.round(target)}${unit}</span></span>
+    return `<div class="h-[3px] bg-ink/10 rounded-full overflow-hidden mt-0.5"><div class="h-full rounded-full" style="width:${pct}%;background:${color}"></div></div>`;
+  }
+  return `
+    <button onclick="openDrawer(drawerShowNutritionGoals)" class="w-full flex items-center gap-2.5 p-3 border-2 border-ink/10 active:bg-ink/5 transition-colors duration-200">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center justify-between text-xs">
+          <svg class="flex-shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#CCFF00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12c2-2.96 0-7-1-8 0 3.038-1.773 4.741-3 6-1.226 1.26-2 3.24-2 5a6 6 0 1 0 12 0c0-1.532-1.056-3.94-2-5-1.786 3-2.791 3-4 2z"/></svg>
+          <span class="font-bold tabular-nums">${Math.round(totals.calories)} <span class="text-ink/30">/ ${Math.round(targets.calories)}</span></span>
         </div>
-        <div class="h-2 bg-ink/10 rounded-full overflow-hidden">
-          <div class="h-full rounded-full transition-all duration-300" style="width: ${pct}%; background: ${color};"></div>
-        </div>
+        ${miniBar(totals.calories, targets.calories, '#CCFF00')}
       </div>
-    `;
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center justify-between text-xs">
+          <span class="font-black text-[#7C3AED]">P</span>
+          <span class="font-bold tabular-nums">${Math.round(totals.protein)} <span class="text-ink/30">/ ${Math.round(targets.protein)}</span></span>
+        </div>
+        ${miniBar(totals.protein, targets.protein, '#7C3AED')}
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center justify-between text-xs">
+          <span class="font-black text-[#F59E0B]">F</span>
+          <span class="font-bold tabular-nums">${Math.round(totals.fat)} <span class="text-ink/30">/ ${Math.round(targets.fat)}</span></span>
+        </div>
+        ${miniBar(totals.fat, targets.fat, '#F59E0B')}
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center justify-between text-xs">
+          <span class="font-black text-[#3B82F6]">C</span>
+          <span class="font-bold tabular-nums">${Math.round(totals.carbs)} <span class="text-ink/30">/ ${Math.round(targets.carbs)}</span></span>
+        </div>
+        ${miniBar(totals.carbs, targets.carbs, '#3B82F6')}
+      </div>
+    </button>
+  `;
+}
+
+// ─── Time-Grouped Log ───────────────────────────────────────────────────────
+function buildTimeGroupedLog(entries) {
+  if (!entries || entries.length === 0) {
+    return '<p class="text-sm text-ink/30 py-8 text-center">No entries yet today.</p>';
   }
 
-  const entriesHtml = entries.length > 0 ? entries.map(e => `
-    <div class="flex items-center justify-between py-3 border-b border-ink/10 last:border-0">
-      <div class="flex-1 min-w-0 mr-3">
-        <span class="font-bold text-[15px] block truncate">${e.name}</span>
-        <span class="text-xs text-ink/40">${Math.round(e.calories)} cal &middot; ${Math.round(e.protein)}p &middot; ${Math.round(e.carbs)}c &middot; ${Math.round(e.fat)}f${e.servings !== 1 ? ` &middot; ${e.servings}x` : ''}</span>
-      </div>
-      <button onclick="deleteLogEntry(${e.id})" class="text-ink/20 hover:text-red-500 text-xs font-bold uppercase transition-colors duration-200 flex-shrink-0">&times;</button>
+  const groups = { morning: [], afternoon: [], evening: [] };
+  entries.forEach(e => {
+    const dt = parseUtc(e.logged_at);
+    const hour = dt.getHours();
+    if (hour < 12) groups.morning.push(e);
+    else if (hour < 18) groups.afternoon.push(e);
+    else groups.evening.push(e);
+  });
+
+  const labels = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' };
+  let html = '';
+  for (const [key, items] of Object.entries(groups)) {
+    if (items.length === 0) continue;
+    html += `<div class="mb-4">
+      <h4 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-2">${labels[key]}</h4>
+      ${items.map(e => `
+        <div class="flex items-center justify-between py-2.5 border-b border-ink/5 last:border-0">
+          <div class="flex-1 min-w-0 mr-3">
+            <span class="font-bold text-[14px] block truncate">${e.name}</span>
+            <span class="text-[11px] text-ink/40">${Math.round(e.calories)} cal · ${Math.round(e.protein)}p · ${Math.round(e.carbs)}c · ${Math.round(e.fat)}f${e.servings !== 1 ? ` · ${e.servings}x` : ''}</span>
+          </div>
+          <button onclick="deleteLogEntry(${e.id})" class="text-ink/20 hover:text-red-500 text-xs font-bold transition-colors duration-200 flex-shrink-0">&times;</button>
+        </div>
+      `).join('')}
+    </div>`;
+  }
+  return html;
+}
+
+// ─── Bottom Search Bar + Inline Search ──────────────────────────────────────
+function showNutritionSearchBar() {
+  if (document.getElementById('nutrition-search-bar')) return;
+  const bar = document.createElement('div');
+  bar.id = 'nutrition-search-bar';
+  bar.innerHTML = `
+    <div class="flex items-center gap-2 px-3 py-2 bg-canvas border-t border-ink/10">
+      <button onclick="openNutritionSearch()" class="flex-1 flex items-center gap-2 h-10 px-3 bg-ink/5 rounded-full active:bg-ink/10 transition-colors duration-200">
+        <svg class="text-ink/30 flex-shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span class="text-sm text-ink/30 font-medium">Search food database</span>
+      </button>
+      <button onclick="navigate('#nutrition/add')" class="w-10 h-10 flex items-center justify-center bg-[#CCFF00] rounded-full font-bold text-lg text-ink active:bg-[#b8e600] transition-colors duration-200 flex-shrink-0">+</button>
     </div>
-  `).join('') : '<p class="text-sm text-ink/30 py-4">No entries yet. Tap + to add.</p>';
+  `;
+  document.body.appendChild(bar);
+}
+
+function hideNutritionSearchBar() {
+  document.getElementById('nutrition-search-bar')?.remove();
+  closeNutritionSearch();
+}
+
+async function openNutritionSearch() {
+  // Create overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'nutrition-search-overlay';
+  overlay.innerHTML = '<div class="absolute inset-0 bg-ink/30" onclick="closeNutritionSearch()"></div>';
+  document.body.appendChild(overlay);
+
+  // Create panel
+  const panel = document.createElement('div');
+  panel.id = 'nutrition-search-panel';
+  panel.innerHTML = `
+    <div class="bg-canvas rounded-t-2xl border-t border-ink/10 max-h-[60vh] flex flex-col">
+      <div class="flex items-center gap-2 px-3 py-3 border-b border-ink/5">
+        <svg class="text-ink/30 flex-shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="nutrition-search-input" type="text" placeholder="Search foods..."
+          oninput="filterNutritionSearch(this.value)"
+          class="flex-1 text-sm font-bold bg-transparent focus:outline-none">
+        <button onclick="closeNutritionSearch()" class="text-ink/30 text-xs font-bold uppercase active:text-ink transition-colors duration-200">Cancel</button>
+      </div>
+      <div id="nutrition-search-results" class="overflow-y-auto px-3 pb-3" style="max-height: calc(60vh - 52px)">
+        <p class="text-sm text-ink/30 py-4 text-center">Loading...</p>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(panel);
+
+  // Animate in
+  requestAnimationFrame(() => {
+    overlay.classList.add('active');
+    panel.classList.add('active');
+    document.getElementById('nutrition-search-input')?.focus();
+  });
+
+  // Load foods
+  if (!_searchFoods) {
+    _searchFoods = await api('GET', '/nutrition/foods');
+  }
+  filterNutritionSearch('');
+}
+
+function filterNutritionSearch(query) {
+  const results = document.getElementById('nutrition-search-results');
+  if (!results || !_searchFoods) return;
+  const q = query.toLowerCase().trim();
+  const filtered = q ? _searchFoods.filter(f => f.name.toLowerCase().includes(q)) : _searchFoods;
+  if (filtered.length === 0) {
+    results.innerHTML = '<p class="text-sm text-ink/30 py-4 text-center">No foods found.</p>';
+    return;
+  }
+  results.innerHTML = filtered.map(f => {
+    const servingLabel = f.serving_unit ? `1 ${f.serving_unit} = ${f.serving_size}g` : 'per 100g';
+    return `
+      <button onclick="closeNutritionSearch();showFoodServingsModal(${f.id}, '${f.name.replace(/'/g, "\\'")}', ${f.calories}, ${f.protein}, ${f.carbs}, ${f.fat}, ${f.serving_size ? `'${f.serving_unit}'` : 'null'}, ${f.serving_size || 'null'})"
+        class="flex items-center justify-between py-3 border-b border-ink/5 last:border-0 w-full text-left active:bg-ink/5 transition-colors duration-200">
+        <div class="flex-1 min-w-0 mr-3">
+          <span class="font-bold text-[14px] block truncate">${f.name}</span>
+          <span class="text-[11px] text-ink/40">${servingLabel} · ${Math.round(f.calories)} cal/100g</span>
+        </div>
+        <span class="text-[11px] text-ink/40 flex-shrink-0">${Math.round(f.protein)}p · ${Math.round(f.carbs)}c · ${Math.round(f.fat)}f</span>
+      </button>`;
+  }).join('');
+}
+
+function closeNutritionSearch() {
+  const overlay = document.getElementById('nutrition-search-overlay');
+  const panel = document.getElementById('nutrition-search-panel');
+  if (overlay) {
+    overlay.classList.remove('active');
+    setTimeout(() => overlay.remove(), 200);
+  }
+  if (panel) {
+    panel.classList.remove('active');
+    setTimeout(() => panel.remove(), 300);
+  }
+}
+
+// ─── View: Nutrition (Main) ─────────────────────────────────────────────────
+async function renderNutrition() {
+  const [logData, targets, tdeeData] = await Promise.all([
+    api('GET', `/nutrition/log?date=${nutritionDate}`),
+    api('GET', '/nutrition/targets'),
+    api('GET', '/nutrition/adaptive-tdee').catch(() => null),
+  ]);
+
+  // Auto-update targets if adaptive TDEE differs meaningfully
+  let activeTargets = targets;
+  if (tdeeData && tdeeData.final_calories && Math.abs(tdeeData.final_calories - targets.calories) > 50) {
+    activeTargets = { calories: tdeeData.final_calories, protein: tdeeData.protein_g, carbs: tdeeData.carbs_g, fat: tdeeData.fat_g };
+    api('PUT', '/nutrition/targets', activeTargets).catch(() => {});
+  }
+
+  const curOffset = calculateWeekOffset(nutritionDate);
+  const prevWeek = getWeekDays(curOffset - 1);
+  const curWeek = getWeekDays(curOffset);
+  const nextWeek = getWeekDays(curOffset + 1);
 
   document.getElementById('app').innerHTML = `
-    <div class="px-3 pt-6 pb-20">
-      <div class="mb-5">
+    <div class="px-3 pt-6 pb-40">
+      <div class="mb-4">
         <h1 class="text-2xl font-black uppercase tracking-tight leading-none">Nutrition</h1>
+        <p id="nutrition-date-label" class="text-sm font-bold text-ink/40 mt-1">${getNutritionDateLabel()}</p>
       </div>
 
-      <div class="flex items-center justify-between mb-5">
-        <button onclick="changeNutritionDate(-1)" class="w-10 h-10 flex items-center justify-center border-2 border-ink/15 font-bold text-lg active:bg-ink active:text-canvas transition-colors duration-200">&larr;</button>
-        <span class="font-bold text-lg">${getNutritionDateLabel()}</span>
-        <button onclick="changeNutritionDate(1)" class="w-10 h-10 flex items-center justify-center border-2 border-ink/15 font-bold text-lg active:bg-ink active:text-canvas transition-colors duration-200">&rarr;</button>
+      <div id="week-picker" class="week-picker flex mb-4">
+        <div class="week-picker-week flex" data-offset="${curOffset - 1}">${buildWeekDayButtons(prevWeek)}</div>
+        <div class="week-picker-week flex" data-offset="${curOffset}">${buildWeekDayButtons(curWeek)}</div>
+        <div class="week-picker-week flex" data-offset="${curOffset + 1}">${buildWeekDayButtons(nextWeek)}</div>
       </div>
 
-      <div class="border-2 border-ink/10 p-4 mb-5">
-        ${macroBar('Calories', totals.calories, targets.calories, '#CCFF00')}
-        ${macroBar('Protein', totals.protein, targets.protein, '#7C3AED')}
-        ${macroBar('Carbs', totals.carbs, targets.carbs, '#3B82F6')}
-        ${macroBar('Fat', totals.fat, targets.fat, '#F59E0B')}
+      <div id="nutrition-macro-bar" class="mb-4">
+        ${buildCompactMacroBar(logData.totals, activeTargets)}
       </div>
 
-      <div class="border-2 border-ink/10 p-4 mb-5">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Log</h3>
-        </div>
-        ${entriesHtml}
+      <div id="nutrition-log-section">
+        ${buildTimeGroupedLog(logData.entries)}
       </div>
+    </div>
+  `;
 
-      <button onclick="navigate('#nutrition/add')" class="w-full py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
-        + Add Entry
-      </button>
+  initWeekPicker();
+  showNutritionSearchBar();
+}
+
+function buildWeightTrend(tdeeData) {
+  if (!tdeeData || !tdeeData.weight_trend || !tdeeData.weight_trend.current) return '';
+  const wt = tdeeData.weight_trend;
+  let changeHtml = '';
+  if (wt.weekly_change_kg !== null) {
+    const sign = wt.weekly_change_kg > 0 ? '+' : '';
+    const phase = tdeeData.phase;
+    let color = 'text-ink/40';
+    if (phase === 'cut' && wt.weekly_change_kg < -0.05) color = 'text-green-600';
+    else if (phase === 'cut' && wt.weekly_change_kg > 0.05) color = 'text-red-500';
+    else if (phase === 'bulk' && wt.weekly_change_kg > 0.05) color = 'text-green-600';
+    else if (phase === 'bulk' && wt.weekly_change_kg < -0.05) color = 'text-red-500';
+    changeHtml = `<span class="text-sm font-bold ${color}">${sign}${wt.weekly_change_kg} kg/wk</span>`;
+  }
+  const isStabilizing = tdeeData.data_status === 'stabilization';
+  const statusLabel = isStabilizing ? 'Stabilizing' : (tdeeData.data_status === 'adaptive' ? 'Adaptive' : 'Estimated');
+  const statusColor = isStabilizing ? 'text-amber-500' : 'text-ink/20';
+  const stabNote = isStabilizing && tdeeData.stabilization
+    ? `<span class="text-[10px] font-bold text-amber-500/60 ml-1">${tdeeData.stabilization.days_remaining}d left</span>`
+    : '';
+  return `
+    <div class="flex items-center justify-between p-3 border-2 border-ink/10">
+      <div class="flex items-center gap-3">
+        <span class="text-lg font-black">${wt.current} <span class="text-sm font-bold text-ink/40">kg</span></span>
+        ${wt.avg_7d ? `<span class="text-xs text-ink/40">7d avg ${wt.avg_7d}</span>` : ''}
+      </div>
+      <div class="flex items-center gap-2">
+        ${changeHtml}
+        <span class="text-[10px] font-bold uppercase tracking-widest ${statusColor}">${statusLabel}</span>${stabNote}
+      </div>
     </div>
   `;
 }
 
 async function deleteLogEntry(id) {
   await api('DELETE', `/nutrition/log/${id}`);
-  renderNutrition();
+  // If on nutrition main page, partial refresh to preserve date picker
+  if (location.hash === '#nutrition' || location.hash === '' || location.hash === '#') {
+    refreshNutritionContent();
+  } else {
+    renderNutrition();
+  }
 }
 
-// ─── View: Nutrition Add ────────────────────────────────────────────────────
-async function renderNutritionAdd() {
+// ─── View: Library (Foods + Meals tabs) ─────────────────────────────────────
+async function renderNutritionAdd(initialTab) {
+  const tab = initialTab || 'meals';
   const [meals, foods] = await Promise.all([
     api('GET', '/nutrition/meals'),
     api('GET', '/nutrition/foods'),
   ]);
-
-  const mealsHtml = meals.length > 0 ? meals.map(m => `
-    <div class="border-2 border-ink/10 p-4 mb-2">
-      <div class="flex items-center justify-between mb-1">
-        <h3 class="font-bold text-[15px] truncate flex-1 mr-2">${m.name}</h3>
-        <div class="flex items-center gap-2 flex-shrink-0">
-          <button onclick="navigate('#nutrition/meal/${m.id}')" class="text-ink/30 active:text-ink transition-colors duration-200">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 1.5l2.5 2.5M1 13l1-4L10.5 0.5l2.5 2.5L4.5 12z"/></svg>
-          </button>
-        </div>
-      </div>
-      <p class="text-xs text-ink/40 mb-3">${Math.round(m.totalCalories)} cal &middot; ${Math.round(m.totalProtein)}p &middot; ${Math.round(m.totalCarbs)}c &middot; ${Math.round(m.totalFat)}f</p>
-      <button onclick="quickLogMeal(${m.id})" class="w-full py-2 bg-ink text-canvas font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink/80">
-        Log Meal
-      </button>
-    </div>
-  `).join('') : '<p class="text-sm text-ink/30 py-2">No meals yet.</p>';
-
-  const foodsHtml = foods.length > 0 ? foods.map(f => `
-    <button onclick="showFoodServingsModal(${f.id}, '${f.name.replace(/'/g, "\\'")}', ${f.calories}, ${f.protein}, ${f.carbs}, ${f.fat})"
-      class="flex items-center justify-between py-3 border-b border-ink/10 last:border-0 w-full text-left active:bg-ink/5 transition-colors duration-200 food-item"
-      data-name="${f.name.toLowerCase()}">
-      <div class="flex-1 min-w-0 mr-3">
-        <span class="font-bold text-[15px] block truncate">${f.name}</span>
-        <span class="text-xs text-ink/40">${f.serving_size}${f.serving_unit} &middot; ${Math.round(f.calories)} cal</span>
-      </div>
-      <span class="text-xs text-ink/40 flex-shrink-0">${Math.round(f.protein)}p &middot; ${Math.round(f.carbs)}c &middot; ${Math.round(f.fat)}f</span>
-    </button>
-  `).join('') : '<p class="text-sm text-ink/30 py-2">No foods yet.</p>';
+  window._libraryData = { meals, foods };
 
   document.getElementById('app').innerHTML = `
     <div class="px-3 pt-6 pb-20">
@@ -2087,29 +2780,84 @@ async function renderNutritionAdd() {
         <span class="text-lg leading-none">&larr;</span> Back
       </button>
 
-      <h1 class="text-2xl font-black uppercase tracking-tight leading-none mb-5">Add Entry</h1>
+      <h1 class="text-2xl font-black uppercase tracking-tight leading-none mb-4">Library</h1>
 
-      <div class="mb-5">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Your Meals</h3>
-          <button onclick="navigate('#nutrition/meal/new')" class="text-xs font-bold text-ink/40 uppercase tracking-widest active:text-ink transition-colors duration-200">+ New</button>
-        </div>
-        ${mealsHtml}
+      <div class="flex border-b border-ink/10 mb-4">
+        <button onclick="switchLibraryTab('meals')" class="lib-tab ${tab === 'meals' ? 'active' : ''}" id="lib-tab-meals">Meals</button>
+        <button onclick="switchLibraryTab('foods')" class="lib-tab ${tab === 'foods' ? 'active' : ''}" id="lib-tab-foods">Foods</button>
       </div>
 
-      <details class="mb-5">
-        <summary class="text-[10px] font-bold uppercase tracking-widest text-ink/40 cursor-pointer select-none mb-3">Foods</summary>
-        <div class="mt-3">
-          <div class="flex items-center justify-between mb-3">
-            <input id="food-search" type="text" placeholder="Search foods..."
-              oninput="filterFoodItems(this.value)"
-              class="flex-1 h-10 px-3 border-2 border-ink/15 text-sm font-bold focus:border-ink focus:outline-none transition-colors duration-200 mr-2">
-            <button onclick="navigate('#nutrition/food/new')" class="text-xs font-bold text-ink/40 uppercase tracking-widest active:text-ink transition-colors duration-200 whitespace-nowrap">+ New</button>
-          </div>
-          ${foodsHtml}
-        </div>
-      </details>
+      <div id="library-content">
+        ${tab === 'foods' ? buildFoodsTab(foods) : buildMealsTab(meals)}
+      </div>
     </div>
+  `;
+}
+
+function switchLibraryTab(tab) {
+  document.getElementById('lib-tab-meals')?.classList.toggle('active', tab === 'meals');
+  document.getElementById('lib-tab-foods')?.classList.toggle('active', tab === 'foods');
+  const content = document.getElementById('library-content');
+  if (!content || !window._libraryData) return;
+  content.innerHTML = tab === 'foods' ? buildFoodsTab(window._libraryData.foods) : buildMealsTab(window._libraryData.meals);
+  // Update hash without triggering navigation
+  history.replaceState(null, '', tab === 'foods' ? '#nutrition/foods' : '#nutrition/add');
+}
+
+function buildFoodsTab(foods) {
+  const foodsHtml = foods.length > 0 ? foods.map(f => {
+    const servingLabel = f.serving_unit ? `1 ${f.serving_unit} = ${f.serving_size}g` : 'per 100g';
+    return `
+    <div class="food-item flex items-center justify-between py-3 border-b border-ink/5 last:border-0" data-name="${f.name.toLowerCase()}">
+      <button onclick="showFoodServingsModal(${f.id}, '${f.name.replace(/'/g, "\\'")}', ${f.calories}, ${f.protein}, ${f.carbs}, ${f.fat}, ${f.serving_size ? `'${f.serving_unit}'` : 'null'}, ${f.serving_size || 'null'})"
+        class="flex-1 min-w-0 mr-2 text-left active:bg-ink/5 transition-colors duration-200">
+        <span class="font-bold text-[14px] block truncate">${f.name}</span>
+        <span class="text-[11px] text-ink/40">${servingLabel} · ${Math.round(f.calories)} cal/100g · ${Math.round(f.protein)}p · ${Math.round(f.carbs)}c · ${Math.round(f.fat)}f</span>
+      </button>
+      <div class="flex items-center gap-1 flex-shrink-0">
+        <button onclick="navigate('#nutrition/food/${f.id}')" class="w-8 h-8 flex items-center justify-center text-ink/30 active:text-ink transition-colors duration-200">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 1.5l2.5 2.5M1 13l1-4L10.5 0.5l2.5 2.5L4.5 12z"/></svg>
+        </button>
+        <button onclick="deleteFood(${f.id})" class="w-8 h-8 flex items-center justify-center text-ink/20 hover:text-red-500 transition-colors duration-200">&times;</button>
+      </div>
+    </div>`;
+  }).join('') : '<p class="text-sm text-ink/30 py-4">No foods yet.</p>';
+
+  return `
+    <div class="flex items-center gap-2 mb-3">
+      <input type="text" placeholder="Search foods..."
+        oninput="filterFoodItems(this.value)"
+        class="flex-1 h-10 px-3 border-2 border-ink/15 text-sm font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+      <button onclick="navigate('#nutrition/food/new')" class="h-10 px-3 border-2 border-ink/15 text-xs font-bold uppercase tracking-tight whitespace-nowrap active:bg-ink active:text-canvas transition-colors duration-200">+ New</button>
+    </div>
+    <div class="food-list">${foodsHtml}</div>
+  `;
+}
+
+function buildMealsTab(meals) {
+  const mealsHtml = meals.length > 0 ? meals.map(m => `
+    <div class="border-2 border-ink/10 p-4 mb-2">
+      <div class="flex items-center justify-between mb-1">
+        <h3 class="font-bold text-[15px] truncate flex-1 mr-2">${m.name}</h3>
+        <div class="flex items-center gap-1 flex-shrink-0">
+          <button onclick="navigate('#nutrition/meal/${m.id}')" class="w-8 h-8 flex items-center justify-center text-ink/30 active:text-ink transition-colors duration-200">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 1.5l2.5 2.5M1 13l1-4L10.5 0.5l2.5 2.5L4.5 12z"/></svg>
+          </button>
+          <button onclick="deleteMeal(${m.id})" class="w-8 h-8 flex items-center justify-center text-ink/20 hover:text-red-500 transition-colors duration-200">&times;</button>
+        </div>
+      </div>
+      <p class="text-xs text-ink/40 mb-3">${Math.round(m.totalCalories)} cal · ${Math.round(m.totalProtein)}p · ${Math.round(m.totalCarbs)}c · ${Math.round(m.totalFat)}f</p>
+      <button onclick="quickLogMeal(${m.id})" class="w-full py-2 bg-ink text-canvas font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink/80">
+        Log Meal
+      </button>
+    </div>
+  `).join('') : '<p class="text-sm text-ink/30 py-4">No meals yet.</p>';
+
+  return `
+    <div class="flex items-center justify-end mb-3">
+      <button onclick="navigate('#nutrition/meal/new')" class="h-10 px-3 border-2 border-ink/15 text-xs font-bold uppercase tracking-tight whitespace-nowrap active:bg-ink active:text-canvas transition-colors duration-200">+ New</button>
+    </div>
+    ${mealsHtml}
   `;
 }
 
@@ -2125,26 +2873,52 @@ async function quickLogMeal(mealId) {
   navigate('#nutrition');
 }
 
-function showFoodServingsModal(foodId, foodName, cal, pro, carb, fat) {
+function showFoodServingsModal(foodId, foodName, cal, pro, carb, fat, servingName, servingGrams) {
+  const hasServing = servingName && servingGrams;
   const modal = document.createElement('div');
   modal.id = 'servings-modal';
   modal.className = 'fixed inset-0 z-[80] flex items-center justify-center';
-  modal.innerHTML = `
-    <div class="absolute inset-0 bg-ink/50" onclick="closeFoodServingsModal()"></div>
-    <div class="relative bg-canvas mx-4 p-5 max-w-sm w-full">
-      <h2 class="text-lg font-black uppercase tracking-tight mb-1">${foodName}</h2>
-      <p class="text-xs text-ink/40 mb-4">${Math.round(cal)} cal &middot; ${Math.round(pro)}p &middot; ${Math.round(carb)}c &middot; ${Math.round(fat)}f per serving</p>
-      <div class="mb-4">
-        <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Servings</label>
-        <input id="food-servings-input" type="number" inputmode="decimal" step="0.5" value="1"
-          class="w-full h-12 border-2 border-ink/15 text-center font-bold text-xl focus:border-ink focus:outline-none transition-colors duration-200">
+
+  if (hasServing) {
+    const perServingCal = Math.round(cal * servingGrams / 100);
+    modal.innerHTML = `
+      <div class="absolute inset-0 bg-ink/50" onclick="closeFoodServingsModal()"></div>
+      <div class="relative bg-canvas mx-4 p-5 max-w-sm w-full">
+        <h2 class="text-lg font-black uppercase tracking-tight mb-1">${foodName}</h2>
+        <p class="text-xs text-ink/40 mb-1">${perServingCal} cal per ${servingName} (${servingGrams}g)</p>
+        <p id="food-grams-equiv" class="text-xs text-ink/30 mb-4">= ${servingGrams}g</p>
+        <div class="mb-4">
+          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Servings</label>
+          <input id="food-servings-input" type="number" inputmode="decimal" step="0.5" value="1"
+            data-serving-grams="${servingGrams}"
+            oninput="document.getElementById('food-grams-equiv').textContent = '= ' + Math.round((parseFloat(this.value)||0) * ${servingGrams}) + 'g'"
+            class="w-full h-12 border-2 border-ink/15 text-center font-bold text-xl focus:border-ink focus:outline-none transition-colors duration-200">
+        </div>
+        <div class="flex gap-2">
+          <button onclick="closeFoodServingsModal()" class="flex-1 py-3 border-2 border-ink/15 font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-canvas">Cancel</button>
+          <button onclick="confirmLogFood(${foodId}, true, ${servingGrams})" class="flex-1 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-acid">Log</button>
+        </div>
       </div>
-      <div class="flex gap-2">
-        <button onclick="closeFoodServingsModal()" class="flex-1 py-3 border-2 border-ink/15 font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-canvas">Cancel</button>
-        <button onclick="confirmLogFood(${foodId})" class="flex-1 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-acid">Log</button>
+    `;
+  } else {
+    modal.innerHTML = `
+      <div class="absolute inset-0 bg-ink/50" onclick="closeFoodServingsModal()"></div>
+      <div class="relative bg-canvas mx-4 p-5 max-w-sm w-full">
+        <h2 class="text-lg font-black uppercase tracking-tight mb-1">${foodName}</h2>
+        <p class="text-xs text-ink/40 mb-4">${Math.round(cal)} cal per 100g</p>
+        <div class="mb-4">
+          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Grams</label>
+          <input id="food-servings-input" type="number" inputmode="decimal" step="10" value="100"
+            class="w-full h-12 border-2 border-ink/15 text-center font-bold text-xl focus:border-ink focus:outline-none transition-colors duration-200">
+        </div>
+        <div class="flex gap-2">
+          <button onclick="closeFoodServingsModal()" class="flex-1 py-3 border-2 border-ink/15 font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-canvas">Cancel</button>
+          <button onclick="confirmLogFood(${foodId}, false, null)" class="flex-1 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-acid">Log</button>
+        </div>
       </div>
-    </div>
-  `;
+    `;
+  }
+
   document.body.appendChild(modal);
   requestAnimationFrame(() => document.getElementById('food-servings-input')?.select());
 }
@@ -2153,22 +2927,30 @@ function closeFoodServingsModal() {
   document.getElementById('servings-modal')?.remove();
 }
 
-async function confirmLogFood(foodId) {
-  const servings = parseFloat(document.getElementById('food-servings-input')?.value) || 1;
+async function confirmLogFood(foodId, hasServing, servingGrams) {
+  const inputVal = parseFloat(document.getElementById('food-servings-input')?.value) || 1;
+  const grams = hasServing ? inputVal * servingGrams : inputVal;
   closeFoodServingsModal();
-  await api('POST', '/nutrition/log/food', { foodId, servings, date: nutritionDate });
-  navigate('#nutrition');
+  _searchFoods = null;
+  await api('POST', '/nutrition/log/food', { foodId, grams, date: nutritionDate });
+  // If on nutrition main page, partial refresh to preserve picker state
+  const h = location.hash.replace('#', '').split('/')[0];
+  if (h === 'nutrition' && !location.hash.includes('/')) {
+    refreshNutritionContent();
+  } else {
+    navigate('#nutrition');
+  }
 }
 
 // ─── View: Food Form ────────────────────────────────────────────────────────
 async function renderFoodForm(id) {
-  let food = { name: '', calories: '', protein: '', carbs: '', fat: '', serving_size: 100, serving_unit: 'g' };
+  let food = { name: '', calories: '', protein: '', carbs: '', fat: '', serving_size: null, serving_unit: null };
   if (id) {
     const foods = await api('GET', '/nutrition/foods');
     food = foods.find(f => f.id === parseInt(id)) || food;
   }
 
-  const units = ['g', 'ml', 'piece', 'scoop', 'slice', 'cup', 'tbsp'];
+  const hasServing = food.serving_unit && food.serving_unit !== 'g';
 
   document.getElementById('app').innerHTML = `
     <div class="px-3 pt-6 pb-20">
@@ -2184,6 +2966,8 @@ async function renderFoodForm(id) {
           <input id="food-name" type="text" value="${food.name}" placeholder="e.g. Chicken Breast"
             class="w-full h-12 px-3 border-2 border-ink/15 font-bold focus:border-ink focus:outline-none transition-colors duration-200">
         </div>
+
+        <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mt-2">Nutrition per 100g</p>
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Calories</label>
@@ -2206,17 +2990,26 @@ async function renderFoodForm(id) {
               class="w-full h-12 px-3 border-2 border-ink/15 text-center font-bold focus:border-ink focus:outline-none transition-colors duration-200">
           </div>
         </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Serving Size</label>
-            <input id="food-serving-size" type="number" inputmode="decimal" value="${food.serving_size}" placeholder="100"
-              class="w-full h-12 px-3 border-2 border-ink/15 text-center font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+
+        <div class="border-t border-ink/10 pt-4">
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Custom Serving (optional)</p>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input id="food-has-serving" type="checkbox" ${hasServing ? 'checked' : ''} onchange="document.getElementById('custom-serving-fields').style.display = this.checked ? '' : 'none'" class="sr-only peer">
+              <div class="w-9 h-5 bg-ink/15 peer-checked:bg-acid rounded-full peer-focus:outline-none transition-colors duration-200 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-canvas after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
+            </label>
           </div>
-          <div>
-            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Unit</label>
-            <select id="food-serving-unit" class="w-full h-12 px-3 border-2 border-ink/15 font-bold bg-canvas focus:border-ink focus:outline-none transition-colors duration-200">
-              ${units.map(u => `<option value="${u}" ${food.serving_unit === u ? 'selected' : ''}>${u}</option>`).join('')}
-            </select>
+          <div id="custom-serving-fields" class="grid grid-cols-2 gap-3" style="${hasServing ? '' : 'display:none'}">
+            <div>
+              <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Serving Name</label>
+              <input id="food-serving-name" type="text" value="${hasServing ? food.serving_unit : ''}" placeholder="e.g. scoop"
+                class="w-full h-12 px-3 border-2 border-ink/15 font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+            </div>
+            <div>
+              <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Grams per Serving</label>
+              <input id="food-serving-grams" type="number" inputmode="decimal" value="${hasServing ? food.serving_size : ''}" placeholder="e.g. 30"
+                class="w-full h-12 px-3 border-2 border-ink/15 text-center font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+            </div>
           </div>
         </div>
       </div>
@@ -2235,14 +3028,15 @@ async function renderFoodForm(id) {
 }
 
 async function saveFood(id) {
+  const hasServing = document.getElementById('food-has-serving')?.checked;
   const data = {
     name: document.getElementById('food-name').value.trim(),
     calories: parseFloat(document.getElementById('food-calories').value) || 0,
     protein: parseFloat(document.getElementById('food-protein').value) || 0,
     carbs: parseFloat(document.getElementById('food-carbs').value) || 0,
     fat: parseFloat(document.getElementById('food-fat').value) || 0,
-    servingSize: parseFloat(document.getElementById('food-serving-size').value) || 100,
-    servingUnit: document.getElementById('food-serving-unit').value || 'g',
+    servingName: hasServing ? (document.getElementById('food-serving-name').value.trim() || null) : null,
+    servingGrams: hasServing ? (parseFloat(document.getElementById('food-serving-grams').value) || null) : null,
   };
   if (!data.name) return;
   if (id) {
@@ -2250,12 +3044,16 @@ async function saveFood(id) {
   } else {
     await api('POST', '/nutrition/foods', data);
   }
-  navigate('#nutrition/add');
+  _searchFoods = null;
+  history.back();
 }
 
 async function deleteFood(id) {
   await api('DELETE', `/nutrition/foods/${id}`);
-  navigate('#nutrition/add');
+  _searchFoods = null;
+  // If on the library page, re-render foods tab; otherwise go back
+  if (location.hash === '#nutrition/foods' || location.hash === '#nutrition/add') renderNutritionAdd('foods');
+  else history.back();
 }
 
 // ─── View: Meal Form ────────────────────────────────────────────────────────
@@ -2267,7 +3065,11 @@ async function renderMealForm(id) {
     const found = meals.find(m => m.id === parseInt(id));
     if (found) {
       meal.name = found.name;
-      meal.foods = found.foods.map(f => ({ foodId: f.food_id, name: f.name, servings: f.servings, calories: f.calories, protein: f.protein, carbs: f.carbs, fat: f.fat }));
+      // Convert per-100g macros to per-serving for meal form display
+      meal.foods = found.foods.map(f => {
+        const ratio = (f.serving_size || 100) / 100;
+        return { foodId: f.food_id, name: f.name, servings: f.servings, calories: f.calories * ratio, protein: f.protein * ratio, carbs: f.carbs * ratio, fat: f.fat * ratio };
+      });
     }
   }
 
@@ -2302,7 +3104,7 @@ function renderMealFormInner(id, mealName, allFoods) {
 
   document.getElementById('app').innerHTML = `
     <div class="px-3 pt-6 pb-20">
-      <button onclick="navigate('#nutrition/add')" class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-4 flex items-center gap-1 active:text-ink transition-colors duration-200">
+      <button onclick="history.back()" class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-4 flex items-center gap-1 active:text-ink transition-colors duration-200">
         <span class="text-lg leading-none">&larr;</span> Back
       </button>
 
@@ -2389,21 +3191,24 @@ async function showMealFoodPicker() {
   modal.className = 'fixed inset-0 z-[80] flex items-end';
   modal.innerHTML = `
     <div class="absolute inset-0 bg-ink/50" onclick="closeFoodPickerModal()"></div>
-    <div class="relative w-full bg-canvas p-5 max-h-[70vh] overflow-y-auto" style="padding-bottom: calc(2rem + env(safe-area-inset-bottom))">
+    <div id="food-picker-content" class="relative w-full bg-canvas p-5 max-h-[70vh] overflow-y-auto" style="padding-bottom: calc(2rem + env(safe-area-inset-bottom))">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-black uppercase tracking-tight">Pick Food</h2>
         <button onclick="closeFoodPickerModal()" class="text-ink/40 font-bold text-2xl leading-none">&times;</button>
       </div>
-      <input type="text" placeholder="Search..."
-        oninput="filterPickerFoods(this.value)"
-        class="w-full h-10 px-3 border-2 border-ink/15 text-sm font-bold focus:border-ink focus:outline-none transition-colors duration-200 mb-3">
+      <div class="flex gap-2 mb-3">
+        <input type="text" placeholder="Search..."
+          oninput="filterPickerFoods(this.value)"
+          class="flex-1 h-10 px-3 border-2 border-ink/15 text-sm font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+        <button onclick="showInlineFoodCreator()" class="h-10 px-3 border-2 border-ink/15 text-xs font-bold uppercase tracking-tight whitespace-nowrap active:bg-ink active:text-canvas transition-colors duration-200">+ Create</button>
+      </div>
       <div id="picker-food-list">
         ${allFoods.length > 0 ? allFoods.map(f => `
-          <button onclick="pickFoodForMeal(${f.id}, '${f.name.replace(/'/g, "\\'")}', ${f.calories}, ${f.protein}, ${f.carbs}, ${f.fat})"
+          <button onclick="pickFoodForMeal(${f.id}, '${f.name.replace(/'/g, "\\'")}', ${f.calories}, ${f.protein}, ${f.carbs}, ${f.fat}, ${f.serving_size || 'null'})"
             class="picker-food-row flex items-center justify-between py-3 border-b border-ink/10 last:border-0 w-full text-left active:bg-ink/5 transition-colors duration-200"
             data-name="${f.name.toLowerCase()}">
             <span class="font-bold text-[15px] truncate flex-1 mr-3">${f.name}</span>
-            <span class="text-xs text-ink/40 flex-shrink-0">${Math.round(f.calories)} cal</span>
+            <span class="text-xs text-ink/40 flex-shrink-0">${Math.round(f.calories)} cal/100g</span>
           </button>
         `).join('') : '<p class="text-sm text-ink/30 py-4">No foods. Create one first.</p>'}
       </div>
@@ -2425,12 +3230,99 @@ function closeFoodPickerModal() {
   document.getElementById('food-picker-modal')?.remove();
 }
 
-function pickFoodForMeal(foodId, name, cal, pro, carb, fat) {
+function pickFoodForMeal(foodId, name, cal, pro, carb, fat, servingGrams) {
   if (!window._mealFormFoods) window._mealFormFoods = [];
-  window._mealFormFoods.push({ foodId, name, servings: 1, calories: cal, protein: pro, carbs: carb, fat: fat });
+  // Convert per-100g macros to per-serving
+  const ratio = (servingGrams || 100) / 100;
+  window._mealFormFoods.push({ foodId, name, servings: 1, calories: cal * ratio, protein: pro * ratio, carbs: carb * ratio, fat: fat * ratio });
   closeFoodPickerModal();
   reRenderMealForm();
   // Restore meal name
+  if (window._mealFormName) {
+    const nameInput = document.getElementById('meal-name');
+    if (nameInput) nameInput.value = window._mealFormName;
+  }
+}
+
+function showInlineFoodCreator() {
+  const content = document.getElementById('food-picker-content');
+  if (!content) return;
+  content.innerHTML = `
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-black uppercase tracking-tight">Create Food</h2>
+      <button onclick="closeFoodPickerModal()" class="text-ink/40 font-bold text-2xl leading-none">&times;</button>
+    </div>
+    <div class="space-y-3 mb-4">
+      <div>
+        <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Name</label>
+        <input id="inline-food-name" type="text" placeholder="e.g. Chicken Breast"
+          class="w-full h-10 px-3 border-2 border-ink/15 font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
+      </div>
+      <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Nutrition per 100g</p>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Calories</label>
+          <input id="inline-food-cal" type="number" inputmode="decimal" placeholder="0"
+            class="w-full h-10 px-3 border-2 border-ink/15 text-center font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
+        </div>
+        <div>
+          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Protein (g)</label>
+          <input id="inline-food-pro" type="number" inputmode="decimal" placeholder="0"
+            class="w-full h-10 px-3 border-2 border-ink/15 text-center font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
+        </div>
+        <div>
+          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Carbs (g)</label>
+          <input id="inline-food-carb" type="number" inputmode="decimal" placeholder="0"
+            class="w-full h-10 px-3 border-2 border-ink/15 text-center font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
+        </div>
+        <div>
+          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Fat (g)</label>
+          <input id="inline-food-fat" type="number" inputmode="decimal" placeholder="0"
+            class="w-full h-10 px-3 border-2 border-ink/15 text-center font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
+        </div>
+      </div>
+      <div class="border-t border-ink/10 pt-3">
+        <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-2">Custom Serving (optional)</p>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <input id="inline-food-serving-name" type="text" placeholder="e.g. scoop"
+              class="w-full h-10 px-3 border-2 border-ink/15 font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
+          </div>
+          <div>
+            <input id="inline-food-serving-grams" type="number" inputmode="decimal" placeholder="grams"
+              class="w-full h-10 px-3 border-2 border-ink/15 text-center font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="closeFoodPickerModal();showMealFoodPicker()" class="flex-1 py-2.5 border-2 border-ink/15 font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-canvas">Cancel</button>
+      <button onclick="saveInlineFood()" class="flex-1 py-2.5 bg-acid text-ink font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-acid">Save & Add</button>
+    </div>
+  `;
+  requestAnimationFrame(() => document.getElementById('inline-food-name')?.focus());
+}
+
+async function saveInlineFood() {
+  const name = document.getElementById('inline-food-name')?.value.trim();
+  if (!name) return;
+  const cal = parseFloat(document.getElementById('inline-food-cal')?.value) || 0;
+  const pro = parseFloat(document.getElementById('inline-food-pro')?.value) || 0;
+  const carb = parseFloat(document.getElementById('inline-food-carb')?.value) || 0;
+  const fat = parseFloat(document.getElementById('inline-food-fat')?.value) || 0;
+  const servingName = document.getElementById('inline-food-serving-name')?.value.trim() || null;
+  const servingGrams = parseFloat(document.getElementById('inline-food-serving-grams')?.value) || null;
+
+  const food = await api('POST', '/nutrition/foods', { name, calories: cal, protein: pro, carbs: carb, fat: fat, servingName, servingGrams });
+  _searchFoods = null;
+
+  // Add to meal form with per-serving macros
+  if (!window._mealFormFoods) window._mealFormFoods = [];
+  const ratio = (food.serving_size || 100) / 100;
+  window._mealFormFoods.push({ foodId: food.id, name: food.name, servings: 1, calories: food.calories * ratio, protein: food.protein * ratio, carbs: food.carbs * ratio, fat: food.fat * ratio });
+
+  closeFoodPickerModal();
+  reRenderMealForm();
   if (window._mealFormName) {
     const nameInput = document.getElementById('meal-name');
     if (nameInput) nameInput.value = window._mealFormName;
@@ -2447,66 +3339,15 @@ async function saveMeal(id) {
     await api('POST', '/nutrition/meals', { name, foods });
   }
   window._mealFormFoods = null;
-  navigate('#nutrition/add');
+  history.back();
 }
 
 async function deleteMeal(id) {
   await api('DELETE', `/nutrition/meals/${id}`);
   window._mealFormFoods = null;
-  navigate('#nutrition/add');
-}
-
-// ─── View: Nutrition Settings ───────────────────────────────────────────────
-async function renderNutritionSettings() {
-  const targets = await api('GET', '/nutrition/targets');
-
-  document.getElementById('app').innerHTML = `
-    <div class="px-3 pt-6 pb-20">
-      <button onclick="navigate('#nutrition')" class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-4 flex items-center gap-1 active:text-ink transition-colors duration-200">
-        <span class="text-lg leading-none">&larr;</span> Back
-      </button>
-
-      <h1 class="text-2xl font-black uppercase tracking-tight leading-none mb-5">Daily Targets</h1>
-
-      <div class="space-y-4 mb-6">
-        <div>
-          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Calories</label>
-          <input id="target-calories" type="number" inputmode="numeric" value="${targets.calories}"
-            class="w-full h-12 px-3 border-2 border-ink/15 text-center font-bold text-xl focus:border-ink focus:outline-none transition-colors duration-200">
-        </div>
-        <div>
-          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Protein (g)</label>
-          <input id="target-protein" type="number" inputmode="numeric" value="${targets.protein}"
-            class="w-full h-12 px-3 border-2 border-ink/15 text-center font-bold text-xl focus:border-ink focus:outline-none transition-colors duration-200">
-        </div>
-        <div>
-          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Carbs (g)</label>
-          <input id="target-carbs" type="number" inputmode="numeric" value="${targets.carbs}"
-            class="w-full h-12 px-3 border-2 border-ink/15 text-center font-bold text-xl focus:border-ink focus:outline-none transition-colors duration-200">
-        </div>
-        <div>
-          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Fat (g)</label>
-          <input id="target-fat" type="number" inputmode="numeric" value="${targets.fat}"
-            class="w-full h-12 px-3 border-2 border-ink/15 text-center font-bold text-xl focus:border-ink focus:outline-none transition-colors duration-200">
-        </div>
-      </div>
-
-      <button onclick="saveTargets()" class="w-full py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
-        Save Targets
-      </button>
-    </div>
-  `;
-}
-
-async function saveTargets() {
-  const data = {
-    calories: parseFloat(document.getElementById('target-calories').value) || 2500,
-    protein: parseFloat(document.getElementById('target-protein').value) || 180,
-    carbs: parseFloat(document.getElementById('target-carbs').value) || 250,
-    fat: parseFloat(document.getElementById('target-fat').value) || 80,
-  };
-  await api('PUT', '/nutrition/targets', data);
-  navigate('#nutrition');
+  // If on the library page, re-render meals tab; otherwise go back
+  if (location.hash === '#nutrition/meals' || location.hash === '#nutrition/add') renderNutritionAdd('meals');
+  else history.back();
 }
 
 // ─── Boot ────────────────────────────────────────────────────────────────────

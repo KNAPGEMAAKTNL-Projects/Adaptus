@@ -77,23 +77,8 @@
   <div id="drawer-overlay" class="fixed inset-0 z-[60] bg-ink/50 hidden" onclick="closeDrawer()"></div>
 
   <!-- Drawer panel -->
-  <div id="drawer-panel" class="fixed top-0 right-0 bottom-0 z-[70] w-72 bg-ink text-canvas translate-x-full transition-transform duration-300 ease-in-out" style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);">
-    <div class="flex items-center justify-between px-5 pt-6 pb-4">
-      <h2 class="text-lg font-black uppercase tracking-tight">Settings</h2>
-      <button onclick="closeDrawer()" class="w-8 h-8 flex items-center justify-center text-white/40 hover:text-white transition-colors duration-200">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <div class="px-3">
-      <button onclick="drawerLogWeight()" class="w-full text-left px-4 py-3.5 text-[15px] font-bold uppercase tracking-tight text-white hover:bg-white/10 active:bg-white/10 transition-colors duration-200 flex items-center gap-3">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="9"/></svg>
-        Log Body Weight
-      </button>
-      <button onclick="drawerNutritionTargets()" class="w-full text-left px-4 py-3.5 text-[15px] font-bold uppercase tracking-tight text-white hover:bg-white/10 active:bg-white/10 transition-colors duration-200 flex items-center gap-3">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
-        Nutrition Targets
-      </button>
-    </div>
+  <div id="drawer-panel" class="fixed top-0 right-0 bottom-0 left-0 z-[70] bg-ink text-canvas translate-x-full transition-transform duration-500 ease-in-out" style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);">
+    <div id="drawer-content" class="h-full overflow-y-auto"></div>
   </div>
 
   <!-- Rest timer (persistent floating bar, above nav) -->
