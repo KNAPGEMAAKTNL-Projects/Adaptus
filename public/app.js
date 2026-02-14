@@ -485,7 +485,7 @@ async function renderWorkouts() {
       badge = `<span class="text-xs font-bold text-canvas bg-ink px-2 py-0.5 flex items-center gap-1.5">In Progress <span class="workout-elapsed tabular-nums text-acid">${getElapsedText()}</span></span>`;
     }
     return `
-      <button onclick="startWorkoutFlow('${wo.templateId}')" class="w-full ${bgClass} text-canvas p-5 text-left transition-colors duration-200 active:bg-ink/80">
+      <button onclick="startWorkoutFlow('${wo.templateId}')" class="w-full ${bgClass} text-canvas px-4 py-3 text-left transition-colors duration-200 active:bg-ink/80">
         <div class="flex items-center justify-between">
           <div>
             <h3 class="text-lg font-black uppercase tracking-tight">${name}</h3>
@@ -510,12 +510,12 @@ async function renderWorkouts() {
   }).join('');
 
   document.getElementById('app').innerHTML = `
-    <div class="px-3 pt-6 pb-32">
-      <button onclick="navigate('#home')" class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-4 flex items-center gap-1 active:text-ink transition-colors duration-200">
+    <div class="px-3 pt-6 pb-2">
+      <button onclick="navigate('#home')" class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-3 flex items-center gap-1 active:text-ink transition-colors duration-200">
         <span class="text-lg leading-none">&larr;</span> Dashboard
       </button>
 
-      <div class="flex items-center justify-between mb-6">
+      <div class="flex items-center justify-between mb-4">
         <div>
           <h1 class="text-2xl font-black uppercase tracking-tight leading-none">Workouts</h1>
           <p class="text-sm font-bold text-ink/40 uppercase tracking-widest mt-1">Cycle ${state.progress.cycle}</p>
@@ -530,16 +530,16 @@ async function renderWorkouts() {
       </div>
 
       ${state.currentSession && !state.currentSession.completed_at && !state.currentSession.skipped_at ? `
-        <button onclick="resumeWorkout()" class="w-full mb-5 px-4 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center transition-colors duration-200 active:bg-ink active:text-acid">
+        <button onclick="resumeWorkout()" class="w-full mb-3 px-4 py-2.5 bg-acid text-ink font-bold uppercase tracking-tight text-center transition-colors duration-200 active:bg-ink active:text-acid">
           Resume: ${state.currentSession.workout_name}
         </button>
       ` : ''}
 
-      <div class="flex flex-col gap-2.5">
+      <div class="flex flex-col gap-2">
         ${workoutCards}
       </div>
 
-      <div class="mt-8 flex items-center gap-3">
+      <div class="mt-5 flex items-center gap-3">
         <button onclick="changeWeek(-1)" class="flex-shrink-0 px-4 py-2.5 border-2 border-ink/15 font-bold uppercase tracking-tight text-xs transition-colors duration-200 active:bg-ink active:text-canvas ${state.progress.week === 1 && state.progress.cycle === 1 ? 'opacity-30 pointer-events-none' : ''}">
           Prev
         </button>
