@@ -886,7 +886,7 @@ async function renderDashboard() {
   function miniPct(cur, tgt) { return tgt > 0 ? Math.min((cur / tgt) * 100, 100) : 0; }
 
   document.getElementById('app').innerHTML = `
-    <div class="px-3 pt-8 pb-20">
+    <div class="px-3 pt-8" style="padding-bottom:var(--page-pb)">
       <div class="mb-6">
         <h1 class="text-3xl font-black uppercase tracking-tight leading-none">Adaptus</h1>
         <p class="text-sm font-bold text-ink/40 mt-1">${new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</p>
@@ -1146,7 +1146,7 @@ async function renderStats() {
   ` : '';
 
   document.getElementById('app').innerHTML = `
-    <div class="px-3 pt-6 pb-20">
+    <div class="px-3 pt-6" style="padding-bottom:var(--page-pb)">
       <div class="mb-6">
         <h1 class="text-2xl font-black uppercase tracking-tight leading-none">Stats</h1>
         <p class="text-sm font-bold text-ink/40 mt-1">${new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</p>
@@ -1255,7 +1255,7 @@ async function renderWorkouts() {
   }).join('');
 
   document.getElementById('app').innerHTML = `
-    <div class="px-3 pt-6 pb-20">
+    <div class="px-3 pt-6" style="padding-bottom:var(--page-pb)">
       <div class="flex items-center justify-between mb-4 pr-12">
         <div>
           <h1 class="text-2xl font-black uppercase tracking-tight leading-none">Workouts</h1>
@@ -1490,7 +1490,7 @@ async function renderWorkout(templateId) {
   const hasLoggedSets = Object.values(state.sessionSets).some(sets => sets.length > 0);
 
   document.getElementById('app').innerHTML = `
-    <div class="px-3 pt-6 pb-20">
+    <div class="px-3 pt-6" style="padding-bottom:var(--page-pb)">
       <div class="flex items-center justify-between mb-3 pr-12">
         <button onclick="navigate('#workouts')" class="text-sm font-bold text-ink/40 uppercase tracking-widest flex items-center gap-1 active:text-ink transition-colors duration-200">
           <span class="text-lg leading-none">&larr;</span> Back
@@ -1760,7 +1760,7 @@ async function renderExercise(index) {
   const workoutName = workout.name.split('(')[0].trim();
 
   document.getElementById('app').innerHTML = `
-    <div class="px-3 pt-6 pb-40">
+    <div class="px-3 pt-6" style="padding-bottom:var(--page-pb-extra)">
       <div class="flex items-center justify-between mb-4 pr-12">
         <button onclick="navigate('#workout/${workout.templateId}')" class="text-sm font-bold text-ink/40 uppercase tracking-widest flex items-center gap-1 active:text-ink transition-colors duration-200">
           <span class="text-lg leading-none">&larr;</span> ${workoutName}
@@ -2202,7 +2202,7 @@ async function renderExerciseStats(exerciseName) {
   }).join('') : '<p class="text-sm text-ink/30 py-4">No history yet</p>';
 
   document.getElementById('app').innerHTML = `
-    <div class="px-3 pt-6 pb-20">
+    <div class="px-3 pt-6" style="padding-bottom:var(--page-pb)">
       <button onclick="history.back()" class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-4 flex items-center gap-1 active:text-ink transition-colors duration-200">
         <span class="text-lg leading-none">&larr;</span> Back
       </button>
@@ -2758,7 +2758,7 @@ async function renderNutrition() {
   const nextWeek = getWeekDays(curOffset + 1);
 
   document.getElementById('app').innerHTML = `
-    <div class="px-3 pt-6 pb-40">
+    <div class="px-3 pt-6" style="padding-bottom:var(--page-pb-extra)">
       <div class="mb-4">
         <h1 class="text-2xl font-black uppercase tracking-tight leading-none">Nutrition</h1>
         <p id="nutrition-date-label" class="text-sm font-bold text-ink/40 mt-1">${getNutritionDateLabel()}</p>
@@ -2838,7 +2838,7 @@ async function renderNutritionAdd(initialTab) {
   window._libraryData = { meals, foods };
 
   document.getElementById('app').innerHTML = `
-    <div class="px-3 pt-6 pb-20">
+    <div class="px-3 pt-6" style="padding-bottom:var(--page-pb)">
       <button onclick="navigate('#nutrition')" class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-4 flex items-center gap-1 active:text-ink transition-colors duration-200">
         <span class="text-lg leading-none">&larr;</span> Back
       </button>
@@ -3016,7 +3016,7 @@ async function renderFoodForm(id) {
   const hasServing = food.serving_unit && food.serving_unit !== 'g';
 
   document.getElementById('app').innerHTML = `
-    <div class="px-3 pt-6 pb-20">
+    <div class="px-3 pt-6" style="padding-bottom:var(--page-pb)">
       <button onclick="history.back()" class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-4 flex items-center gap-1 active:text-ink transition-colors duration-200">
         <span class="text-lg leading-none">&larr;</span> Back
       </button>
@@ -3166,7 +3166,7 @@ function renderMealFormInner(id, mealName, allFoods) {
   `).join('') : '<p class="text-sm text-ink/30 py-2">No foods added yet.</p>';
 
   document.getElementById('app').innerHTML = `
-    <div class="px-3 pt-6 pb-20">
+    <div class="px-3 pt-6" style="padding-bottom:var(--page-pb)">
       <button onclick="history.back()" class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-4 flex items-center gap-1 active:text-ink transition-colors duration-200">
         <span class="text-lg leading-none">&larr;</span> Back
       </button>
