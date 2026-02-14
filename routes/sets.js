@@ -35,6 +35,18 @@ router.get('/session/:sessionId', (req, res) => {
   res.json(sets);
 });
 
+router.get('/pr/:exerciseName', (req, res) => {
+  const pr = get(
+    `SELECT exercise_name, weight_kg, reps, logged_at
+     FROM set_logs
+     WHERE exercise_name = ?
+     ORDER BY weight_kg DESC, reps DESC
+     LIMIT 1`,
+    [req.params.exerciseName]
+  );
+  res.json(pr || null);
+});
+
 router.delete('/:id', (req, res) => {
   run('DELETE FROM set_logs WHERE id = ?', [parseInt(req.params.id)]);
   res.json({ deleted: true });

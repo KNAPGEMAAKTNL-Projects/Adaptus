@@ -32,3 +32,13 @@ button, .no-select {
 .timer-done {
   animation: pulse-acid 1s ease-in-out infinite;
 }
+
+/* PR celebration pop-in */
+@keyframes pr-pop {
+  0% { transform: scale(0.5); opacity: 0; }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-pr-pop {
+  animation: pr-pop 0.4s cubic-bezier(0.68, -0.6, 0.32, 1.6) forwards;
+}

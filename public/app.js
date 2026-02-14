@@ -45,10 +45,12 @@ function navigate(hash) {
   const parts = hash.replace('#', '').split('/');
   const view = parts[0];
   switch (view) {
-    case 'home': renderHome(); break;
+    case 'home': renderDashboard(); break;
+    case 'workouts': renderWorkouts(); break;
     case 'workout': renderWorkout(parts[1]); break;
     case 'exercise': renderExercise(parseInt(parts[1])); break;
-    default: renderHome();
+    case 'stats': renderStats(); break;
+    default: renderDashboard();
   }
 }
 
@@ -91,6 +93,11 @@ function getSetRpe(exercise, setNum, totalSets) {
 
 function getLoggedSets(exerciseId) {
   return state.sessionSets[exerciseId] || [];
+}
+
+function formatVolume(kg) {
+  if (kg >= 1000) return Math.round(kg / 1000) + 'k';
+  return kg.toString();
 }
 
 // ─── Rest Timer ──────────────────────────────────────────────────────────────
@@ -169,8 +176,139 @@ document.addEventListener('click', (e) => {
   if (e.target.id === 'timer-dismiss') dismissTimer();
 });
 
-// ─── View: Home ──────────────────────────────────────────────────────────────
-async function renderHome() {
+// ─── View: Dashboard ────────────────────────────────────────────────────────
+async function renderDashboard() {
+  const [weekSummary, streakData] = await Promise.all([
+    api('GET', `/stats/week-summary?cycle=${state.progress.cycle}&week=${state.progress.week}`),
+    api('GET', '/stats/streak'),
+  ]);
+
+  const deload = isDeloadWeek(state.progress.week);
+
+  document.getElementById('app').innerHTML = `
+    <div class="px-3 pt-8 pb-32">
+      <div class="flex items-center justify-between mb-8">
+        <div>
+          <h1 class="text-3xl font-black uppercase tracking-tight leading-none">Adaptus</h1>
+          <p class="text-sm font-bold text-ink/40 uppercase tracking-widest mt-1">Cycle ${state.progress.cycle} &middot; Week ${state.progress.week}</p>
+        </div>
+        ${deload ? '<span class="text-[10px] font-bold uppercase tracking-widest text-acid bg-ink px-2 py-1 rounded-full">Deload</span>' : ''}
+      </div>
+
+      <div class="grid grid-cols-2 gap-2.5 mb-5">
+        <button onclick="navigate('#workouts')" class="bg-ink text-canvas p-5 text-left transition-colors duration-200 active:bg-ink/80">
+          <h3 class="text-lg font-black uppercase tracking-tight">Workouts</h3>
+          <p class="text-xs text-white/40 font-bold uppercase tracking-widest mt-1">${weekSummary.workoutsCompleted}/${weekSummary.totalWorkouts} this week</p>
+        </button>
+        <button onclick="navigate('#stats')" class="bg-ink text-canvas p-5 text-left transition-colors duration-200 active:bg-ink/80">
+          <h3 class="text-lg font-black uppercase tracking-tight">Stats</h3>
+          <p class="text-xs text-white/40 font-bold uppercase tracking-widest mt-1">PRs &amp; records</p>
+        </button>
+      </div>
+
+      ${state.currentSession && !state.currentSession.completed_at ? `
+        <button onclick="resumeWorkout()" class="w-full mb-5 px-4 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center transition-colors duration-200 active:bg-ink active:text-acid">
+          Resume: ${state.currentSession.workout_name}
+        </button>
+      ` : ''}
+
+      <div class="border-2 border-ink/10 p-5 mb-5">
+        <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-4">This Week</h3>
+        <div class="grid grid-cols-3 gap-4 mb-4">
+          <div>
+            <span class="text-3xl font-black leading-none block">${weekSummary.workoutsCompleted}</span>
+            <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">/ ${weekSummary.totalWorkouts} done</span>
+          </div>
+          <div>
+            <span class="text-3xl font-black leading-none block">${weekSummary.totalSets}</span>
+            <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">sets</span>
+          </div>
+          <div>
+            <span class="text-3xl font-black leading-none block">${formatVolume(weekSummary.totalVolume)}</span>
+            <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">volume</span>
+          </div>
+        </div>
+        ${weekSummary.prsThisWeek && weekSummary.prsThisWeek.length > 0 ? `
+          <div class="border-t-2 border-ink/10 pt-3">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-xs font-bold text-canvas bg-electric px-2 py-0.5">PR</span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">${weekSummary.prsThisWeek.length} this week</span>
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+              ${weekSummary.prsThisWeek.map(pr => `
+                <span class="text-xs font-bold bg-acid/20 text-ink px-2 py-1">${pr.exercise_name} ${pr.weight_kg}kg</span>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+      </div>
+
+      <div class="border-2 ${streakData.streak > 0 ? 'border-acid bg-acid/5' : 'border-ink/10'} p-5">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-1">Streak</h3>
+            <span class="text-4xl font-black leading-none">${streakData.streak}</span>
+            <span class="text-sm font-bold text-ink/40 ml-1">week${streakData.streak !== 1 ? 's' : ''}</span>
+          </div>
+        </div>
+        <p class="text-xs text-ink/40 mt-2">Consecutive weeks with all 5 workouts completed</p>
+      </div>
+    </div>
+  `;
+}
+
+// ─── View: Stats ────────────────────────────────────────────────────────────
+async function renderStats() {
+  const summary = await api('GET', '/stats/summary');
+
+  const prsHtml = summary.prs.length > 0 ? summary.prs.map(pr => `
+    <div class="flex items-center justify-between py-3 border-b border-ink/10 last:border-0">
+      <span class="font-bold text-[15px] truncate flex-1 mr-3">${pr.exercise_name}</span>
+      <span class="font-black text-lg flex-shrink-0">${pr.max_weight}<span class="text-sm font-bold text-ink/40 ml-0.5">kg</span></span>
+    </div>
+  `).join('') : '<p class="text-sm text-ink/30 py-4">No data yet. Log some sets!</p>';
+
+  document.getElementById('app').innerHTML = `
+    <div class="px-3 pt-6 pb-32">
+      <button onclick="navigate('#home')" class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-4 flex items-center gap-1 active:text-ink transition-colors duration-200">
+        <span class="text-lg leading-none">&larr;</span> Dashboard
+      </button>
+
+      <h1 class="text-2xl font-black uppercase tracking-tight leading-none mb-6">Stats</h1>
+
+      <div class="border-2 border-ink/10 p-5 mb-5">
+        <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-4">All Time</h3>
+        <div class="grid grid-cols-3 gap-4">
+          <div>
+            <span class="text-3xl font-black leading-none block">${summary.totalWorkouts}</span>
+            <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">workouts</span>
+          </div>
+          <div>
+            <span class="text-3xl font-black leading-none block">${summary.totalSets}</span>
+            <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">sets</span>
+          </div>
+          <div>
+            <span class="text-3xl font-black leading-none block">${formatVolume(summary.totalVolume)}</span>
+            <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">volume (kg)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="border-2 border-ink/10 p-5">
+        <div class="flex items-center gap-2 mb-4">
+          <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Personal Records</h3>
+          <span class="text-xs font-bold text-canvas bg-electric px-2 py-0.5">${summary.prs.length}</span>
+        </div>
+        <div>
+          ${prsHtml}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ─── View: Workouts ─────────────────────────────────────────────────────────
+async function renderWorkouts() {
   const week = await getWeekData();
   if (!week) return;
   const deload = isDeloadWeek(state.progress.week);
@@ -210,10 +348,14 @@ async function renderHome() {
   }).join('');
 
   document.getElementById('app').innerHTML = `
-    <div class="px-3 pt-8 pb-32">
-      <div class="flex items-center justify-between mb-8">
+    <div class="px-3 pt-6 pb-32">
+      <button onclick="navigate('#home')" class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-4 flex items-center gap-1 active:text-ink transition-colors duration-200">
+        <span class="text-lg leading-none">&larr;</span> Dashboard
+      </button>
+
+      <div class="flex items-center justify-between mb-6">
         <div>
-          <h1 class="text-3xl font-black uppercase tracking-tight leading-none">Adaptus</h1>
+          <h1 class="text-2xl font-black uppercase tracking-tight leading-none">Workouts</h1>
           <p class="text-sm font-bold text-ink/40 uppercase tracking-widest mt-1">Cycle ${state.progress.cycle}</p>
         </div>
         <div class="flex items-center gap-2.5">
@@ -265,7 +407,7 @@ async function changeWeek(dir) {
   }
 
   state.progress = await api('PUT', '/progress', { cycle: newCycle, week: newWeek });
-  renderHome();
+  renderWorkouts();
 }
 
 function showCycleModal(fromCycle, toCycle) {
@@ -306,7 +448,7 @@ function closeCycleModal() {
 async function confirmCycleChange(newCycle, newWeek) {
   closeCycleModal();
   state.progress = await api('PUT', '/progress', { cycle: newCycle, week: newWeek });
-  renderHome();
+  renderWorkouts();
 }
 
 async function startWorkoutFlow(templateId) {
@@ -357,7 +499,7 @@ async function resumeWorkout() {
 async function renderWorkout(templateId) {
   const week = await getWeekData();
   const workout = week.workouts.find(wo => wo.templateId === templateId);
-  if (!workout) return navigate('#home');
+  if (!workout) return navigate('#workouts');
   state.currentWorkoutData = workout;
 
   const exerciseRows = workout.exercises.map((ex, i) => {
@@ -400,7 +542,7 @@ async function renderWorkout(templateId) {
 
   document.getElementById('app').innerHTML = `
     <div class="px-3 pt-6 pb-32">
-      <button onclick="navigate('#home')" class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-4 flex items-center gap-1 active:text-ink transition-colors duration-200">
+      <button onclick="navigate('#workouts')" class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-4 flex items-center gap-1 active:text-ink transition-colors duration-200">
         <span class="text-lg leading-none">&larr;</span> Back
       </button>
 
@@ -493,7 +635,7 @@ async function confirmCancelWorkout() {
   state.currentSession = null;
   state.sessionSets = {};
   state.currentWorkoutData = null;
-  navigate('#home');
+  navigate('#workouts');
 }
 
 async function completeWorkout() {
@@ -502,13 +644,13 @@ async function completeWorkout() {
   dismissTimer();
   state.currentSession = null;
   state.currentWorkoutData = null;
-  navigate('#home');
+  navigate('#workouts');
 }
 
 // ─── View: Exercise Logging ──────────────────────────────────────────────────
 async function renderExercise(index) {
   const workout = state.currentWorkoutData;
-  if (!workout) return navigate('#home');
+  if (!workout) return navigate('#workouts');
   const exercise = workout.exercises[index];
   if (!exercise) return navigate(`#workout/${workout.templateId}`);
   state.currentExerciseIndex = index;
@@ -650,13 +792,13 @@ async function renderExercise(index) {
 
           <div class="space-y-2.5 mb-3">
             <div>
-              <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Weight (kg)</label>
+              <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 flex items-center gap-1 mb-1">Weight (kg) <span id="overload-arrow">${getOverloadArrow(name, prefillWeight)}</span></label>
               <div class="flex items-center gap-1">
-                <button onclick="adjustInput('weight-input', -2.5, '${draftKey}')" class="w-11 h-11 border-2 border-ink/15 font-bold text-lg active:bg-ink active:text-canvas transition-colors duration-200">&minus;</button>
+                <button onclick="adjustInput('weight-input', -2.5, '${draftKey}', '${name.replace(/'/g, "\\'")}')" class="w-11 h-11 border-2 border-ink/15 font-bold text-lg active:bg-ink active:text-canvas transition-colors duration-200">&minus;</button>
                 <input id="weight-input" type="number" inputmode="decimal" step="0.5" value="${prefillWeight}" placeholder="0"
-                  oninput="saveDraft('${draftKey}')"
+                  oninput="saveDraft('${draftKey}'); updateOverloadArrow('${name.replace(/'/g, "\\'")}')"
                   class="flex-1 h-11 border-2 border-ink/15 text-center font-bold text-lg focus:border-ink focus:outline-none transition-colors duration-200">
-                <button onclick="adjustInput('weight-input', 2.5, '${draftKey}')" class="w-11 h-11 border-2 border-ink/15 font-bold text-lg active:bg-ink active:text-canvas transition-colors duration-200">+</button>
+                <button onclick="adjustInput('weight-input', 2.5, '${draftKey}', '${name.replace(/'/g, "\\'")}')" class="w-11 h-11 border-2 border-ink/15 font-bold text-lg active:bg-ink active:text-canvas transition-colors duration-200">+</button>
               </div>
             </div>
             <div>
@@ -719,13 +861,50 @@ function clearDraft(exerciseId, setNumber) {
   localStorage.removeItem(`draft-${exerciseId}-${setNumber}`);
 }
 
-function adjustInput(inputId, delta, draftKey) {
+function adjustInput(inputId, delta, draftKey, exerciseName) {
   const input = document.getElementById(inputId);
   if (!input) return;
   const current = parseFloat(input.value) || 0;
   const newVal = Math.max(0, current + delta);
   input.value = inputId === 'reps-input' ? Math.round(newVal) : newVal;
   if (draftKey) saveDraft(draftKey);
+  if (inputId === 'weight-input' && exerciseName) updateOverloadArrow(exerciseName);
+}
+
+function getOverloadArrow(exerciseName, currentWeight) {
+  const lastPerf = state.lastPerformance[exerciseName];
+  if (!lastPerf || lastPerf.length === 0 || !currentWeight) return '';
+  const prevWeight = lastPerf[0].weight_kg;
+  const current = parseFloat(currentWeight);
+  if (isNaN(current) || current === 0) return '';
+  if (current > prevWeight) return '<span class="text-green-600 font-black text-sm">&#9650;</span>';
+  if (current < prevWeight) return '<span class="text-red-500 font-black text-sm">&#9660;</span>';
+  return '<span class="text-ink/30 font-black text-sm">=</span>';
+}
+
+function updateOverloadArrow(exerciseName) {
+  const el = document.getElementById('overload-arrow');
+  if (!el) return;
+  const weight = document.getElementById('weight-input')?.value;
+  el.innerHTML = getOverloadArrow(exerciseName, weight);
+}
+
+function showPrCelebration(exerciseName, weight) {
+  const celebration = document.createElement('div');
+  celebration.id = 'pr-celebration';
+  celebration.className = 'fixed inset-0 z-[90] flex items-center justify-center pointer-events-none';
+  celebration.innerHTML = `
+    <div class="bg-ink text-canvas px-8 py-6 text-center animate-pr-pop pointer-events-auto" onclick="this.parentElement.remove()">
+      <div class="text-4xl font-black text-acid mb-2">NEW PR</div>
+      <div class="text-lg font-bold">${exerciseName}</div>
+      <div class="text-3xl font-black text-acid mt-1">${weight}kg</div>
+    </div>
+  `;
+  document.body.appendChild(celebration);
+  setTimeout(() => {
+    const el = document.getElementById('pr-celebration');
+    if (el) el.remove();
+  }, 2500);
 }
 
 async function logSet(exerciseId, exerciseName, setNumber, totalSets, targetRpe, restStr) {
@@ -742,6 +921,12 @@ async function logSet(exerciseId, exerciseName, setNumber, totalSets, targetRpe,
       workoutName: state.currentWorkoutData.name,
     });
   }
+
+  // Check current PR before logging the new set
+  let previousPr = null;
+  try {
+    previousPr = await api('GET', `/sets/pr/${encodeURIComponent(exerciseName)}`);
+  } catch { /* no previous data */ }
 
   const isLastSet = setNumber === totalSets;
   const subUsed = state.activeSubstitutions[exerciseId] || null;
@@ -760,6 +945,11 @@ async function logSet(exerciseId, exerciseName, setNumber, totalSets, targetRpe,
 
   if (!state.sessionSets[exerciseId]) state.sessionSets[exerciseId] = [];
   state.sessionSets[exerciseId].push(set);
+
+  // PR celebration
+  if (!previousPr || weight > previousPr.weight_kg) {
+    showPrCelebration(exerciseName, weight);
+  }
 
   clearDraft(exerciseId, setNumber);
   startRestTimer(restStr);

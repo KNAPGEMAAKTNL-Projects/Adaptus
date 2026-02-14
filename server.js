@@ -12,6 +12,7 @@ app.use('/api/program', require('./routes/program'));
 app.use('/api/progress', require('./routes/progress'));
 app.use('/api/workouts', require('./routes/workouts'));
 app.use('/api/sets', require('./routes/sets'));
+app.use('/api/stats', require('./routes/stats'));
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

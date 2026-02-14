@@ -5,15 +5,17 @@ const path = require('path');
 const DB_PATH = path.join(__dirname, 'adaptus.db');
 
 let db = null;
+let dirty = false;
 
 function save() {
   if (!db) return;
   const data = db.export();
   fs.writeFileSync(DB_PATH, Buffer.from(data));
+  dirty = false;
 }
 
-// Auto-save every 30 seconds
-setInterval(save, 30000);
+// Auto-save every 30 seconds, but only if something changed
+setInterval(() => { if (dirty) save(); }, 30000);
 
 async function initDb() {
   const SQL = await initSqlJs();
@@ -98,6 +100,7 @@ function get(sql, params = []) {
 function run(sql, params = []) {
   db.run(sql, params);
   const lastId = db.exec("SELECT last_insert_rowid() as id")[0]?.values[0][0];
+  dirty = true;
   save();
   return { lastInsertRowid: lastId };
 }
