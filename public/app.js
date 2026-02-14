@@ -113,6 +113,26 @@ function formatVolume(kg) {
   return kg.toString();
 }
 
+function parseRepRange(repsStr) {
+  if (!repsStr) return null;
+  const match = repsStr.match(/(\d+)\s*-\s*(\d+)/);
+  if (match) return { min: parseInt(match[1]), max: parseInt(match[2]) };
+  const single = parseInt(repsStr);
+  if (!isNaN(single)) return { min: single, max: single };
+  return null;
+}
+
+function getWeightIncrement(weight) {
+  if (weight <= 10) return 0.5;
+  if (weight <= 25) return 1;
+  return 2.5;
+}
+
+function suggestOverloadWeight(lastWeight) {
+  const increment = getWeightIncrement(lastWeight);
+  return Math.round((lastWeight + increment) * 10) / 10;
+}
+
 function formatDuration(minutes) {
   if (!minutes || minutes <= 0) return '0m';
   const h = Math.floor(minutes / 60);
@@ -943,11 +963,12 @@ async function renderExercise(index) {
   }
   const lastPerf = state.lastPerformance[name] || [];
 
-  // Pre-fill values: localStorage draft > last logged set > last performance
+  // Pre-fill values: localStorage draft > last logged set > last performance (set-matched)
   const draftKey = `draft-${exercise.id}-${nextSet}`;
   const draft = JSON.parse(localStorage.getItem(draftKey) || 'null');
   let prefillWeight = '';
   let prefillReps = '';
+  let isSuggested = false;
   if (draft) {
     prefillWeight = draft.weight;
     prefillReps = draft.reps;
@@ -955,9 +976,20 @@ async function renderExercise(index) {
     const lastLogged = logged[logged.length - 1];
     prefillWeight = lastLogged.weight_kg;
     prefillReps = lastLogged.reps;
+    isSuggested = true;
   } else if (lastPerf.length > 0) {
-    prefillWeight = lastPerf[0].weight_kg;
-    prefillReps = lastPerf[0].reps;
+    // Set-for-set matching from last session
+    const matchedSet = lastPerf[nextSet - 1] || lastPerf[lastPerf.length - 1];
+    prefillWeight = matchedSet.weight_kg;
+    prefillReps = matchedSet.reps;
+    // Progressive overload: if set 1 and last session hit top of rep range, suggest increase
+    if (nextSet === 1) {
+      const repRange = parseRepRange(exercise.reps);
+      if (repRange && matchedSet.reps >= repRange.max) {
+        prefillWeight = suggestOverloadWeight(matchedSet.weight_kg);
+      }
+    }
+    isSuggested = true;
   }
 
   const isLastSet = nextSet === totalSets;
@@ -1071,9 +1103,11 @@ async function renderExercise(index) {
               <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 flex items-center gap-1 mb-1">Weight (kg) <span id="overload-arrow">${getOverloadArrow(name, prefillWeight)}</span></label>
               <div class="flex items-center gap-1">
                 <button onclick="adjustInput('weight-input', -2.5, '${draftKey}', '${name.replace(/'/g, "\\'")}')" class="w-11 h-11 border-2 border-ink/15 font-bold text-lg active:bg-ink active:text-canvas transition-colors duration-200">&minus;</button>
-                <input id="weight-input" type="number" inputmode="decimal" step="0.5" value="${prefillWeight}" placeholder="0"
-                  oninput="saveDraft('${draftKey}'); updateOverloadArrow('${name.replace(/'/g, "\\'")}')"
-                  class="flex-1 h-11 border-2 border-ink/15 text-center font-bold text-lg focus:border-ink focus:outline-none transition-colors duration-200">
+                <input id="weight-input" type="number" inputmode="decimal" step="0.5" value="${isSuggested ? '' : prefillWeight}" placeholder="${isSuggested ? prefillWeight : '0'}"
+                  data-suggested="${isSuggested ? prefillWeight : ''}"
+                  onfocus="clearSuggested(this)" onblur="restoreSuggested(this)"
+                  oninput="handleInput(this, '${draftKey}', '${name.replace(/'/g, "\\'")}')"
+                  class="flex-1 h-11 border-2 border-ink/15 text-center font-bold text-lg focus:border-ink focus:outline-none transition-colors duration-200 ${isSuggested ? 'placeholder:text-ink/30' : ''}">
                 <button onclick="adjustInput('weight-input', 2.5, '${draftKey}', '${name.replace(/'/g, "\\'")}')" class="w-11 h-11 border-2 border-ink/15 font-bold text-lg active:bg-ink active:text-canvas transition-colors duration-200">+</button>
               </div>
             </div>
@@ -1081,9 +1115,11 @@ async function renderExercise(index) {
               <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Reps</label>
               <div class="flex items-center gap-1">
                 <button onclick="adjustInput('reps-input', -1, '${draftKey}')" class="w-11 h-11 border-2 border-ink/15 font-bold text-lg active:bg-ink active:text-canvas transition-colors duration-200">&minus;</button>
-                <input id="reps-input" type="number" inputmode="numeric" step="1" value="${prefillReps}" placeholder="0"
-                  oninput="saveDraft('${draftKey}')"
-                  class="flex-1 h-11 border-2 border-ink/15 text-center font-bold text-lg focus:border-ink focus:outline-none transition-colors duration-200">
+                <input id="reps-input" type="number" inputmode="numeric" step="1" value="${isSuggested ? '' : prefillReps}" placeholder="${isSuggested ? prefillReps : '0'}"
+                  data-suggested="${isSuggested ? prefillReps : ''}"
+                  onfocus="clearSuggested(this)" onblur="restoreSuggested(this)"
+                  oninput="handleInput(this, '${draftKey}')"
+                  class="flex-1 h-11 border-2 border-ink/15 text-center font-bold text-lg focus:border-ink focus:outline-none transition-colors duration-200 ${isSuggested ? 'placeholder:text-ink/30' : ''}">
                 <button onclick="adjustInput('reps-input', 1, '${draftKey}')" class="w-11 h-11 border-2 border-ink/15 font-bold text-lg active:bg-ink active:text-canvas transition-colors duration-200">+</button>
               </div>
             </div>
@@ -1127,10 +1163,42 @@ async function renderExercise(index) {
   `;
 }
 
+function clearSuggested(input) {
+  // On focus: if showing suggested placeholder, field is already empty — just let user type
+}
+
+function restoreSuggested(input) {
+  // On blur: if empty and has suggested value, keep it as placeholder
+  if (input.value === '' && input.dataset.suggested) {
+    input.placeholder = input.dataset.suggested;
+  }
+}
+
+function handleInput(input, draftKey, exerciseName) {
+  // User typed something — clear suggested state
+  if (input.value !== '') {
+    input.dataset.suggested = '';
+  }
+  saveDraft(draftKey);
+  if (exerciseName) updateOverloadArrow(exerciseName);
+}
+
+function getInputValue(inputId) {
+  const input = document.getElementById(inputId);
+  if (!input) return '';
+  // If user typed nothing, use the suggested placeholder value
+  return input.value || input.dataset.suggested || '';
+}
+
 function saveDraft(draftKey) {
-  const w = document.getElementById('weight-input')?.value || '';
-  const r = document.getElementById('reps-input')?.value || '';
-  localStorage.setItem(draftKey, JSON.stringify({ weight: w, reps: r }));
+  const w = getInputValue('weight-input');
+  const r = getInputValue('reps-input');
+  // Only save draft if user has actually typed values (not suggested placeholders)
+  const wInput = document.getElementById('weight-input');
+  const rInput = document.getElementById('reps-input');
+  if ((wInput?.value || rInput?.value)) {
+    localStorage.setItem(draftKey, JSON.stringify({ weight: w, reps: r }));
+  }
 }
 
 function clearDraft(exerciseId, setNumber) {
@@ -1140,9 +1208,11 @@ function clearDraft(exerciseId, setNumber) {
 function adjustInput(inputId, delta, draftKey, exerciseName) {
   const input = document.getElementById(inputId);
   if (!input) return;
-  const current = parseFloat(input.value) || 0;
+  // If suggested and no value typed, start from suggested value
+  const current = parseFloat(input.value || input.dataset.suggested) || 0;
   const newVal = Math.max(0, current + delta);
   input.value = inputId === 'reps-input' ? Math.round(newVal) : newVal;
+  input.dataset.suggested = ''; // User has interacted, no longer suggested
   if (draftKey) saveDraft(draftKey);
   if (inputId === 'weight-input' && exerciseName) updateOverloadArrow(exerciseName);
 }
@@ -1161,7 +1231,7 @@ function getOverloadArrow(exerciseName, currentWeight) {
 function updateOverloadArrow(exerciseName) {
   const el = document.getElementById('overload-arrow');
   if (!el) return;
-  const weight = document.getElementById('weight-input')?.value;
+  const weight = getInputValue('weight-input');
   el.innerHTML = getOverloadArrow(exerciseName, weight);
 }
 
@@ -1184,8 +1254,8 @@ function showPrCelebration(exerciseName, weight) {
 }
 
 async function logSet(exerciseId, exerciseName, setNumber, totalSets, targetRpe, restStr) {
-  const weight = parseFloat(document.getElementById('weight-input')?.value);
-  const reps = parseInt(document.getElementById('reps-input')?.value);
+  const weight = parseFloat(getInputValue('weight-input'));
+  const reps = parseInt(getInputValue('reps-input'));
   if (!weight || weight <= 0 || !reps || reps <= 0) return;
 
   // Create session on first logged set
