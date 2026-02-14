@@ -1096,7 +1096,7 @@ function showMilestoneCelebration(milestone) {
   celebration.id = 'milestone-celebration';
   celebration.className = 'fixed inset-0 z-[90] flex items-center justify-center pointer-events-none';
   celebration.innerHTML = `
-    <div class="bg-white/10 text-white rounded-xl px-8 py-6 text-center animate-pr-pop pointer-events-auto" onclick="this.parentElement.remove()">
+    <div class="bg-[#1a1a1a] border-2 border-acid/30 text-white rounded-xl px-8 py-6 text-center animate-pr-pop backdrop-blur-xl pointer-events-auto" onclick="this.parentElement.remove()">
       <div class="text-[10px] font-bold uppercase tracking-widest text-acid mb-3">Milestone Unlocked</div>
       <div class="text-2xl font-black uppercase tracking-tight">${milestone.label}</div>
     </div>
@@ -1685,8 +1685,7 @@ async function renderExercise(index) {
   const isSubbed = !!state.activeSubstitutions[exercise.id];
   const totalSets = parseInt(exercise.workingSets) || 0;
   const logged = getLoggedSets(exercise.id);
-  const nextSet = logged.length + 1;
-  const allDone = logged.length >= totalSets;
+  const isSingleSet = totalSets === 1;
   const technique = exercise.lastSetIntensityTechnique;
   const showTechnique = technique && technique !== 'N/A';
 
@@ -1699,65 +1698,80 @@ async function renderExercise(index) {
   }
   const lastPerf = state.lastPerformance[name] || [];
 
-  // Pre-fill values: localStorage draft > last logged set > last performance (set-matched)
-  const draftKey = `draft-${exercise.id}-${nextSet}`;
-  const draft = JSON.parse(localStorage.getItem(draftKey) || 'null');
-  let prefillWeight = '';
-  let prefillReps = '';
-  let isSuggested = false;
-  if (draft) {
-    prefillWeight = draft.weight;
-    prefillReps = draft.reps;
-  } else if (logged.length > 0) {
-    const lastLogged = logged[logged.length - 1];
-    prefillWeight = lastLogged.weight_kg;
-    prefillReps = lastLogged.reps;
-    isSuggested = true;
-  } else if (lastPerf.length > 0) {
-    prefillWeight = lastPerf[0].weight_kg;
-    prefillReps = lastPerf[0].reps;
-    // Progressive overload: if last session hit top of rep range, suggest increase
-    const repRange = parseRepRange(exercise.reps);
-    if (repRange && lastPerf[0].reps >= repRange.max) {
-      prefillWeight = suggestOverloadWeight(lastPerf[0].weight_kg);
-    }
-    isSuggested = true;
-  }
-
-  const isLastSet = nextSet === totalSets;
-  const isSingleSet = totalSets === 1;
-  const currentRpe = (isSingleSet || isLastSet) ? exercise.lastSetRpe : exercise.earlySetRpe;
-
-  // Logged sets display
-  const loggedHtml = logged.map((s, i) => {
-    const setIsLast = (i + 1) === totalSets;
-    const rpe = (isSingleSet || setIsLast) ? exercise.lastSetRpe : exercise.earlySetRpe;
-    return `
-      <div class="flex items-center justify-between py-2 ${i < logged.length - 1 ? 'border-b border-ink/10' : ''}">
-        <div class="flex items-center gap-3">
-          <span class="text-acid text-lg font-black">&#10003;</span>
-          <span class="font-bold">Set ${i + 1}</span>
-        </div>
-        <div class="flex items-center gap-3">
-          <span class="font-bold">${s.weight_kg}kg &times; ${s.reps}</span>
-          <span class="text-xs text-ink/40 font-bold">${rpe}</span>
-          <button onclick="deleteSet(${s.id}, '${exercise.id}')" class="text-ink/20 hover:text-red-500 text-xs font-bold uppercase transition-colors duration-200">&times;</button>
-        </div>
-      </div>
-    `;
-  }).join('');
-
-  // Last performance display
-  const perfHtml = lastPerf.length > 0 ? lastPerf.map((s, i) => `
-    <div class="flex items-center justify-between text-sm ${i < lastPerf.length - 1 ? 'border-b border-ink/5 pb-1 mb-1' : ''}">
-      <span class="text-ink/40 font-bold">Set ${s.set_number}</span>
-      <span class="font-bold text-ink/60">${s.weight_kg}kg &times; ${s.reps}</span>
-    </div>
-  `).join('') : '<p class="text-sm text-ink/30">No previous data</p>';
-
   const hasSubs = exercise.substitutionOptions && exercise.substitutionOptions.length > 0;
-
   const workoutName = workout.name.split('(')[0].trim();
+  const escapedName = name.replace(/'/g, "\\'");
+
+  // Build set rows
+  const setRowsHtml = [];
+  for (let s = 1; s <= totalSets; s++) {
+    const loggedSet = logged.find(l => l.set_number === s);
+    const setIsLast = s === totalSets;
+    const rpe = (isSingleSet || setIsLast) ? exercise.lastSetRpe : exercise.earlySetRpe;
+    const rpeLabel = (isSingleSet || setIsLast) && showTechnique ? `${rpe} · ${technique}` : rpe;
+
+    if (loggedSet) {
+      // Logged set row — display values with green checkmark and delete button
+      setRowsHtml.push(`
+        <div class="flex items-center gap-3 py-2.5 ${s < totalSets ? 'border-b border-ink/10' : ''}">
+          <span class="w-10 text-xs font-bold text-ink/40 uppercase">Set ${s}</span>
+          <span class="flex-1 font-bold text-sm">${loggedSet.weight_kg}kg &times; ${loggedSet.reps}</span>
+          <span class="text-[10px] font-bold text-ink/30 uppercase">${rpeLabel}</span>
+          <span class="text-acid text-xl font-black w-8 h-8 flex items-center justify-center">&#10003;</span>
+          <button onclick="deleteSet(${loggedSet.id}, '${exercise.id}')" class="text-ink/25 hover:text-red-500 w-8 h-8 flex items-center justify-center text-xl font-bold transition-colors duration-200">&times;</button>
+        </div>
+      `);
+    } else {
+      // Unlogged set row — pre-fill logic per set
+      const draftKey = `draft-${exercise.id}-${s}`;
+      const draft = JSON.parse(localStorage.getItem(draftKey) || 'null');
+      let prefillWeight = '';
+      let prefillReps = '';
+      let isSuggested = false;
+
+      if (draft) {
+        prefillWeight = draft.weight;
+        prefillReps = draft.reps;
+      } else if (lastPerf.length > 0 && lastPerf[s - 1]) {
+        prefillWeight = lastPerf[s - 1].weight_kg;
+        prefillReps = lastPerf[s - 1].reps;
+        // Progressive overload on set 1: if last session hit top of rep range, suggest weight increase
+        if (s === 1) {
+          const repRange = parseRepRange(exercise.reps);
+          if (repRange && lastPerf[0].reps >= repRange.max) {
+            prefillWeight = suggestOverloadWeight(lastPerf[0].weight_kg);
+          }
+        }
+        isSuggested = true;
+      }
+
+      const hasData = isSuggested || (prefillWeight !== '' && prefillReps !== '');
+      const checkBtnClass = hasData
+        ? 'text-ink/60 active:text-acid'
+        : 'text-ink/15 pointer-events-none';
+
+      setRowsHtml.push(`
+        <div class="flex items-center gap-2 py-2.5 ${s < totalSets ? 'border-b border-ink/10' : ''}">
+          <span class="w-10 text-xs font-bold text-ink/40 uppercase flex-shrink-0">Set ${s}</span>
+          <input id="weight-${s}" type="number" inputmode="decimal" step="0.5"
+            value="${isSuggested ? '' : prefillWeight}" placeholder="${isSuggested ? prefillWeight : 'kg'}"
+            data-suggested="${isSuggested ? prefillWeight : ''}"
+            onfocus="clearSuggested(this)" onblur="restoreSuggested(this)"
+            oninput="handleInputRow(this, '${exercise.id}', ${s}, '${escapedName}')"
+            class="w-20 h-9 bg-transparent border-2 border-ink/15 rounded-lg text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200 ${isSuggested ? 'placeholder:text-ink/30' : ''}">
+          <input id="reps-${s}" type="number" inputmode="numeric" step="1"
+            value="${isSuggested ? '' : prefillReps}" placeholder="${isSuggested ? prefillReps : 'reps'}"
+            data-suggested="${isSuggested ? prefillReps : ''}"
+            onfocus="clearSuggested(this)" onblur="restoreSuggested(this)"
+            oninput="handleInputRow(this, '${exercise.id}', ${s}, '${escapedName}')"
+            class="w-16 h-9 bg-transparent border-2 border-ink/15 rounded-lg text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200 ${isSuggested ? 'placeholder:text-ink/30' : ''}">
+          <span class="text-[10px] font-bold text-ink/30 uppercase w-10 text-right flex-shrink-0">${rpeLabel}</span>
+          <button id="check-${s}" onclick="logSetRow('${exercise.id}', '${escapedName}', ${s}, ${totalSets}, '${rpe}', '${exercise.rest}')"
+            class="w-8 h-8 flex items-center justify-center rounded-lg text-xl font-bold transition-colors duration-200 ${checkBtnClass}">&#10003;</button>
+        </div>
+      `);
+    }
+  }
 
   document.getElementById('app').innerHTML = `
     <div class="px-3 pt-6" style="padding-bottom:var(--page-pb-extra)">
@@ -1831,67 +1845,10 @@ async function renderExercise(index) {
         </details>
       ` : ''}
 
-      <!-- Previous performance -->
-      <div class="mb-5 p-4 bg-ink/[0.03] rounded-xl">
-        <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-2">Previous</h3>
-        ${perfHtml}
+      <!-- Set rows -->
+      <div class="mb-5 px-1">
+        ${setRowsHtml.join('')}
       </div>
-
-      <!-- Set logging -->
-      ${!allDone ? `
-        <div class="border-2 border-acid rounded-xl p-4 mb-4">
-          <div class="flex items-center justify-between mb-3">
-            <h3 class="font-black uppercase tracking-tight">Set ${nextSet} of ${totalSets}</h3>
-            <span class="text-xs font-bold uppercase tracking-widest ${isLastSet || isSingleSet ? 'text-electric' : 'text-ink/50'}">
-              RPE ${currentRpe}${isLastSet && showTechnique ? ' &middot; ' + technique : ''}
-            </span>
-          </div>
-
-          <div class="space-y-2.5 mb-3">
-            <div>
-              <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 flex items-center gap-1 mb-1">Weight (kg) <span id="overload-arrow">${getOverloadArrow(name, prefillWeight)}</span></label>
-              <div class="flex items-center gap-1">
-                <button onclick="adjustInput('weight-input', -2.5, '${draftKey}', '${name.replace(/'/g, "\\'")}')" class="w-11 h-11 bg-transparent border-2 border-ink/15 rounded-lg font-bold text-lg active:bg-white/20 active:text-white transition-colors duration-200">&minus;</button>
-                <input id="weight-input" type="number" inputmode="decimal" step="0.5" value="${isSuggested ? '' : prefillWeight}" placeholder="${isSuggested ? prefillWeight : '0'}"
-                  data-suggested="${isSuggested ? prefillWeight : ''}"
-                  onfocus="clearSuggested(this)" onblur="restoreSuggested(this)"
-                  oninput="handleInput(this, '${draftKey}', '${name.replace(/'/g, "\\'")}')"
-                  class="flex-1 h-11 bg-transparent border-2 border-ink/15 rounded-lg text-center font-bold text-lg focus:border-ink focus:outline-none transition-colors duration-200 ${isSuggested ? 'placeholder:text-ink/30' : ''}">
-                <button onclick="adjustInput('weight-input', 2.5, '${draftKey}', '${name.replace(/'/g, "\\'")}')" class="w-11 h-11 bg-transparent border-2 border-ink/15 rounded-lg font-bold text-lg active:bg-white/20 active:text-white transition-colors duration-200">+</button>
-              </div>
-            </div>
-            <div>
-              <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Reps</label>
-              <div class="flex items-center gap-1">
-                <button onclick="adjustInput('reps-input', -1, '${draftKey}')" class="w-11 h-11 bg-transparent border-2 border-ink/15 rounded-lg font-bold text-lg active:bg-white/20 active:text-white transition-colors duration-200">&minus;</button>
-                <input id="reps-input" type="number" inputmode="numeric" step="1" value="${isSuggested ? '' : prefillReps}" placeholder="${isSuggested ? prefillReps : '0'}"
-                  data-suggested="${isSuggested ? prefillReps : ''}"
-                  onfocus="clearSuggested(this)" onblur="restoreSuggested(this)"
-                  oninput="handleInput(this, '${draftKey}')"
-                  class="flex-1 h-11 bg-transparent border-2 border-ink/15 rounded-lg text-center font-bold text-lg focus:border-ink focus:outline-none transition-colors duration-200 ${isSuggested ? 'placeholder:text-ink/30' : ''}">
-                <button onclick="adjustInput('reps-input', 1, '${draftKey}')" class="w-11 h-11 bg-transparent border-2 border-ink/15 rounded-lg font-bold text-lg active:bg-white/20 active:text-white transition-colors duration-200">+</button>
-              </div>
-            </div>
-          </div>
-
-          <button onclick="logSet('${exercise.id}', '${name.replace(/'/g, "\\'")}', ${nextSet}, ${totalSets}, '${currentRpe}', '${exercise.rest}')"
-            class="w-full py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-center transition-colors duration-200 active:bg-acid/20 active:text-acid">
-            Log Set ${nextSet}
-          </button>
-        </div>
-      ` : `
-        <div class="border-2 border-acid bg-acid/10 rounded-xl p-4 mb-4 text-center">
-          <span class="font-bold uppercase tracking-tight text-ink/60">All sets complete</span>
-        </div>
-      `}
-
-      <!-- Logged sets -->
-      ${logged.length > 0 ? `
-        <div class="mb-5 px-1">
-          ${loggedHtml}
-        </div>
-      ` : ''}
-
 
       <!-- Navigation -->
       <div class="flex gap-2">
@@ -1917,30 +1874,39 @@ function restoreSuggested(input) {
   }
 }
 
-function handleInput(input, draftKey, exerciseName) {
+function handleInputRow(input, exerciseId, setNumber, exerciseName) {
   // User typed something — clear suggested state
   if (input.value !== '') {
     input.dataset.suggested = '';
   }
-  saveDraft(draftKey);
-  if (exerciseName) updateOverloadArrow(exerciseName);
+  saveDraftRow(exerciseId, setNumber);
+  // Toggle checkmark enabled/disabled based on data availability
+  const checkBtn = document.getElementById(`check-${setNumber}`);
+  if (checkBtn) {
+    const hasData = getInputValueRow('weight', setNumber) && getInputValueRow('reps', setNumber);
+    if (hasData) {
+      checkBtn.classList.remove('text-ink/15', 'pointer-events-none');
+      checkBtn.classList.add('text-ink/60', 'active:text-acid');
+    } else {
+      checkBtn.classList.remove('text-ink/60', 'active:text-acid');
+      checkBtn.classList.add('text-ink/15', 'pointer-events-none');
+    }
+  }
 }
 
-function getInputValue(inputId) {
-  const input = document.getElementById(inputId);
+function getInputValueRow(type, setNumber) {
+  const input = document.getElementById(`${type}-${setNumber}`);
   if (!input) return '';
-  // If user typed nothing, use the suggested placeholder value
   return input.value || input.dataset.suggested || '';
 }
 
-function saveDraft(draftKey) {
-  const w = getInputValue('weight-input');
-  const r = getInputValue('reps-input');
-  // Only save draft if user has actually typed values (not suggested placeholders)
-  const wInput = document.getElementById('weight-input');
-  const rInput = document.getElementById('reps-input');
+function saveDraftRow(exerciseId, setNumber) {
+  const w = getInputValueRow('weight', setNumber);
+  const r = getInputValueRow('reps', setNumber);
+  const wInput = document.getElementById(`weight-${setNumber}`);
+  const rInput = document.getElementById(`reps-${setNumber}`);
   if ((wInput?.value || rInput?.value)) {
-    localStorage.setItem(draftKey, JSON.stringify({ weight: w, reps: r }));
+    localStorage.setItem(`draft-${exerciseId}-${setNumber}`, JSON.stringify({ weight: w, reps: r }));
   }
 }
 
@@ -1948,42 +1914,13 @@ function clearDraft(exerciseId, setNumber) {
   localStorage.removeItem(`draft-${exerciseId}-${setNumber}`);
 }
 
-function adjustInput(inputId, delta, draftKey, exerciseName) {
-  const input = document.getElementById(inputId);
-  if (!input) return;
-  // If suggested and no value typed, start from suggested value
-  const current = parseFloat(input.value || input.dataset.suggested) || 0;
-  const newVal = Math.max(0, current + delta);
-  input.value = inputId === 'reps-input' ? Math.round(newVal) : newVal;
-  input.dataset.suggested = ''; // User has interacted, no longer suggested
-  if (draftKey) saveDraft(draftKey);
-  if (inputId === 'weight-input' && exerciseName) updateOverloadArrow(exerciseName);
-}
-
-function getOverloadArrow(exerciseName, currentWeight) {
-  const lastPerf = state.lastPerformance[exerciseName];
-  if (!lastPerf || lastPerf.length === 0 || !currentWeight) return '';
-  const prevWeight = lastPerf[0].weight_kg;
-  const current = parseFloat(currentWeight);
-  if (isNaN(current) || current === 0) return '';
-  if (current > prevWeight) return '<span class="text-green-600 font-black text-sm">&#9650;</span>';
-  if (current < prevWeight) return '<span class="text-red-500 font-black text-sm">&#9660;</span>';
-  return '<span class="text-ink/30 font-black text-sm">=</span>';
-}
-
-function updateOverloadArrow(exerciseName) {
-  const el = document.getElementById('overload-arrow');
-  if (!el) return;
-  const weight = getInputValue('weight-input');
-  el.innerHTML = getOverloadArrow(exerciseName, weight);
-}
 
 function showPrCelebration(exerciseName, weight) {
   const celebration = document.createElement('div');
   celebration.id = 'pr-celebration';
   celebration.className = 'fixed inset-0 z-[90] flex items-center justify-center pointer-events-none';
   celebration.innerHTML = `
-    <div class="bg-white/10 text-white rounded-xl px-8 py-6 text-center animate-pr-pop pointer-events-auto" onclick="this.parentElement.remove()">
+    <div class="bg-[#1a1a1a] border-2 border-acid/30 text-white rounded-xl px-8 py-6 text-center animate-pr-pop backdrop-blur-xl pointer-events-auto" onclick="this.parentElement.remove()">
       <div class="text-4xl font-black text-acid mb-2">NEW PR</div>
       <div class="text-lg font-bold">${exerciseName}</div>
       <div class="text-3xl font-black text-acid mt-1">${weight}kg</div>
@@ -1996,9 +1933,9 @@ function showPrCelebration(exerciseName, weight) {
   }, 2500);
 }
 
-async function logSet(exerciseId, exerciseName, setNumber, totalSets, targetRpe, restStr) {
-  const weight = parseFloat(getInputValue('weight-input'));
-  const reps = parseInt(getInputValue('reps-input'));
+async function logSetRow(exerciseId, exerciseName, setNumber, totalSets, targetRpe, restStr) {
+  const weight = parseFloat(getInputValueRow('weight', setNumber));
+  const reps = parseInt(getInputValueRow('reps', setNumber));
   if (!weight || weight <= 0 || !reps || reps <= 0) return;
 
   // Create session on first logged set
