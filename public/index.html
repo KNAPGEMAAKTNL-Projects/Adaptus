@@ -45,8 +45,44 @@
     <!-- Views rendered here by app.js -->
   </div>
 
-  <!-- Rest timer (persistent floating bar) -->
-  <div id="rest-timer" class="fixed bottom-0 left-0 right-0 z-50 hidden">
+  <!-- Bottom Navigation Bar -->
+  <nav id="bottom-nav" class="fixed bottom-0 left-0 right-0 z-40 bg-canvas border-t border-ink/10">
+    <div class="flex justify-around items-center h-14">
+      <button onclick="navigate('#home')" data-tab="home" class="nav-tab flex flex-col items-center gap-0.5 pt-1.5 px-3">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8l6-5.5L14 8"/><path d="M3.5 9v4.5h3.25V11h2.5v2.5h3.25V9"/></svg>
+        <span class="text-[10px] font-bold uppercase tracking-wide">Home</span>
+      </button>
+      <button onclick="navigate('#workouts')" data-tab="workouts" class="nav-tab flex flex-col items-center gap-0.5 pt-1.5 px-3">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="4" width="3" height="8" rx="0.5"/><rect x="3.5" y="5.5" width="2" height="5" rx="0.5"/><rect x="10.5" y="5.5" width="2" height="5" rx="0.5"/><line x1="1.5" y1="8" x2="3.5" y2="8"/><line x1="12.5" y1="8" x2="14.5" y2="8"/></svg>
+        <span class="text-[10px] font-bold uppercase tracking-wide">Workouts</span>
+      </button>
+      <button onclick="navigate('#nutrition')" data-tab="nutrition" class="nav-tab flex flex-col items-center gap-0.5 pt-1.5 px-3">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v4c0 2.2 1.8 4 4 4s4-1.8 4-4V2"/><line x1="2" y1="2" x2="14" y2="2"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="5" y1="14" x2="11" y2="14"/></svg>
+        <span class="text-[10px] font-bold uppercase tracking-wide">Nutrition</span>
+      </button>
+      <button onclick="navigate('#stats')" data-tab="stats" class="nav-tab flex flex-col items-center gap-0.5 pt-1.5 px-3">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="9" width="3" height="5"/><rect x="6.5" y="5" width="3" height="9"/><rect x="11.5" y="2" width="3" height="12"/></svg>
+        <span class="text-[10px] font-bold uppercase tracking-wide">Stats</span>
+      </button>
+    </div>
+    <div class="bg-canvas" style="height: env(safe-area-inset-bottom);"></div>
+  </nav>
+
+  <!-- Drawer button (fixed top-right on every page) -->
+  <button id="drawer-btn" onclick="openDrawer()" class="fixed z-30 w-9 h-9 flex items-center justify-center bg-canvas/80 backdrop-blur active:bg-ink/10 transition-colors duration-200 rounded-full" style="top: calc(env(safe-area-inset-top) + 1.5rem); right: 0.75rem;">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+  </button>
+
+  <!-- Drawer overlay -->
+  <div id="drawer-overlay" class="fixed inset-0 z-[60] bg-ink/50 hidden" onclick="closeDrawer()"></div>
+
+  <!-- Drawer panel -->
+  <div id="drawer-panel" class="fixed top-0 right-0 bottom-0 left-0 z-[70] bg-ink text-canvas translate-x-full transition-transform duration-500 ease-in-out" style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);">
+    <div id="drawer-content" class="h-full overflow-y-auto"></div>
+  </div>
+
+  <!-- Rest timer (persistent floating bar, above nav) -->
+  <div id="rest-timer" class="fixed left-0 right-0 z-50 hidden" style="bottom: calc(var(--nav-height) + env(safe-area-inset-bottom));">
     <div id="timer-bar" class="bg-ink text-canvas px-4 py-3 flex items-center justify-between">
       <div class="flex items-center gap-3">
         <span id="timer-label" class="text-xs font-bold uppercase tracking-widest text-white/60">Rest</span>
@@ -57,7 +93,6 @@
     <div class="h-1 bg-ink/20">
       <div id="timer-progress" class="h-full bg-acid transition-all duration-1000 linear" style="width: 100%"></div>
     </div>
-    <div class="bg-ink" style="height: env(safe-area-inset-bottom);"></div>
   </div>
 
   <script>

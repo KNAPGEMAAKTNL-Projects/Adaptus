@@ -121,4 +121,29 @@ router.get('/streak', (req, res) => {
   res.json({ streak });
 });
 
+router.get('/exercises', (req, res) => {
+  const exercises = all(`
+    SELECT
+      exercise_name,
+      COUNT(*) as total_sets,
+      MAX(weight_kg) as best_weight,
+      MAX(logged_at) as last_logged
+    FROM set_logs
+    GROUP BY exercise_name
+    ORDER BY MAX(logged_at) DESC
+  `);
+
+  for (const ex of exercises) {
+    const sets = all(`SELECT weight_kg, reps FROM set_logs WHERE exercise_name = ?`, [ex.exercise_name]);
+    let maxE1rm = 0;
+    for (const s of sets) {
+      const e1rm = s.weight_kg * (1 + s.reps / 30);
+      if (e1rm > maxE1rm) maxE1rm = e1rm;
+    }
+    ex.best_e1rm = Math.round(maxE1rm * 10) / 10;
+  }
+
+  res.json(exercises);
+});
+
 module.exports = router;

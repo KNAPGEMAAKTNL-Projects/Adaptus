@@ -90,6 +90,118 @@ async function initDb() {
     // Column already exists
   }
 
+  // ─── Nutrition tables ───────────────────────────────────────────────────
+  db.run(`
+    CREATE TABLE IF NOT EXISTS foods (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      calories REAL NOT NULL DEFAULT 0,
+      protein REAL NOT NULL DEFAULT 0,
+      carbs REAL NOT NULL DEFAULT 0,
+      fat REAL NOT NULL DEFAULT 0,
+      serving_size REAL NOT NULL DEFAULT 100,
+      serving_unit TEXT NOT NULL DEFAULT 'g',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS meals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS meal_foods (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      meal_id INTEGER NOT NULL,
+      food_id INTEGER NOT NULL,
+      servings REAL NOT NULL DEFAULT 1,
+      FOREIGN KEY (meal_id) REFERENCES meals(id) ON DELETE CASCADE,
+      FOREIGN KEY (food_id) REFERENCES foods(id)
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS daily_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date TEXT NOT NULL DEFAULT (date('now')),
+      meal_id INTEGER,
+      food_id INTEGER,
+      name TEXT NOT NULL,
+      servings REAL NOT NULL DEFAULT 1,
+      calories REAL NOT NULL,
+      protein REAL NOT NULL,
+      carbs REAL NOT NULL,
+      fat REAL NOT NULL,
+      logged_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (meal_id) REFERENCES meals(id),
+      FOREIGN KEY (food_id) REFERENCES foods(id)
+    )
+  `);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_daily_log_date ON daily_log(date DESC)`);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS nutrition_targets (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      calories REAL NOT NULL DEFAULT 2500,
+      protein REAL NOT NULL DEFAULT 180,
+      carbs REAL NOT NULL DEFAULT 250,
+      fat REAL NOT NULL DEFAULT 80
+    )
+  `);
+  db.run(`INSERT OR IGNORE INTO nutrition_targets (id) VALUES (1)`);
+
+  // ─── User profile (adaptive TDEE) ────────────────────────────────────────
+  db.run(`
+    CREATE TABLE IF NOT EXISTS user_profile (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      gender TEXT NOT NULL DEFAULT 'male',
+      age INTEGER NOT NULL DEFAULT 28,
+      height_cm REAL NOT NULL DEFAULT 183,
+      activity_level TEXT NOT NULL DEFAULT 'moderate',
+      phase TEXT NOT NULL DEFAULT 'maintain',
+      protein_per_kg REAL NOT NULL DEFAULT 2.0
+    )
+  `);
+  db.run(`INSERT OR IGNORE INTO user_profile (id) VALUES (1)`);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS tdee_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      week_start TEXT NOT NULL,
+      avg_calories REAL,
+      avg_weight REAL,
+      prev_avg_weight REAL,
+      inferred_tdee REAL,
+      calculated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  // ─── Phases (calendar-based) ──────────────────────────────────────────────
+  db.run(`
+    CREATE TABLE IF NOT EXISTS phases (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      phase_type TEXT NOT NULL CHECK (phase_type IN ('cut', 'maintain', 'bulk')),
+      start_date TEXT NOT NULL,
+      end_date TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      CHECK (start_date < end_date)
+    )
+  `);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_phases_dates ON phases(start_date, end_date)`);
+
+  // Migration: seed phases table from user_profile.phase if empty
+  const phaseCount = db.exec("SELECT COUNT(*) FROM phases")[0]?.values[0][0] || 0;
+  if (phaseCount === 0) {
+    const profilePhase = db.exec("SELECT phase FROM user_profile WHERE id = 1")[0]?.values[0][0] || 'maintain';
+    const today = new Date().toISOString().split('T')[0];
+    const oneYear = new Date(Date.now() + 365 * 86400000).toISOString().split('T')[0];
+    db.run(`INSERT INTO phases (phase_type, start_date, end_date) VALUES (?, ?, ?)`, [profilePhase, today, oneYear]);
+  }
+
   save();
   return db;
 }
