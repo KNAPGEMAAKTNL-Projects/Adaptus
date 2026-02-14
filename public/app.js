@@ -978,16 +978,12 @@ async function renderExercise(index) {
     prefillReps = lastLogged.reps;
     isSuggested = true;
   } else if (lastPerf.length > 0) {
-    // Set-for-set matching from last session
-    const matchedSet = lastPerf[nextSet - 1] || lastPerf[lastPerf.length - 1];
-    prefillWeight = matchedSet.weight_kg;
-    prefillReps = matchedSet.reps;
-    // Progressive overload: if set 1 and last session hit top of rep range, suggest increase
-    if (nextSet === 1) {
-      const repRange = parseRepRange(exercise.reps);
-      if (repRange && matchedSet.reps >= repRange.max) {
-        prefillWeight = suggestOverloadWeight(matchedSet.weight_kg);
-      }
+    prefillWeight = lastPerf[0].weight_kg;
+    prefillReps = lastPerf[0].reps;
+    // Progressive overload: if last session hit top of rep range, suggest increase
+    const repRange = parseRepRange(exercise.reps);
+    if (repRange && lastPerf[0].reps >= repRange.max) {
+      prefillWeight = suggestOverloadWeight(lastPerf[0].weight_kg);
     }
     isSuggested = true;
   }
