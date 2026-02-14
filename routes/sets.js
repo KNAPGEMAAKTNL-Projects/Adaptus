@@ -47,6 +47,24 @@ router.get('/pr/:exerciseName', (req, res) => {
   res.json(pr || null);
 });
 
+router.get('/e1rm/:exerciseName', (req, res) => {
+  const exerciseName = req.params.exerciseName;
+  const sets = all(
+    `SELECT weight_kg, reps, logged_at FROM set_logs WHERE exercise_name = ?`,
+    [exerciseName]
+  );
+  if (!sets || sets.length === 0) return res.json(null);
+
+  let best = null;
+  for (const s of sets) {
+    const e1rm = s.weight_kg * (1 + s.reps / 30);
+    if (!best || e1rm > best.estimated1rm) {
+      best = { estimated1rm: Math.round(e1rm * 10) / 10, fromWeight: s.weight_kg, fromReps: s.reps, loggedAt: s.logged_at };
+    }
+  }
+  res.json(best);
+});
+
 router.get('/exercise-history/:exerciseName', (req, res) => {
   const exerciseName = req.params.exerciseName;
   const sessions = all(
@@ -68,11 +86,17 @@ router.get('/exercise-history/:exerciseName', (req, res) => {
        ORDER BY set_number ASC`,
       [s.workout_session_id, exerciseName]
     );
+    let bestE1rm = 0;
+    for (const set of sets) {
+      const e1rm = set.weight_kg * (1 + set.reps / 30);
+      if (e1rm > bestE1rm) bestE1rm = e1rm;
+    }
     return {
       date: s.date,
       cycle: s.cycle,
       weekNumber: s.week_number,
       maxWeight: s.maxWeight,
+      bestE1rm: Math.round(bestE1rm * 10) / 10,
       totalVolume: Math.round(s.totalVolume),
       sets,
     };

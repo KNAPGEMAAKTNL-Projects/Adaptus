@@ -7,7 +7,8 @@ router.get('/summary', (req, res) => {
     SELECT
       COUNT(DISTINCT ws.id) as total_workouts,
       COALESCE(SUM(sl.weight_kg * sl.reps), 0) as total_volume,
-      COUNT(sl.id) as total_sets
+      COUNT(sl.id) as total_sets,
+      AVG((julianday(ws.completed_at) - julianday(ws.started_at)) * 24 * 60) as avg_duration_minutes
     FROM workout_sessions ws
     LEFT JOIN set_logs sl ON sl.workout_session_id = ws.id
     WHERE ws.completed_at IS NOT NULL
@@ -20,10 +21,22 @@ router.get('/summary', (req, res) => {
     ORDER BY exercise_name ASC
   `);
 
+  // Compute estimated 1RM per exercise
+  for (const pr of prs) {
+    const allSets = all(`SELECT weight_kg, reps FROM set_logs WHERE exercise_name = ?`, [pr.exercise_name]);
+    let maxE1rm = 0;
+    for (const s of allSets) {
+      const e1rm = s.weight_kg * (1 + s.reps / 30);
+      if (e1rm > maxE1rm) maxE1rm = e1rm;
+    }
+    pr.estimated_1rm = Math.round(maxE1rm * 10) / 10;
+  }
+
   res.json({
     totalWorkouts: totals.total_workouts || 0,
     totalSets: totals.total_sets || 0,
     totalVolume: Math.round(totals.total_volume || 0),
+    avgDuration: totals.avg_duration_minutes ? Math.round(totals.avg_duration_minutes) : null,
     prs,
   });
 });
@@ -36,7 +49,8 @@ router.get('/week-summary', (req, res) => {
     SELECT
       COUNT(DISTINCT ws.id) as workouts_completed,
       COALESCE(SUM(sl.weight_kg * sl.reps), 0) as total_volume,
-      COUNT(sl.id) as total_sets
+      COUNT(sl.id) as total_sets,
+      SUM((julianday(ws.completed_at) - julianday(ws.started_at)) * 24 * 60) as total_duration_minutes
     FROM workout_sessions ws
     LEFT JOIN set_logs sl ON sl.workout_session_id = ws.id
     WHERE ws.cycle = ? AND ws.week_number = ? AND ws.completed_at IS NOT NULL
@@ -72,6 +86,7 @@ router.get('/week-summary', (req, res) => {
     totalWorkouts: 5,
     totalSets: stats.total_sets || 0,
     totalVolume: Math.round(stats.total_volume || 0),
+    totalDuration: stats.total_duration_minutes ? Math.round(stats.total_duration_minutes) : null,
     prsThisWeek,
   });
 });

@@ -15,9 +15,17 @@ const state = {
 async function api(method, path, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
   if (body) opts.body = JSON.stringify(body);
-  const res = await fetch(`/api${path}`, opts);
-  if (!res.ok) throw new Error(`API ${method} ${path}: ${res.status}`);
-  return res.json();
+  try {
+    const res = await fetch(`/api${path}`, opts);
+    if (!res.ok) throw new Error(`API ${method} ${path}: ${res.status}`);
+    return res.json();
+  } catch (err) {
+    // Queue write operations on network failure
+    if (method !== 'GET' && (err.name === 'TypeError' || err.message === 'Failed to fetch')) {
+      return queueOfflineRequest(method, path, body);
+    }
+    throw err;
+  }
 }
 
 // ─── Init ────────────────────────────────────────────────────────────────────
@@ -36,6 +44,12 @@ async function init() {
     });
   }
   navigate(location.hash || '#home');
+
+  // Offline queue: show badge and sync if online
+  updateQueueBadge();
+  if (navigator.onLine && getOfflineQueue().length > 0) {
+    syncOfflineQueue();
+  }
 }
 
 // ─── Router ──────────────────────────────────────────────────────────────────
@@ -109,6 +123,139 @@ function getLoggedSets(exerciseId) {
 function formatVolume(kg) {
   if (kg >= 1000) return Math.round(kg / 1000) + 'k';
   return kg.toString();
+}
+
+function formatDuration(minutes) {
+  if (!minutes || minutes <= 0) return '0m';
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+// ─── Offline Queue ───────────────────────────────────────────────────────────
+function getOfflineQueue() {
+  try { return JSON.parse(localStorage.getItem('adaptus-offline-queue') || '[]'); }
+  catch { return []; }
+}
+
+function saveOfflineQueue(queue) {
+  localStorage.setItem('adaptus-offline-queue', JSON.stringify(queue));
+  updateQueueBadge();
+}
+
+function generateTempId() {
+  return `temp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function queueOfflineRequest(method, path, body) {
+  const queue = getOfflineQueue();
+  const id = generateTempId();
+  const entry = { id, method, path, body, timestamp: new Date().toISOString() };
+
+  // Temp ID system for session creation
+  if (method === 'POST' && path === '/workouts') {
+    entry.tempId = id;
+    const synthetic = { id, started_at: new Date().toISOString(), completed_at: null, skipped_at: null, ...body };
+    queue.push(entry);
+    saveOfflineQueue(queue);
+    return synthetic;
+  }
+
+  if (method === 'POST' && path === '/sets') {
+    const tempSetId = generateTempId();
+    entry.tempId = tempSetId;
+    // Check if workoutSessionId is a temp ID
+    if (body && typeof body.workoutSessionId === 'string' && body.workoutSessionId.startsWith('temp_')) {
+      entry.dependsOnTempId = body.workoutSessionId;
+    }
+    const synthetic = { id: tempSetId, logged_at: new Date().toISOString(), ...body };
+    queue.push(entry);
+    saveOfflineQueue(queue);
+    return synthetic;
+  }
+
+  // PUT/DELETE
+  queue.push(entry);
+  saveOfflineQueue(queue);
+  return { queued: true };
+}
+
+async function syncOfflineQueue() {
+  const queue = getOfflineQueue();
+  if (queue.length === 0) return;
+
+  showSyncToast(`Syncing ${queue.length} pending...`);
+  const tempIdMap = {};
+  const failed = [];
+
+  for (const entry of queue) {
+    try {
+      let { method, path, body } = entry;
+
+      // Resolve temp IDs in body
+      if (body && entry.dependsOnTempId && tempIdMap[entry.dependsOnTempId]) {
+        body = { ...body, workoutSessionId: tempIdMap[entry.dependsOnTempId] };
+      }
+
+      // Resolve temp IDs in path
+      for (const [tempId, realId] of Object.entries(tempIdMap)) {
+        if (path.includes(tempId)) {
+          path = path.replace(tempId, realId);
+        }
+      }
+
+      const opts = { method, headers: { 'Content-Type': 'application/json' } };
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(`/api${path}`, opts);
+      if (!res.ok) throw new Error(`${res.status}`);
+      const data = await res.json();
+
+      // Map temp IDs to real IDs
+      if (entry.tempId && data && data.id) {
+        tempIdMap[entry.tempId] = data.id;
+      }
+    } catch {
+      failed.push(entry);
+    }
+  }
+
+  saveOfflineQueue(failed);
+  if (failed.length === 0) {
+    showSyncToast('All changes synced');
+  } else {
+    showSyncToast(`${failed.length} still pending`);
+  }
+}
+
+function updateQueueBadge() {
+  const badge = document.getElementById('offline-badge');
+  const count = document.getElementById('offline-count');
+  if (!badge || !count) return;
+  const queue = getOfflineQueue();
+  if (queue.length > 0) {
+    count.textContent = queue.length;
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
+}
+
+function showSyncToast(message) {
+  let toast = document.getElementById('sync-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'sync-toast';
+    toast.className = 'fixed top-2 left-1/2 -translate-x-1/2 z-[70] transition-opacity duration-300';
+    document.body.appendChild(toast);
+  }
+  toast.innerHTML = `<span class="text-xs font-bold uppercase tracking-widest text-canvas bg-ink px-3 py-1.5">${message}</span>`;
+  toast.style.opacity = '1';
+  clearTimeout(toast._hideTimeout);
+  toast._hideTimeout = setTimeout(() => {
+    toast.style.opacity = '0';
+    setTimeout(() => { if (toast.parentNode) toast.remove(); }, 300);
+  }, 3000);
 }
 
 // ─── Rest Timer ──────────────────────────────────────────────────────────────
@@ -281,7 +428,7 @@ async function renderDashboard() {
 
       <div class="border-2 border-ink/10 p-5 mb-5">
         <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-4">This Week</h3>
-        <div class="grid grid-cols-3 gap-4 mb-4">
+        <div class="grid grid-cols-2 gap-4 mb-4">
           <div>
             <span class="text-3xl font-black leading-none block">${doneCount}</span>
             <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">/ ${weekSummary.totalWorkouts} done</span>
@@ -293,6 +440,10 @@ async function renderDashboard() {
           <div>
             <span class="text-3xl font-black leading-none block">${formatVolume(weekSummary.totalVolume)}</span>
             <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">volume</span>
+          </div>
+          <div>
+            <span class="text-3xl font-black leading-none block">${weekSummary.totalDuration ? formatDuration(weekSummary.totalDuration) : '—'}</span>
+            <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">duration</span>
           </div>
         </div>
         ${progressDots ? `
@@ -334,10 +485,13 @@ async function renderStats() {
   const summary = await api('GET', '/stats/summary');
 
   const prsHtml = summary.prs.length > 0 ? summary.prs.map(pr => `
-    <div class="flex items-center justify-between py-3 border-b border-ink/10 last:border-0">
+    <button onclick="navigate('#exercise-stats/${encodeURIComponent(pr.exercise_name)}')" class="flex items-center justify-between py-3 border-b border-ink/10 last:border-0 w-full text-left active:bg-ink/5 transition-colors duration-200">
       <span class="font-bold text-[15px] truncate flex-1 mr-3">${pr.exercise_name}</span>
-      <span class="font-black text-lg flex-shrink-0">${pr.max_weight}<span class="text-sm font-bold text-ink/40 ml-0.5">kg</span></span>
-    </div>
+      <span class="flex-shrink-0 text-right">
+        <span class="font-black text-lg">${pr.max_weight}<span class="text-sm font-bold text-ink/40 ml-0.5">kg</span></span>
+        ${pr.estimated_1rm ? `<span class="text-xs font-bold text-electric ml-2">${pr.estimated_1rm} e1rm</span>` : ''}
+      </span>
+    </button>
   `).join('') : '<p class="text-sm text-ink/30 py-4">No data yet. Log some sets!</p>';
 
   document.getElementById('app').innerHTML = `
@@ -350,7 +504,7 @@ async function renderStats() {
 
       <div class="border-2 border-ink/10 p-5 mb-5">
         <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-4">All Time</h3>
-        <div class="grid grid-cols-3 gap-4">
+        <div class="grid grid-cols-2 gap-4">
           <div>
             <span class="text-3xl font-black leading-none block">${summary.totalWorkouts}</span>
             <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">workouts</span>
@@ -362,6 +516,10 @@ async function renderStats() {
           <div>
             <span class="text-3xl font-black leading-none block">${formatVolume(summary.totalVolume)}</span>
             <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">volume (kg)</span>
+          </div>
+          <div>
+            <span class="text-3xl font-black leading-none block">${summary.avgDuration ? formatDuration(summary.avgDuration) : '—'}</span>
+            <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">avg duration</span>
           </div>
         </div>
       </div>
@@ -636,7 +794,7 @@ async function renderWorkout(templateId) {
           ${isCompleted ? '<span class="text-[10px] font-bold uppercase tracking-widest text-acid bg-ink px-2 py-1 rounded-full">Completed</span>' : ''}
           ${isSkipped ? '<span class="text-[10px] font-bold uppercase tracking-widest text-ink/60 bg-ink/10 px-2 py-1 rounded-full">Skipped</span>' : ''}
         </div>
-        <p class="text-sm font-bold text-ink/40 uppercase tracking-widest mt-1">${workout.focus} &middot; Week ${state.progress.week}</p>
+        <p class="text-sm font-bold text-ink/40 uppercase tracking-widest mt-1">${workout.focus} &middot; Week ${state.progress.week}${isCompleted && state.currentSession.started_at && state.currentSession.completed_at ? ` &middot; ${formatDuration((new Date(state.currentSession.completed_at) - new Date(state.currentSession.started_at)) / 60000)}` : ''}</p>
       </div>
 
       ${isSkipped ? `
@@ -719,7 +877,17 @@ function closeCancelModal() {
 async function confirmCancelWorkout() {
   closeCancelModal();
   if (state.currentSession) {
-    await api('DELETE', `/workouts/${state.currentSession.id}`);
+    const sessionId = state.currentSession.id;
+    // If session has a temp ID, remove related queue entries instead of sending DELETE
+    if (typeof sessionId === 'string' && sessionId.startsWith('temp_')) {
+      const queue = getOfflineQueue();
+      const cleaned = queue.filter(e =>
+        e.tempId !== sessionId && e.dependsOnTempId !== sessionId
+      );
+      saveOfflineQueue(cleaned);
+    } else {
+      await api('DELETE', `/workouts/${sessionId}`);
+    }
   }
   dismissTimer();
   // Clear all localStorage drafts for this workout
@@ -1165,8 +1333,11 @@ async function confirmSkipWorkout(templateId, workoutName) {
 
 // ─── View: Exercise Stats ───────────────────────────────────────────────────
 async function renderExerciseStats(exerciseName) {
-  const history = await api('GET', `/sets/exercise-history/${encodeURIComponent(exerciseName)}`);
-  const pr = await api('GET', `/sets/pr/${encodeURIComponent(exerciseName)}`);
+  const [history, pr, e1rm] = await Promise.all([
+    api('GET', `/sets/exercise-history/${encodeURIComponent(exerciseName)}`),
+    api('GET', `/sets/pr/${encodeURIComponent(exerciseName)}`),
+    api('GET', `/sets/e1rm/${encodeURIComponent(exerciseName)}`),
+  ]);
 
   const prHtml = pr ? `
     <div class="border-2 border-acid bg-acid/5 p-4 mb-5">
@@ -1175,6 +1346,14 @@ async function renderExerciseStats(exerciseName) {
       <span class="text-lg font-bold text-ink/40 mx-1">&times;</span>
       <span class="text-2xl font-black">${pr.reps}</span>
       <p class="text-xs text-ink/40 mt-1">${pr.logged_at ? new Date(pr.logged_at).toLocaleDateString() : ''}</p>
+    </div>
+  ` : '';
+
+  const e1rmHtml = e1rm ? `
+    <div class="border-2 border-electric bg-electric/5 p-4 mb-5">
+      <h3 class="text-[10px] font-bold uppercase tracking-widest text-electric/60 mb-1">Estimated 1RM</h3>
+      <span class="text-2xl font-black text-electric">${e1rm.estimated1rm}<span class="text-sm font-bold text-electric/40 ml-0.5">kg</span></span>
+      <p class="text-xs text-ink/40 mt-1">From ${e1rm.fromWeight}kg &times; ${e1rm.fromReps} reps</p>
     </div>
   ` : '';
 
@@ -1202,11 +1381,22 @@ async function renderExerciseStats(exerciseName) {
       <p class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-6">History</p>
 
       ${prHtml}
+      ${e1rmHtml}
 
       ${history.length >= 2 ? `
         <div class="border-2 border-ink/10 p-4 mb-5">
-          <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-3">Weight Over Time</h3>
-          <canvas id="progress-chart" class="w-full" height="180"></canvas>
+          <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-3">Progress Over Time</h3>
+          <canvas id="progress-chart" class="w-full" height="200"></canvas>
+          <div class="flex items-center justify-center gap-4 mt-3">
+            <div class="flex items-center gap-1.5">
+              <div class="w-3 h-1 bg-[#CCFF00]"></div>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Max Weight</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <div class="w-3 h-1 bg-electric"></div>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Est. 1RM</span>
+            </div>
+          </div>
         </div>
       ` : ''}
 
@@ -1230,16 +1420,18 @@ function drawProgressChart(history, pr) {
   // Hi-DPI support
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
+  const H = 200;
   canvas.width = rect.width * dpr;
-  canvas.height = 180 * dpr;
+  canvas.height = H * dpr;
   ctx.scale(dpr, dpr);
   const W = rect.width;
-  const H = 180;
 
   const weights = history.map(s => s.maxWeight);
-  const minW = Math.min(...weights);
-  const maxW = Math.max(...weights);
-  const range = maxW - minW || 1;
+  const e1rms = history.map(s => s.bestE1rm || 0);
+  const allValues = [...weights, ...e1rms.filter(v => v > 0)];
+  const minV = Math.min(...allValues);
+  const maxV = Math.max(...allValues);
+  const range = maxV - minV || 1;
 
   const padTop = 20, padBottom = 30, padLeft = 40, padRight = 15;
   const chartW = W - padLeft - padRight;
@@ -1251,7 +1443,7 @@ function drawProgressChart(history, pr) {
   ctx.textAlign = 'right';
   const steps = 4;
   for (let i = 0; i <= steps; i++) {
-    const val = minW + (range * i / steps);
+    const val = minV + (range * i / steps);
     const y = padTop + chartH - (chartH * i / steps);
     ctx.fillText(Math.round(val) + '', padLeft - 8, y + 3);
     ctx.strokeStyle = 'rgba(0,0,0,0.06)';
@@ -1261,38 +1453,68 @@ function drawProgressChart(history, pr) {
     ctx.stroke();
   }
 
+  // X positions
+  const xPositions = history.map((s, i) => padLeft + (chartW * i / (history.length - 1)));
+
   // X axis labels
   ctx.textAlign = 'center';
   ctx.fillStyle = 'rgba(0,0,0,0.25)';
-  const points = history.map((s, i) => {
-    const x = padLeft + (chartW * i / (history.length - 1));
-    const y = padTop + chartH - (chartH * (s.maxWeight - minW) / range);
-    return { x, y, s };
-  });
-
-  points.forEach((p, i) => {
+  xPositions.forEach((x, i) => {
     if (history.length <= 12 || i % Math.ceil(history.length / 8) === 0) {
-      ctx.fillText('W' + p.s.weekNumber, p.x, H - 8);
+      ctx.fillText('W' + history[i].weekNumber, x, H - 8);
     }
   });
 
-  // Line
+  // Helper: map value to Y
+  const toY = (val) => padTop + chartH - (chartH * (val - minV) / range);
+
+  // E1RM line (draw first so weight line is on top)
+  const hasE1rm = e1rms.some(v => v > 0);
+  if (hasE1rm) {
+    ctx.strokeStyle = '#7C3AED';
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    e1rms.forEach((val, i) => {
+      if (val <= 0) return;
+      const x = xPositions[i];
+      const y = toY(val);
+      if (i === 0 || e1rms[i - 1] <= 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // E1RM dots
+    e1rms.forEach((val, i) => {
+      if (val <= 0) return;
+      ctx.beginPath();
+      ctx.arc(xPositions[i], toY(val), 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#7C3AED';
+      ctx.fill();
+    });
+  }
+
+  // Weight line
   ctx.strokeStyle = '#CCFF00';
   ctx.lineWidth = 2.5;
   ctx.lineJoin = 'round';
   ctx.beginPath();
-  points.forEach((p, i) => {
-    if (i === 0) ctx.moveTo(p.x, p.y);
-    else ctx.lineTo(p.x, p.y);
+  weights.forEach((val, i) => {
+    const x = xPositions[i];
+    const y = toY(val);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
   });
   ctx.stroke();
 
-  // Dots
+  // Weight dots
   const prWeight = pr ? pr.weight_kg : null;
-  points.forEach(p => {
-    const isPr = p.s.maxWeight === prWeight;
+  weights.forEach((val, i) => {
+    const isPr = val === prWeight;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, isPr ? 5 : 3, 0, Math.PI * 2);
+    ctx.arc(xPositions[i], toY(val), isPr ? 5 : 3, 0, Math.PI * 2);
     ctx.fillStyle = '#CCFF00';
     ctx.fill();
     if (isPr) {
@@ -1302,6 +1524,17 @@ function drawProgressChart(history, pr) {
     }
   });
 }
+
+// ─── Online/Offline Events ───────────────────────────────────────────────────
+window.addEventListener('online', async () => {
+  showSyncToast('Back online');
+  await syncOfflineQueue();
+  navigate(location.hash || '#home');
+});
+
+window.addEventListener('offline', () => {
+  showSyncToast('You are offline');
+});
 
 // ─── Boot ────────────────────────────────────────────────────────────────────
 init();
