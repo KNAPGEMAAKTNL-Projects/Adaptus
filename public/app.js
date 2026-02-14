@@ -135,6 +135,15 @@ function formatDuration(minutes) {
   return `${m}m`;
 }
 
+// SQLite datetime('now') returns UTC without Z suffix — JS would parse as local time
+function parseUtc(dateStr) {
+  if (!dateStr) return new Date(NaN);
+  if (!dateStr.endsWith('Z') && !dateStr.includes('+') && !dateStr.includes('T')) {
+    return new Date(dateStr.replace(' ', 'T') + 'Z');
+  }
+  return new Date(dateStr);
+}
+
 // ─── Offline Queue ───────────────────────────────────────────────────────────
 function getOfflineQueue() {
   try { return JSON.parse(localStorage.getItem('adaptus-offline-queue') || '[]'); }
@@ -364,7 +373,7 @@ function updateWorkoutTimer() {
     el.classList.add('hidden');
     return;
   }
-  const elapsed = Math.floor((Date.now() - new Date(state.currentSession.started_at).getTime()) / 1000);
+  const elapsed = Math.floor((Date.now() - parseUtc(state.currentSession.started_at).getTime()) / 1000);
   const h = Math.floor(elapsed / 3600);
   const m = Math.floor((elapsed % 3600) / 60);
   const s = elapsed % 60;
@@ -375,7 +384,7 @@ function updateWorkoutTimer() {
 }
 
 function formatElapsed(startedAt) {
-  const elapsed = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000);
+  const elapsed = Math.floor((Date.now() - parseUtc(startedAt).getTime()) / 1000);
   const h = Math.floor(elapsed / 3600);
   const m = Math.floor((elapsed % 3600) / 60);
   if (h > 0) return `${h}h ${m}m`;
@@ -435,7 +444,7 @@ async function renderDashboard() {
         <h3 class="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-2">Next Up</h3>
         <h2 class="text-xl font-black uppercase tracking-tight leading-tight">${nextWorkout.name.split('(')[0].trim()}</h2>
         <p class="text-sm text-white/50 font-bold uppercase tracking-widest mt-1">${nextWorkout.focus} &middot; Cycle ${state.progress.cycle} &middot; Week ${state.progress.week}${deload ? ' &middot; Deload' : ''}</p>
-        <button onclick="startWorkoutFlow('${nextWorkout.templateId}')" class="w-full mt-4 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
+        <button onclick="startWorkoutFlow('${nextWorkout.templateId}', true)" class="w-full mt-4 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
           Start Workout
         </button>
       </div>
@@ -747,7 +756,7 @@ async function confirmCycleChange(newCycle, newWeek) {
   renderWorkouts();
 }
 
-async function startWorkoutFlow(templateId) {
+async function startWorkoutFlow(templateId, directStart = false) {
   const week = await getWeekData();
   const workout = week.workouts.find(wo => wo.templateId === templateId);
   state.currentWorkoutData = workout;
@@ -778,7 +787,7 @@ async function startWorkoutFlow(templateId) {
     }
     navigate(`#workout/${templateId}`);
   } else if (state.currentSession && !state.currentSession.completed_at && !state.currentSession.skipped_at && state.currentSession.workout_template_id === templateId) {
-    // Active session — resume to first incomplete exercise
+    // Active session — load sets
     state.sessionSets = {};
     const sets = await api('GET', `/sets/session/${state.currentSession.id}`);
     sets.forEach(s => {
@@ -786,18 +795,29 @@ async function startWorkoutFlow(templateId) {
       state.sessionSets[s.exercise_id].push(s);
     });
     startWorkoutTimer();
-    navigate(`#exercise/${findFirstIncompleteExercise(workout)}`);
+    if (directStart) {
+      navigate(`#exercise/${findFirstIncompleteExercise(workout)}`);
+    } else {
+      navigate(`#workout/${templateId}`);
+    }
   } else {
-    // New workout — create session immediately and go to first exercise
+    // New workout
     state.sessionSets = {};
-    state.currentSession = await api('POST', '/workouts', {
-      cycle: state.progress.cycle,
-      weekNumber: state.progress.week,
-      workoutTemplateId: workout.templateId,
-      workoutName: workout.name,
-    });
-    startWorkoutTimer();
-    navigate(`#exercise/0`);
+    if (directStart) {
+      // Create session immediately and go to first exercise
+      state.currentSession = await api('POST', '/workouts', {
+        cycle: state.progress.cycle,
+        weekNumber: state.progress.week,
+        workoutTemplateId: workout.templateId,
+        workoutName: workout.name,
+      });
+      startWorkoutTimer();
+      navigate(`#exercise/0`);
+    } else {
+      // Show overview, session created later
+      state.currentSession = null;
+      navigate(`#workout/${templateId}`);
+    }
   }
 }
 
@@ -869,7 +889,7 @@ async function renderWorkout(templateId) {
           ${isCompleted ? '<span class="text-[10px] font-bold uppercase tracking-widest text-acid bg-ink px-2 py-1 rounded-full">Completed</span>' : ''}
           ${isSkipped ? '<span class="text-[10px] font-bold uppercase tracking-widest text-ink/60 bg-ink/10 px-2 py-1 rounded-full">Skipped</span>' : ''}
         </div>
-        <p class="text-sm font-bold text-ink/40 uppercase tracking-widest mt-1">${workout.focus} &middot; Week ${state.progress.week}${isCompleted && state.currentSession.started_at && state.currentSession.completed_at ? ` &middot; ${formatDuration((new Date(state.currentSession.completed_at) - new Date(state.currentSession.started_at)) / 60000)}` : ''}</p>
+        <p class="text-sm font-bold text-ink/40 uppercase tracking-widest mt-1">${workout.focus} &middot; Week ${state.progress.week}${isCompleted && state.currentSession.started_at && state.currentSession.completed_at ? ` &middot; ${formatDuration((parseUtc(state.currentSession.completed_at) - parseUtc(state.currentSession.started_at)) / 60000)}` : ''}</p>
       </div>
 
       ${isSkipped ? `
@@ -881,8 +901,13 @@ async function renderWorkout(templateId) {
         </div>
       ` : `
         ${isActive ? `
-          <button onclick="navigate('#exercise/${findFirstIncompleteExercise(workout)}')" class="w-full mb-4 py-3 bg-ink text-canvas font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink/80">
+          <button onclick="startWorkoutFlow('${workout.templateId}', true)" class="w-full mb-4 py-3 bg-ink text-canvas font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink/80">
             ${hasLoggedSets ? 'Continue Logging' : 'Start Logging'}
+          </button>
+        ` : ''}
+        ${!isCompleted && !isActive ? `
+          <button onclick="startWorkoutFlow('${workout.templateId}', true)" class="w-full mb-4 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
+            Start Workout
           </button>
         ` : ''}
 
@@ -1483,7 +1508,7 @@ async function renderExerciseStats(exerciseName) {
       <span class="text-2xl font-black">${pr.weight_kg}<span class="text-sm font-bold text-ink/40 ml-0.5">kg</span></span>
       <span class="text-lg font-bold text-ink/40 mx-1">&times;</span>
       <span class="text-2xl font-black">${pr.reps}</span>
-      <p class="text-xs text-ink/40 mt-1">${pr.logged_at ? new Date(pr.logged_at).toLocaleDateString() : ''}</p>
+      <p class="text-xs text-ink/40 mt-1">${pr.logged_at ? parseUtc(pr.logged_at).toLocaleDateString() : ''}</p>
     </div>
   ` : '';
 
@@ -1496,7 +1521,7 @@ async function renderExerciseStats(exerciseName) {
   ` : '';
 
   const sessionsHtml = history.length > 0 ? [...history].reverse().map(s => {
-    const date = new Date(s.date).toLocaleDateString();
+    const date = parseUtc(s.date).toLocaleDateString();
     const setsStr = s.sets.map(set => `${set.weight_kg}kg&times;${set.reps}`).join('&ensp;&ensp;');
     return `
       <div class="py-3 border-b border-ink/10 last:border-0">
