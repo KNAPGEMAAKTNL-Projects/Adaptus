@@ -735,7 +735,7 @@ async function renderWorkout(templateId) {
   const hasLoggedSets = Object.values(state.sessionSets).some(sets => sets.length > 0);
 
   document.getElementById('app').innerHTML = `
-    <div class="px-3 pt-6 pb-32">
+    <div class="px-3 pt-6 pb-6">
       <div class="flex items-center justify-between mb-4">
         <button onclick="navigate('#workouts')" class="text-sm font-bold text-ink/40 uppercase tracking-widest flex items-center gap-1 active:text-ink transition-colors duration-200">
           <span class="text-lg leading-none">&larr;</span> Back
