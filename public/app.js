@@ -211,24 +211,24 @@ async function drawerShowOverview() {
     </div>
     <div class="px-5">
       <div class="grid grid-cols-3 gap-3 mb-5">
-        <div class="border-2 border-white/10 p-3 text-center">
+        <div class="border-2 border-white/10 rounded-xl p-3 text-center">
           <span class="text-2xl font-black leading-none block text-acid">${profile.current_weight_kg || '--'}</span>
           <span class="text-[10px] font-bold uppercase tracking-widest text-white/40 mt-1 block">kg</span>
         </div>
-        <div class="border-2 border-white/10 p-3 text-center">
+        <div class="border-2 border-white/10 rounded-xl p-3 text-center">
           <span class="text-2xl font-black leading-none block">${profile.age || '--'}</span>
           <span class="text-[10px] font-bold uppercase tracking-widest text-white/40 mt-1 block">age</span>
         </div>
-        <div class="border-2 border-white/10 p-3 text-center">
+        <div class="border-2 border-white/10 rounded-xl p-3 text-center">
           <span class="text-2xl font-black leading-none block">${streakData.streak || 0}</span>
           <span class="text-[10px] font-bold uppercase tracking-widest text-white/40 mt-1 block">wk streak</span>
         </div>
       </div>
 
-      <button onclick="drawerShowMilestones()" class="w-full border-2 border-white/10 p-4 mb-5 text-left active:bg-white/5 transition-colors duration-200">
+      <button onclick="drawerShowMilestones()" class="w-full border-2 border-white/10 rounded-xl p-4 mb-5 text-left active:bg-white/5 transition-colors duration-200">
         <div class="flex items-center justify-between mb-2">
           <span class="text-[10px] font-bold uppercase tracking-widest text-white/40">Milestones</span>
-          <span class="text-xs font-bold bg-acid text-canvas px-2 py-0.5">${earnedCount}/${totalCount}</span>
+          <span class="text-xs font-bold bg-acid text-canvas rounded px-2 py-0.5">${earnedCount}/${totalCount}</span>
         </div>
         <div class="h-1.5 bg-white/10 rounded-full overflow-hidden">
           <div class="h-full bg-acid rounded-full" style="width: ${pct}%"></div>
@@ -236,11 +236,11 @@ async function drawerShowOverview() {
       </button>
 
       <div class="space-y-1">
-        <button onclick="drawerShowProfile()" class="w-full text-left px-4 py-3.5 text-[15px] font-bold uppercase tracking-tight text-white hover:bg-white/10 active:bg-white/10 transition-colors duration-200 flex items-center gap-3">
+        <button onclick="drawerShowProfile()" class="w-full text-left px-4 py-3.5 text-[15px] font-bold uppercase tracking-tight text-white hover:bg-white/10 active:bg-white/10 rounded-lg transition-colors duration-200 flex items-center gap-3">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           Edit Profile
         </button>
-        <button onclick="drawerShowNutritionGoals()" class="w-full text-left px-4 py-3.5 text-[15px] font-bold uppercase tracking-tight text-white hover:bg-white/10 active:bg-white/10 transition-colors duration-200 flex items-center gap-3">
+        <button onclick="drawerShowNutritionGoals()" class="w-full text-left px-4 py-3.5 text-[15px] font-bold uppercase tracking-tight text-white hover:bg-white/10 active:bg-white/10 rounded-lg transition-colors duration-200 flex items-center gap-3">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
           Nutrition Goals
         </button>
@@ -294,7 +294,7 @@ async function drawerShowProfile() {
 
   function genderBtn(val, label) {
     const active = profile.gender === val;
-    return `<button onclick="document.querySelectorAll('.gender-btn').forEach(b=>b.className='gender-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 text-white/40 transition-colors duration-200');this.className='gender-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid transition-colors duration-200'" class="gender-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 ${active ? 'border-acid text-acid' : 'border-white/20 text-white/40'} transition-colors duration-200" data-val="${val}">${label}</button>`;
+    return `<button onclick="document.querySelectorAll('.gender-btn').forEach(b=>b.className='gender-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 rounded-lg text-white/40 transition-colors duration-200');this.className='gender-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid rounded-lg transition-colors duration-200'" class="gender-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 ${active ? 'border-acid text-acid' : 'border-white/20 text-white/40'} rounded-lg transition-colors duration-200" data-val="${val}">${label}</button>`;
   }
 
   document.getElementById('drawer-content').innerHTML = `
@@ -318,18 +318,18 @@ async function drawerShowProfile() {
           <div>
             <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-1">Age</label>
             <input id="drawer-age" type="number" inputmode="numeric" value="${profile.age}"
-              class="w-full h-12 px-3 border-2 border-white/20 bg-transparent text-center text-white font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
+              class="w-full h-12 px-3 border-2 border-white/20 rounded-lg bg-transparent text-center text-white font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
           </div>
           <div>
             <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-1">Height (cm)</label>
             <input id="drawer-height" type="number" inputmode="decimal" value="${profile.height_cm}"
-              class="w-full h-12 px-3 border-2 border-white/20 bg-transparent text-center text-white font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
+              class="w-full h-12 px-3 border-2 border-white/20 rounded-lg bg-transparent text-center text-white font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
           </div>
         </div>
         <div>
           <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-1">Current Weight (kg)</label>
           <input id="drawer-weight" type="number" inputmode="decimal" step="0.1" value="${profile.current_weight_kg || ''}" placeholder="e.g. 82.5"
-            class="w-full h-12 px-3 border-2 border-white/20 bg-transparent text-center text-white font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200 placeholder:text-white/20">
+            class="w-full h-12 px-3 border-2 border-white/20 rounded-lg bg-transparent text-center text-white font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200 placeholder:text-white/20">
         </div>
       </div>
 
@@ -412,7 +412,7 @@ async function drawerShowNutritionGoals() {
 
   function activityBtn(val, label) {
     const active = profile.activity_level === val;
-    return `<button onclick="document.querySelectorAll('.activity-btn').forEach(b=>b.className='activity-btn w-full py-2 px-3 text-left text-sm font-bold uppercase tracking-tight border-2 border-white/20 text-white/40 transition-colors duration-200 mb-1');this.className='activity-btn w-full py-2 px-3 text-left text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid transition-colors duration-200 mb-1'" class="activity-btn w-full py-2 px-3 text-left text-sm font-bold uppercase tracking-tight border-2 ${active ? 'border-acid text-acid' : 'border-white/20 text-white/40'} transition-colors duration-200 mb-1" data-val="${val}">${label}</button>`;
+    return `<button onclick="document.querySelectorAll('.activity-btn').forEach(b=>b.className='activity-btn w-full py-2 px-3 text-left text-sm font-bold uppercase tracking-tight border-2 border-white/20 rounded-lg text-white/40 transition-colors duration-200 mb-1');this.className='activity-btn w-full py-2 px-3 text-left text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid rounded-lg transition-colors duration-200 mb-1'" class="activity-btn w-full py-2 px-3 text-left text-sm font-bold uppercase tracking-tight border-2 ${active ? 'border-acid text-acid' : 'border-white/20 text-white/40'} rounded-lg transition-colors duration-200 mb-1" data-val="${val}">${label}</button>`;
   }
 
   const today = new Date().toISOString().split('T')[0];
@@ -438,7 +438,7 @@ async function drawerShowNutritionGoals() {
   // Stabilization notice
   const stab = phasesData.stabilization;
   const stabHtml = stab && stab.in_stabilization
-    ? `<div class="flex items-center gap-2 px-3 py-2 border-2 border-amber-500/30 bg-amber-500/10 mb-3">
+    ? `<div class="flex items-center gap-2 px-3 py-2 border-2 border-amber-500/30 bg-amber-500/10 rounded-lg mb-3">
         <span class="text-amber-400 text-sm font-bold">Stabilization — ${stab.days_remaining} days remaining</span>
       </div>`
     : '';
@@ -520,33 +520,33 @@ async function drawerShowNutritionGoals() {
           ${phasesHtml || '<p class="text-sm text-white/20 italic">No phases scheduled</p>'}
         </div>
         <div id="add-phase-area">
-          <button onclick="showAddPhaseForm()" id="add-phase-btn" class="w-full py-2 border-2 border-dashed border-white/20 text-white/40 text-sm font-bold uppercase tracking-tight hover:border-acid hover:text-acid transition-colors duration-200">
+          <button onclick="showAddPhaseForm()" id="add-phase-btn" class="w-full py-2 border-2 border-dashed border-white/20 rounded-lg text-white/40 text-sm font-bold uppercase tracking-tight hover:border-acid hover:text-acid transition-colors duration-200">
             + Add Phase
           </button>
           <div id="add-phase-form" class="hidden">
-            <div class="space-y-3 border-2 border-white/20 p-3">
+            <div class="space-y-3 border-2 border-white/20 rounded-lg p-3">
               <div>
                 <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-2">Phase Type</label>
                 <div class="flex gap-2">
-                  <button onclick="document.querySelectorAll('.new-phase-btn').forEach(b=>b.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 text-white/40 transition-colors duration-200');this.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid transition-colors duration-200'" class="new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 text-white/40 transition-colors duration-200" data-val="cut">Cut</button>
-                  <button onclick="document.querySelectorAll('.new-phase-btn').forEach(b=>b.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 text-white/40 transition-colors duration-200');this.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid transition-colors duration-200'" class="new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 text-white/40 transition-colors duration-200" data-val="maintain">Maintain</button>
-                  <button onclick="document.querySelectorAll('.new-phase-btn').forEach(b=>b.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 text-white/40 transition-colors duration-200');this.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid transition-colors duration-200'" class="new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 text-white/40 transition-colors duration-200" data-val="bulk">Bulk</button>
+                  <button onclick="document.querySelectorAll('.new-phase-btn').forEach(b=>b.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 rounded-lg text-white/40 transition-colors duration-200');this.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid rounded-lg transition-colors duration-200'" class="new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 rounded-lg text-white/40 transition-colors duration-200" data-val="cut">Cut</button>
+                  <button onclick="document.querySelectorAll('.new-phase-btn').forEach(b=>b.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 rounded-lg text-white/40 transition-colors duration-200');this.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid rounded-lg transition-colors duration-200'" class="new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 rounded-lg text-white/40 transition-colors duration-200" data-val="maintain">Maintain</button>
+                  <button onclick="document.querySelectorAll('.new-phase-btn').forEach(b=>b.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 rounded-lg text-white/40 transition-colors duration-200');this.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid rounded-lg transition-colors duration-200'" class="new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 rounded-lg text-white/40 transition-colors duration-200" data-val="bulk">Bulk</button>
                 </div>
               </div>
               <div class="grid grid-cols-2 gap-3">
                 <div>
                   <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-1">Start</label>
-                  <input id="new-phase-start" type="date" class="w-full h-10 px-2 border-2 border-white/20 bg-transparent text-white text-sm font-bold focus:border-acid focus:outline-none transition-colors duration-200">
+                  <input id="new-phase-start" type="date" class="w-full h-10 px-2 border-2 border-white/20 rounded-lg bg-transparent text-white text-sm font-bold focus:border-acid focus:outline-none transition-colors duration-200">
                 </div>
                 <div>
                   <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-1">End</label>
-                  <input id="new-phase-end" type="date" class="w-full h-10 px-2 border-2 border-white/20 bg-transparent text-white text-sm font-bold focus:border-acid focus:outline-none transition-colors duration-200">
+                  <input id="new-phase-end" type="date" class="w-full h-10 px-2 border-2 border-white/20 rounded-lg bg-transparent text-white text-sm font-bold focus:border-acid focus:outline-none transition-colors duration-200">
                 </div>
               </div>
               <div id="phase-error" class="text-red-400 text-xs font-bold hidden"></div>
               <div class="flex gap-2">
                 <button onclick="addPhase()" class="flex-1 py-2 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-sm transition-colors duration-200 active:bg-acid/20 active:text-acid">Add</button>
-                <button onclick="hideAddPhaseForm()" class="flex-1 py-2 border-2 border-white/20 text-white/40 font-bold uppercase tracking-tight text-sm transition-colors duration-200">Cancel</button>
+                <button onclick="hideAddPhaseForm()" class="flex-1 py-2 border-2 border-white/20 rounded-lg text-white/40 font-bold uppercase tracking-tight text-sm transition-colors duration-200">Cancel</button>
               </div>
             </div>
           </div>
