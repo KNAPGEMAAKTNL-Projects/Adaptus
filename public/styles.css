@@ -18,6 +18,15 @@ input[type="number"] {
   -moz-appearance: textfield;
 }
 
+/* Fix iOS date input overflow */
+input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  max-width: 100%;
+  box-sizing: border-box;
+  color-scheme: dark;
+}
+
 /* Tap highlight removal for iOS */
 * {
   -webkit-tap-highlight-color: transparent;

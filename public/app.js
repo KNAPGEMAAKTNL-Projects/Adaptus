@@ -1479,14 +1479,26 @@ async function renderWorkout(templateId) {
         </div>
       ` : `
         ${isActive ? `
-          <button onclick="startWorkoutFlow('${workout.templateId}', true)" class="w-full mb-3 py-2.5 bg-white/10 text-white rounded-lg font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-white/20">
-            ${hasLoggedSets ? 'Continue Logging' : 'Start Logging'}
-          </button>
+          <div class="flex gap-2 mb-3">
+            <button onclick="showCancelWorkoutModal()" class="flex-1 py-2.5 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center text-ink/40 transition-colors duration-200 active:bg-white/20 active:text-white">
+              Cancel
+            </button>
+            <button onclick="startWorkoutFlow('${workout.templateId}', true)" class="flex-[2] py-2.5 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-acid/20 active:text-acid">
+              Continue Logging
+            </button>
+          </div>
         ` : ''}
         ${!isCompleted && !isActive ? `
-          <button onclick="startWorkoutFlow('${workout.templateId}', true)" class="w-full mb-3 py-2.5 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-acid/20 active:text-acid">
-            Start Workout
-          </button>
+          <div class="flex gap-2 mb-3">
+            ${!hasLoggedSets && !state.currentSession ? `
+              <button onclick="showSkipWorkoutModal('${workout.templateId}', '${workout.name.replace(/'/g, "\\'")}')" class="flex-1 py-2.5 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center text-ink/40 transition-colors duration-200 active:bg-white/20 active:text-white">
+                Skip
+              </button>
+            ` : ''}
+            <button onclick="startWorkoutFlow('${workout.templateId}', true)" class="flex-[2] py-2.5 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-acid/20 active:text-acid">
+              Start Workout
+            </button>
+          </div>
         ` : ''}
 
         <div class="flex flex-col gap-1.5">
@@ -1496,18 +1508,6 @@ async function renderWorkout(templateId) {
         ${allDone && !isCompleted ? `
           <button onclick="completeWorkout()" class="w-full mt-6 px-6 py-4 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-acid/20 active:text-acid">
             Complete Workout
-          </button>
-        ` : ''}
-
-        ${!isCompleted && !hasLoggedSets && !state.currentSession ? `
-          <button onclick="showSkipWorkoutModal('${workout.templateId}', '${workout.name.replace(/'/g, "\\'")}')" class="w-full mt-4 py-3 text-xs font-bold uppercase tracking-widest text-ink/30 text-center transition-colors duration-200 active:text-ink/60">
-            Skip Workout
-          </button>
-        ` : ''}
-
-        ${state.currentSession && !isCompleted ? `
-          <button onclick="showCancelWorkoutModal()" class="w-full mt-4 py-3 text-xs font-bold uppercase tracking-widest text-red-400 text-center transition-colors duration-200 active:text-red-600">
-            Cancel Workout
           </button>
         ` : ''}
       `}
