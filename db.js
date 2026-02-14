@@ -193,15 +193,6 @@ async function initDb() {
   `);
   db.run(`CREATE INDEX IF NOT EXISTS idx_phases_dates ON phases(start_date, end_date)`);
 
-  // Migration: seed phases table from user_profile.phase if empty
-  const phaseCount = db.exec("SELECT COUNT(*) FROM phases")[0]?.values[0][0] || 0;
-  if (phaseCount === 0) {
-    const profilePhase = db.exec("SELECT phase FROM user_profile WHERE id = 1")[0]?.values[0][0] || 'maintain';
-    const today = new Date().toISOString().split('T')[0];
-    const oneYear = new Date(Date.now() + 365 * 86400000).toISOString().split('T')[0];
-    db.run(`INSERT INTO phases (phase_type, start_date, end_date) VALUES (?, ?, ?)`, [profilePhase, today, oneYear]);
-  }
-
   save();
   return db;
 }
