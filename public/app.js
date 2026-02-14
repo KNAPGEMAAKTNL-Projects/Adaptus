@@ -842,8 +842,10 @@ async function renderDashboard() {
           <h3 class="text-[10px] font-bold uppercase tracking-widest text-white/40">In Progress</h3>
           <span class="workout-elapsed text-sm font-bold tabular-nums text-acid">${getElapsedText()}</span>
         </div>
-        <h2 class="text-xl font-black uppercase tracking-tight leading-tight">${state.currentSession.workout_name.split('(')[0].trim()}</h2>
-        <p class="text-sm text-white/50 font-bold uppercase tracking-widest mt-1">Cycle ${state.progress.cycle} &middot; Week ${state.progress.week}${deload ? ' &middot; Deload' : ''}</p>
+        <div class="flex items-baseline justify-between gap-2">
+          <h2 class="text-xl font-black uppercase tracking-tight leading-tight">${state.currentSession.workout_name.split('(')[0].trim()}</h2>
+          <span class="text-[10px] text-white/40 font-bold uppercase tracking-widest whitespace-nowrap">C${state.progress.cycle} &middot; W${state.progress.week}${deload ? ' &middot; Deload' : ''}</span>
+        </div>
         <button onclick="event.stopPropagation(); resumeWorkout()" class="w-full mt-4 py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-acid/20 active:text-acid">
           Resume Workout
         </button>
@@ -853,8 +855,10 @@ async function renderDashboard() {
     nextUpHtml = `
       <div class="bg-white/10 text-white rounded-xl p-5 mb-3 cursor-pointer active:bg-white/20 transition-colors duration-200" onclick="startWorkoutFlow('${nextWorkout.templateId}')">
         <h3 class="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-2">Next Up</h3>
-        <h2 class="text-xl font-black uppercase tracking-tight leading-tight">${nextWorkout.name.split('(')[0].trim()}</h2>
-        <p class="text-sm text-white/50 font-bold uppercase tracking-widest mt-1">Cycle ${state.progress.cycle} &middot; Week ${state.progress.week}${deload ? ' &middot; Deload' : ''}</p>
+        <div class="flex items-baseline justify-between gap-2">
+          <h2 class="text-xl font-black uppercase tracking-tight leading-tight">${nextWorkout.name.split('(')[0].trim()}</h2>
+          <span class="text-[10px] text-white/40 font-bold uppercase tracking-widest whitespace-nowrap">C${state.progress.cycle} &middot; W${state.progress.week}${deload ? ' &middot; Deload' : ''}</span>
+        </div>
         <button onclick="event.stopPropagation(); startWorkoutFlow('${nextWorkout.templateId}', true)" class="w-full mt-4 py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-acid/20 active:text-acid">
           Start Workout
         </button>
