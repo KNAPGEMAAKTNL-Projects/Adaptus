@@ -400,6 +400,11 @@ function findFirstIncompleteExercise(workout) {
   return 0;
 }
 
+function navigateToCurrentExercise() {
+  if (!state.currentSession) return;
+  startWorkoutFlow(state.currentSession.workout_template_id, true);
+}
+
 // ─── View: Dashboard ────────────────────────────────────────────────────────
 async function renderDashboard() {
   const week = await getWeekData();

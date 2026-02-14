@@ -47,10 +47,10 @@
 
   <!-- Workout timer (persistent top bar) -->
   <div id="workout-timer" class="fixed top-2 left-1/2 -translate-x-1/2 z-[60] hidden">
-    <span class="text-xs font-bold uppercase tracking-widest text-canvas bg-ink px-3 py-1.5 flex items-center gap-2">
+    <button onclick="navigateToCurrentExercise()" class="text-xs font-bold uppercase tracking-widest text-canvas bg-ink px-3 py-1.5 flex items-center gap-2 active:bg-ink/80 transition-colors duration-200 cursor-pointer">
       <span class="w-1.5 h-1.5 rounded-full bg-acid animate-pulse"></span>
       <span id="workout-elapsed">0:00</span>
-    </span>
+    </button>
   </div>
 
   <!-- Offline queue badge -->
