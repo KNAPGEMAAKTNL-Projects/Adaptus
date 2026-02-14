@@ -12,6 +12,31 @@ const state = {
   workoutTimer: { intervalId: null },
 };
 
+// ─── Milestones ─────────────────────────────────────────────────────────────
+const MILESTONES = [
+  { id: 'workouts-1', category: 'workouts', label: 'First Workout', threshold: 1 },
+  { id: 'workouts-10', category: 'workouts', label: '10 Workouts', threshold: 10 },
+  { id: 'workouts-25', category: 'workouts', label: '25 Workouts', threshold: 25 },
+  { id: 'workouts-50', category: 'workouts', label: '50 Workouts', threshold: 50 },
+  { id: 'workouts-100', category: 'workouts', label: '100 Workouts', threshold: 100 },
+  { id: 'workouts-200', category: 'workouts', label: '200 Workouts', threshold: 200 },
+  { id: 'workouts-500', category: 'workouts', label: '500 Workouts', threshold: 500 },
+  { id: 'volume-10k', category: 'volume', label: '10,000kg Lifted', threshold: 10000 },
+  { id: 'volume-50k', category: 'volume', label: '50,000kg Lifted', threshold: 50000 },
+  { id: 'volume-100k', category: 'volume', label: '100,000kg Lifted', threshold: 100000 },
+  { id: 'volume-250k', category: 'volume', label: '250,000kg Lifted', threshold: 250000 },
+  { id: 'volume-500k', category: 'volume', label: '500,000kg Lifted', threshold: 500000 },
+  { id: 'volume-1m', category: 'volume', label: '1,000,000kg Lifted', threshold: 1000000 },
+  { id: 'streak-4', category: 'streak', label: '4-Week Streak', threshold: 4 },
+  { id: 'streak-8', category: 'streak', label: '8-Week Streak', threshold: 8 },
+  { id: 'streak-12', category: 'streak', label: '12-Week Streak', threshold: 12 },
+  { id: 'sets-100', category: 'sets', label: '100 Sets', threshold: 100 },
+  { id: 'sets-500', category: 'sets', label: '500 Sets', threshold: 500 },
+  { id: 'sets-1000', category: 'sets', label: '1,000 Sets', threshold: 1000 },
+  { id: 'sets-2500', category: 'sets', label: '2,500 Sets', threshold: 2500 },
+  { id: 'sets-5000', category: 'sets', label: '5,000 Sets', threshold: 5000 },
+];
+
 // ─── API helpers ─────────────────────────────────────────────────────────────
 async function api(method, path, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
@@ -41,30 +66,54 @@ async function init() {
 }
 
 // ─── Router ──────────────────────────────────────────────────────────────────
+let isTransitioning = false;
+
 function navigate(hash) {
   if (!hash || hash === '#') hash = '#home';
   location.hash = hash;
   const parts = hash.replace('#', '').split('/');
   const view = parts[0];
-  let p;
+  let renderFn;
   switch (view) {
-    case 'home': p = renderDashboard(); break;
-    case 'workouts': p = renderWorkouts(); break;
-    case 'workout': p = renderWorkout(parts[1]); break;
-    case 'exercise': p = renderExercise(parseInt(parts[1])); break;
-    case 'stats': p = renderStats(); break;
-    case 'exercise-stats': p = renderExerciseStats(decodeURIComponent(parts[1])); break;
-    default: p = renderDashboard();
+    case 'home': renderFn = () => renderDashboard(); break;
+    case 'workouts': renderFn = () => renderWorkouts(); break;
+    case 'workout': renderFn = () => renderWorkout(parts[1]); break;
+    case 'exercise': renderFn = () => renderExercise(parseInt(parts[1])); break;
+    case 'stats': renderFn = () => renderStats(); break;
+    case 'exercise-stats': renderFn = () => renderExerciseStats(decodeURIComponent(parts[1])); break;
+    default: renderFn = () => renderDashboard();
   }
-  if (p && p.catch) p.catch(err => {
+  transitionTo(renderFn).catch(err => {
     console.error('View render error:', err);
-    document.getElementById('app').innerHTML = `
+    const app = document.getElementById('app');
+    app.classList.remove('view-exit');
+    app.innerHTML = `
       <div class="px-3 pt-8">
         <h1 class="text-xl font-black uppercase mb-2">Something went wrong</h1>
         <p class="text-sm text-ink/60 mb-4">${err.message}</p>
         <button onclick="location.reload()" class="px-4 py-2 bg-ink text-canvas font-bold uppercase text-sm">Reload</button>
       </div>`;
   });
+}
+
+async function transitionTo(renderFn) {
+  const app = document.getElementById('app');
+  if (isTransitioning) {
+    await renderFn();
+    app.classList.remove('view-exit');
+    return;
+  }
+  isTransitioning = true;
+  app.classList.add('view-exit');
+  const fadeOut = new Promise(resolve => {
+    const done = () => { app.removeEventListener('transitionend', done); resolve(); };
+    app.addEventListener('transitionend', done);
+    setTimeout(resolve, 150);
+  });
+  await Promise.all([fadeOut, renderFn()]);
+  app.offsetHeight; // force reflow
+  app.classList.remove('view-exit');
+  isTransitioning = false;
 }
 
 window.addEventListener('hashchange', () => navigate(location.hash));
@@ -277,10 +326,11 @@ function navigateToCurrentExercise() {
 // ─── View: Dashboard ────────────────────────────────────────────────────────
 async function renderDashboard() {
   const week = await getWeekData();
-  const [weekSummary, streakData, statusData] = await Promise.all([
+  const [weekSummary, streakData, statusData, weightData] = await Promise.all([
     api('GET', `/stats/week-summary?cycle=${state.progress.cycle}&week=${state.progress.week}`),
     api('GET', '/stats/streak'),
     api('GET', `/workouts/status?cycle=${state.progress.cycle}&week=${state.progress.week}`),
+    api('GET', '/weight/summary'),
   ]);
 
   const deload = isDeloadWeek(state.progress.week);
@@ -419,13 +469,154 @@ async function renderDashboard() {
         </div>
         <p class="text-xs text-ink/40 mt-2">Consecutive weeks with all 5 workouts completed</p>
       </div>
+
+      <div class="border-2 border-ink/10 p-5 mt-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Body Weight</h3>
+          <button onclick="showWeightLogModal()" class="text-xs font-bold uppercase tracking-widest text-ink/40 active:text-ink transition-colors duration-200">+ Log</button>
+        </div>
+        ${weightData.current ? `
+          <div class="flex items-center gap-4">
+            <div>
+              <span class="text-3xl font-black leading-none">${weightData.current}</span>
+              <span class="text-sm font-bold text-ink/40 ml-0.5">kg</span>
+            </div>
+            ${weightData.avg7day ? `
+              <div class="border-l-2 border-ink/10 pl-4">
+                <span class="text-lg font-black leading-none">${weightData.avg7day}</span>
+                <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block">7d avg</span>
+              </div>
+            ` : ''}
+            ${weightData.trend ? `
+              <span class="text-lg font-black ${weightData.trend === 'up' ? 'text-green-600' : weightData.trend === 'down' ? 'text-red-500' : 'text-ink/30'}">${weightData.trend === 'up' ? '&#9650;' : weightData.trend === 'down' ? '&#9660;' : '='}</span>
+            ` : ''}
+          </div>
+        ` : `
+          <p class="text-sm text-ink/30">No entries yet</p>
+        `}
+      </div>
     </div>
   `;
 }
 
+function showWeightLogModal() {
+  const modal = document.createElement('div');
+  modal.id = 'weight-modal';
+  modal.className = 'fixed inset-0 z-[80] flex items-center justify-center';
+  modal.innerHTML = `
+    <div class="absolute inset-0 bg-ink/50" onclick="closeWeightModal()"></div>
+    <div class="relative bg-canvas mx-4 p-5 max-w-sm w-full">
+      <h2 class="text-lg font-black uppercase tracking-tight mb-4">Log Weight</h2>
+      <div class="mb-4">
+        <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Weight (kg)</label>
+        <input id="weight-log-input" type="number" inputmode="decimal" step="0.1"
+          class="w-full h-12 border-2 border-ink/15 text-center font-bold text-xl focus:border-ink focus:outline-none transition-colors duration-200">
+      </div>
+      <div class="flex gap-2">
+        <button onclick="closeWeightModal()" class="flex-1 py-3 border-2 border-ink/15 font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-canvas">Cancel</button>
+        <button onclick="confirmWeightLog()" class="flex-1 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-acid">Log</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  requestAnimationFrame(() => document.getElementById('weight-log-input')?.focus());
+}
+
+function closeWeightModal() {
+  document.getElementById('weight-modal')?.remove();
+}
+
+async function confirmWeightLog() {
+  const weight = parseFloat(document.getElementById('weight-log-input')?.value);
+  if (!weight || weight <= 0) return;
+  closeWeightModal();
+  await api('POST', '/weight', { weightKg: weight });
+  renderDashboard();
+}
+
+// ─── Milestones ────────────────────────────────────────────────────────────
+function getShownMilestones() {
+  return JSON.parse(localStorage.getItem('milestones-shown') || '[]');
+}
+
+function markMilestoneShown(id) {
+  const shown = getShownMilestones();
+  if (!shown.includes(id)) {
+    shown.push(id);
+    localStorage.setItem('milestones-shown', JSON.stringify(shown));
+  }
+}
+
+function computeEarnedMilestones(stats, streak) {
+  const earned = [];
+  for (const m of MILESTONES) {
+    let value = 0;
+    switch (m.category) {
+      case 'workouts': value = stats.totalWorkouts; break;
+      case 'volume': value = stats.totalVolume; break;
+      case 'streak': value = streak; break;
+      case 'sets': value = stats.totalSets; break;
+    }
+    if (value >= m.threshold) earned.push(m);
+  }
+  return earned;
+}
+
+async function checkAndCelebrateMilestones() {
+  const [summary, streakData] = await Promise.all([
+    api('GET', '/stats/summary'),
+    api('GET', '/stats/streak'),
+  ]);
+  const earned = computeEarnedMilestones(summary, streakData.streak);
+  const shown = getShownMilestones();
+  const newMilestones = earned.filter(m => !shown.includes(m.id));
+  for (let i = 0; i < newMilestones.length; i++) {
+    setTimeout(() => {
+      showMilestoneCelebration(newMilestones[i]);
+      markMilestoneShown(newMilestones[i].id);
+    }, i * 3000);
+  }
+}
+
+function showMilestoneCelebration(milestone) {
+  const el = document.getElementById('milestone-celebration');
+  if (el) el.remove();
+  const celebration = document.createElement('div');
+  celebration.id = 'milestone-celebration';
+  celebration.className = 'fixed inset-0 z-[90] flex items-center justify-center pointer-events-none';
+  celebration.innerHTML = `
+    <div class="bg-ink text-canvas px-8 py-6 text-center animate-pr-pop pointer-events-auto" onclick="this.parentElement.remove()">
+      <div class="text-[10px] font-bold uppercase tracking-widest text-acid mb-3">Milestone Unlocked</div>
+      <div class="text-2xl font-black uppercase tracking-tight">${milestone.label}</div>
+    </div>
+  `;
+  document.body.appendChild(celebration);
+  setTimeout(() => {
+    const existing = document.getElementById('milestone-celebration');
+    if (existing) existing.remove();
+  }, 2500);
+}
+
 // ─── View: Stats ────────────────────────────────────────────────────────────
 async function renderStats() {
-  const summary = await api('GET', '/stats/summary');
+  const [summary, weightHistory, streakData] = await Promise.all([
+    api('GET', '/stats/summary'),
+    api('GET', '/weight/history?limit=60'),
+    api('GET', '/stats/streak'),
+  ]);
+
+  const earned = computeEarnedMilestones(summary, streakData.streak);
+  earned.forEach(m => markMilestoneShown(m.id));
+  const earnedIds = new Set(earned.map(m => m.id));
+
+  const achievementsHtml = MILESTONES.map(m => {
+    const isEarned = earnedIds.has(m.id);
+    return `
+      <div class="p-3 border-2 ${isEarned ? 'border-acid bg-acid/5' : 'border-ink/10 opacity-30'} text-center">
+        <div class="text-xs font-bold uppercase tracking-tight leading-tight">${m.label}</div>
+      </div>
+    `;
+  }).join('');
 
   const prsHtml = summary.prs.length > 0 ? summary.prs.map(pr => `
     <button onclick="navigate('#exercise-stats/${encodeURIComponent(pr.exercise_name)}')" class="flex items-center justify-between py-3 border-b border-ink/10 last:border-0 w-full text-left active:bg-ink/5 transition-colors duration-200">
@@ -467,6 +658,23 @@ async function renderStats() {
         </div>
       </div>
 
+      ${weightHistory.length >= 2 ? `
+        <div class="border-2 border-ink/10 p-5 mb-5">
+          <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-3">Body Weight</h3>
+          <canvas id="weight-chart" class="w-full" height="160"></canvas>
+        </div>
+      ` : ''}
+
+      <div class="border-2 border-ink/10 p-5 mb-5">
+        <div class="flex items-center gap-2 mb-4">
+          <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Milestones</h3>
+          <span class="text-xs font-bold text-canvas bg-acid text-ink px-2 py-0.5">${earned.length}/${MILESTONES.length}</span>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          ${achievementsHtml}
+        </div>
+      </div>
+
       <div class="border-2 border-ink/10 p-5">
         <div class="flex items-center gap-2 mb-4">
           <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Personal Records</h3>
@@ -478,6 +686,9 @@ async function renderStats() {
       </div>
     </div>
   `;
+  if (weightHistory.length >= 2) {
+    requestAnimationFrame(() => drawWeightChart(weightHistory));
+  }
 }
 
 // ─── View: Workouts ─────────────────────────────────────────────────────────
@@ -935,6 +1146,7 @@ async function completeWorkout() {
   state.currentSession = null;
   state.currentWorkoutData = null;
   navigate('#workouts');
+  setTimeout(() => checkAndCelebrateMilestones(), 500);
 }
 
 // ─── View: Exercise Logging ──────────────────────────────────────────────────
@@ -1604,6 +1816,79 @@ function drawProgressChart(history, pr) {
       ctx.lineWidth = 2;
       ctx.stroke();
     }
+  });
+}
+
+function drawWeightChart(history) {
+  const canvas = document.getElementById('weight-chart');
+  if (!canvas || history.length < 2) return;
+  const ctx = canvas.getContext('2d');
+
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const H = 160;
+  canvas.width = rect.width * dpr;
+  canvas.height = H * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width;
+
+  const values = history.map(e => e.weight_kg);
+  const minV = Math.min(...values) - 0.5;
+  const maxV = Math.max(...values) + 0.5;
+  const range = maxV - minV || 1;
+
+  const padTop = 15, padBottom = 25, padLeft = 40, padRight = 15;
+  const chartW = W - padLeft - padRight;
+  const chartH = H - padTop - padBottom;
+
+  // Y axis
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.font = '10px system-ui, sans-serif';
+  ctx.textAlign = 'right';
+  const steps = 4;
+  for (let i = 0; i <= steps; i++) {
+    const val = minV + (range * i / steps);
+    const y = padTop + chartH - (chartH * i / steps);
+    ctx.fillText(val.toFixed(1), padLeft - 8, y + 3);
+    ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+    ctx.beginPath();
+    ctx.moveTo(padLeft, y);
+    ctx.lineTo(W - padRight, y);
+    ctx.stroke();
+  }
+
+  const xPositions = history.map((_, i) => padLeft + (chartW * i / (history.length - 1)));
+  const toY = (val) => padTop + chartH - (chartH * (val - minV) / range);
+
+  // X axis labels
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  xPositions.forEach((x, i) => {
+    if (history.length <= 10 || i % Math.ceil(history.length / 6) === 0) {
+      const d = parseUtc(history[i].logged_at);
+      ctx.fillText(`${d.getDate()}/${d.getMonth() + 1}`, x, H - 6);
+    }
+  });
+
+  // Line
+  ctx.strokeStyle = '#CCFF00';
+  ctx.lineWidth = 2.5;
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  values.forEach((val, i) => {
+    const x = xPositions[i];
+    const y = toY(val);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Dots
+  values.forEach((val, i) => {
+    ctx.beginPath();
+    ctx.arc(xPositions[i], toY(val), 3, 0, Math.PI * 2);
+    ctx.fillStyle = '#CCFF00';
+    ctx.fill();
   });
 }
 

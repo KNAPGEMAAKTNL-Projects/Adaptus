@@ -13,6 +13,7 @@ app.use('/api/progress', require('./routes/progress'));
 app.use('/api/workouts', require('./routes/workouts'));
 app.use('/api/sets', require('./routes/sets'));
 app.use('/api/stats', require('./routes/stats'));
+app.use('/api/weight', require('./routes/weight'));
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

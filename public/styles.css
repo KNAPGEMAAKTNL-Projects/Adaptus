@@ -24,6 +24,14 @@ button, .no-select {
   user-select: none;
 }
 
+/* Page transitions */
+#app {
+  transition: opacity 120ms ease-out;
+}
+#app.view-exit {
+  opacity: 0;
+}
+
 /* Timer complete pulse */
 @keyframes pulse-acid {
   0%, 100% { background-color: #CCFF00; }
