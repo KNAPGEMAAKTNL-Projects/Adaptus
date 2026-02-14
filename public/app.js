@@ -726,7 +726,7 @@ function updateTimerDisplay() {
     display.className = 'text-2xl font-black tabular-nums text-canvas';
     progress.style.width = '100%';
     progress.classList.add('timer-done');
-    bar.className = 'bg-acid text-canvas px-4 py-3 flex items-center justify-between';
+    bar.className = 'bg-acid text-canvas px-4 pt-3 pb-0';
     label.className = 'text-xs font-bold uppercase tracking-widest text-canvas/60';
     if (dismiss) dismiss.className = 'text-xs font-bold uppercase tracking-widest text-canvas/40 hover:text-canvas transition-colors duration-200';
   } else {
@@ -735,7 +735,7 @@ function updateTimerDisplay() {
     const pct = (state.restTimer.seconds / state.restTimer.total) * 100;
     progress.style.width = `${pct}%`;
     progress.classList.remove('timer-done');
-    bar.className = 'bg-[#1a1a1a] text-white rounded-xl px-4 py-3 flex items-center justify-between';
+    bar.className = 'bg-[#1a1a1a] text-white px-4 pt-3 pb-0';
     label.className = 'text-xs font-bold uppercase tracking-widest text-white/60';
     if (dismiss) dismiss.className = 'text-xs font-bold uppercase tracking-widest text-white/40 hover:text-white transition-colors duration-200';
   }
@@ -747,7 +747,7 @@ function dismissTimer() {
   const el = document.getElementById('rest-timer');
   if (el) el.classList.add('hidden');
   const bar = document.getElementById('timer-bar');
-  if (bar) bar.className = 'bg-[#1a1a1a] text-white rounded-xl px-4 py-3 flex items-center justify-between';
+  if (bar) bar.className = 'bg-[#1a1a1a] text-white px-4 pt-3 pb-0';
   const progress = document.getElementById('timer-progress');
   if (progress) progress.classList.remove('timer-done');
 }
@@ -1100,7 +1100,7 @@ async function renderStats() {
       </div>
       <input id="exercise-search" type="text" placeholder="Search exercises..."
         oninput="filterExerciseList(this.value)"
-        class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg text-sm font-bold focus:border-ink focus:outline-none transition-colors duration-200 mb-3">
+        class="w-full h-10 px-3 bg-transparent border-2 border-ink/15 rounded-lg text-sm font-bold focus:border-ink focus:outline-none transition-colors duration-200 mb-3">
       <div id="exercise-list">
         ${exercises.map(ex => `
           <button onclick="navigate('#exercise-stats/${encodeURIComponent(ex.exercise_name)}')"
@@ -3193,7 +3193,7 @@ async function showMealFoodPicker() {
       <div class="flex gap-2 mb-3">
         <input type="text" placeholder="Search..."
           oninput="filterPickerFoods(this.value)"
-          class="flex-1 h-10 px-3 border-2 border-ink/15 rounded-lg text-sm font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+          class="flex-1 h-10 px-3 bg-transparent border-2 border-ink/15 rounded-lg text-sm font-bold focus:border-ink focus:outline-none transition-colors duration-200">
         <button onclick="showInlineFoodCreator()" class="h-10 px-3 border-2 border-ink/15 rounded-lg text-xs font-bold uppercase tracking-tight whitespace-nowrap active:bg-white/20 active:text-white transition-colors duration-200">+ Create</button>
       </div>
       <div id="picker-food-list">
