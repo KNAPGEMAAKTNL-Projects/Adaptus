@@ -283,25 +283,25 @@ async function renderDashboard() {
   let nextUpHtml = '';
   if (hasActiveSession) {
     nextUpHtml = `
-      <div class="bg-ink text-canvas p-5 mb-5">
+      <div class="bg-ink text-canvas p-5 mb-5 cursor-pointer active:bg-ink/80 transition-colors duration-200" onclick="startWorkoutFlow('${state.currentSession.workout_template_id}')">
         <div class="flex items-center justify-between mb-2">
           <h3 class="text-[10px] font-bold uppercase tracking-widest text-white/40">In Progress</h3>
           <span class="workout-elapsed text-sm font-bold tabular-nums text-acid">${getElapsedText()}</span>
         </div>
         <h2 class="text-xl font-black uppercase tracking-tight leading-tight">${state.currentSession.workout_name.split('(')[0].trim()}</h2>
         <p class="text-sm text-white/50 font-bold uppercase tracking-widest mt-1">Cycle ${state.progress.cycle} &middot; Week ${state.progress.week}${deload ? ' &middot; Deload' : ''}</p>
-        <button onclick="resumeWorkout()" class="w-full mt-4 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
+        <button onclick="event.stopPropagation(); resumeWorkout()" class="w-full mt-4 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
           Resume Workout
         </button>
       </div>
     `;
   } else if (nextWorkout) {
     nextUpHtml = `
-      <div class="bg-ink text-canvas p-5 mb-5">
+      <div class="bg-ink text-canvas p-5 mb-5 cursor-pointer active:bg-ink/80 transition-colors duration-200" onclick="startWorkoutFlow('${nextWorkout.templateId}')">
         <h3 class="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-2">Next Up</h3>
         <h2 class="text-xl font-black uppercase tracking-tight leading-tight">${nextWorkout.name.split('(')[0].trim()}</h2>
         <p class="text-sm text-white/50 font-bold uppercase tracking-widest mt-1">${nextWorkout.focus} &middot; Cycle ${state.progress.cycle} &middot; Week ${state.progress.week}${deload ? ' &middot; Deload' : ''}</p>
-        <button onclick="startWorkoutFlow('${nextWorkout.templateId}', true)" class="w-full mt-4 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
+        <button onclick="event.stopPropagation(); startWorkoutFlow('${nextWorkout.templateId}', true)" class="w-full mt-4 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
           Start Workout
         </button>
       </div>
