@@ -1,6 +1,6 @@
 /* Nav height custom property */
 :root {
-  --nav-height: 3.5rem;
+  --nav-height: 2.5rem;
 }
 
 /* Prevent iOS rubber-banding on non-scrollable areas */
