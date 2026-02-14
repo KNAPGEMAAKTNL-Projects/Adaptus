@@ -1,0 +1,34 @@
+/* Prevent iOS rubber-banding on non-scrollable areas */
+html, body {
+  overscroll-behavior: none;
+}
+
+/* Smooth number input stepping */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Tap highlight removal for iOS */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent text selection on interactive elements */
+button, .no-select {
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+/* Timer complete pulse */
+@keyframes pulse-acid {
+  0%, 100% { background-color: #CCFF00; }
+  50% { background-color: #b8e600; }
+}
+.timer-done {
+  animation: pulse-acid 1s ease-in-out infinite;
+}

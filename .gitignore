@@ -1,0 +1,6 @@
+node_modules/
+*.db
+training-program copy.json
+design-system-example.md
+generate-icons.js
+favicon_final.png
