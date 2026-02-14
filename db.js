@@ -74,6 +74,13 @@ async function initDb() {
   db.run(`CREATE INDEX IF NOT EXISTS idx_set_logs_session ON set_logs(workout_session_id)`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_workout_sessions_template ON workout_sessions(workout_template_id, started_at DESC)`);
 
+  // Migration: add skipped_at column
+  try {
+    db.run(`ALTER TABLE workout_sessions ADD COLUMN skipped_at TEXT`);
+  } catch (e) {
+    // Column already exists
+  }
+
   save();
   return db;
 }

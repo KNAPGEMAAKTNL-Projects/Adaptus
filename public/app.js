@@ -44,14 +44,25 @@ function navigate(hash) {
   location.hash = hash;
   const parts = hash.replace('#', '').split('/');
   const view = parts[0];
+  let p;
   switch (view) {
-    case 'home': renderDashboard(); break;
-    case 'workouts': renderWorkouts(); break;
-    case 'workout': renderWorkout(parts[1]); break;
-    case 'exercise': renderExercise(parseInt(parts[1])); break;
-    case 'stats': renderStats(); break;
-    default: renderDashboard();
+    case 'home': p = renderDashboard(); break;
+    case 'workouts': p = renderWorkouts(); break;
+    case 'workout': p = renderWorkout(parts[1]); break;
+    case 'exercise': p = renderExercise(parseInt(parts[1])); break;
+    case 'stats': p = renderStats(); break;
+    case 'exercise-stats': p = renderExerciseStats(decodeURIComponent(parts[1])); break;
+    default: p = renderDashboard();
   }
+  if (p && p.catch) p.catch(err => {
+    console.error('View render error:', err);
+    document.getElementById('app').innerHTML = `
+      <div class="px-3 pt-8">
+        <h1 class="text-xl font-black uppercase mb-2">Something went wrong</h1>
+        <p class="text-sm text-ink/60 mb-4">${err.message}</p>
+        <button onclick="location.reload()" class="px-4 py-2 bg-ink text-canvas font-bold uppercase text-sm">Reload</button>
+      </div>`;
+  });
 }
 
 window.addEventListener('hashchange', () => navigate(location.hash));
@@ -178,12 +189,72 @@ document.addEventListener('click', (e) => {
 
 // ─── View: Dashboard ────────────────────────────────────────────────────────
 async function renderDashboard() {
-  const [weekSummary, streakData] = await Promise.all([
+  const week = await getWeekData();
+  const [weekSummary, streakData, statusData] = await Promise.all([
     api('GET', `/stats/week-summary?cycle=${state.progress.cycle}&week=${state.progress.week}`),
     api('GET', '/stats/streak'),
+    api('GET', `/workouts/status?cycle=${state.progress.cycle}&week=${state.progress.week}`),
   ]);
 
   const deload = isDeloadWeek(state.progress.week);
+  const hasActiveSession = state.currentSession && !state.currentSession.completed_at && !state.currentSession.skipped_at;
+
+  // Find next incomplete & non-skipped workout
+  let nextWorkout = null;
+  if (week && week.workouts) {
+    nextWorkout = week.workouts.find(wo =>
+      !statusData.completed.includes(wo.templateId) &&
+      !statusData.skipped.includes(wo.templateId)
+    );
+  }
+
+  const doneCount = statusData.completed.length;
+  const skippedCount = statusData.skipped.length;
+  const allAccountedFor = (doneCount + skippedCount) >= 5;
+
+  // Next Up card content
+  let nextUpHtml = '';
+  if (hasActiveSession) {
+    nextUpHtml = `
+      <div class="bg-ink text-canvas p-5 mb-5">
+        <h3 class="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-2">In Progress</h3>
+        <h2 class="text-xl font-black uppercase tracking-tight leading-tight">${state.currentSession.workout_name.split('(')[0].trim()}</h2>
+        <p class="text-sm text-white/50 font-bold uppercase tracking-widest mt-1">Cycle ${state.progress.cycle} &middot; Week ${state.progress.week}${deload ? ' &middot; Deload' : ''}</p>
+        <button onclick="resumeWorkout()" class="w-full mt-4 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
+          Resume Workout
+        </button>
+      </div>
+    `;
+  } else if (nextWorkout) {
+    nextUpHtml = `
+      <div class="bg-ink text-canvas p-5 mb-5">
+        <h3 class="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-2">Next Up</h3>
+        <h2 class="text-xl font-black uppercase tracking-tight leading-tight">${nextWorkout.name.split('(')[0].trim()}</h2>
+        <p class="text-sm text-white/50 font-bold uppercase tracking-widest mt-1">${nextWorkout.focus} &middot; Cycle ${state.progress.cycle} &middot; Week ${state.progress.week}${deload ? ' &middot; Deload' : ''}</p>
+        <button onclick="startWorkoutFlow('${nextWorkout.templateId}')" class="w-full mt-4 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
+          Start Workout
+        </button>
+      </div>
+    `;
+  } else if (allAccountedFor) {
+    nextUpHtml = `
+      <div class="bg-ink text-canvas p-5 mb-5">
+        <h3 class="text-[10px] font-bold uppercase tracking-widest text-acid mb-2">Week Complete</h3>
+        <p class="text-sm text-white/50 font-bold uppercase tracking-widest">All workouts done or skipped this week</p>
+      </div>
+    `;
+  }
+
+  // Week progress dots
+  const progressDots = week && week.workouts ? week.workouts.map(wo => {
+    const isDone = statusData.completed.includes(wo.templateId);
+    const isSkipped = statusData.skipped.includes(wo.templateId);
+    const isActive = hasActiveSession && state.currentSession.workout_template_id === wo.templateId;
+    if (isDone) return '<div class="w-3 h-3 rounded-full bg-acid"></div>';
+    if (isSkipped) return '<div class="w-3 h-3 rounded-full bg-ink/20 relative"><div class="absolute inset-0 flex items-center justify-center"><div class="w-2 h-[2px] bg-ink/40"></div></div></div>';
+    if (isActive) return '<div class="w-3 h-3 rounded-full bg-electric"></div>';
+    return '<div class="w-3 h-3 rounded-full border-2 border-ink/15"></div>';
+  }).join('') : '';
 
   document.getElementById('app').innerHTML = `
     <div class="px-3 pt-8 pb-32">
@@ -195,10 +266,12 @@ async function renderDashboard() {
         ${deload ? '<span class="text-[10px] font-bold uppercase tracking-widest text-acid bg-ink px-2 py-1 rounded-full">Deload</span>' : ''}
       </div>
 
+      ${nextUpHtml}
+
       <div class="grid grid-cols-2 gap-2.5 mb-5">
         <button onclick="navigate('#workouts')" class="bg-ink text-canvas p-5 text-left transition-colors duration-200 active:bg-ink/80">
           <h3 class="text-lg font-black uppercase tracking-tight">Workouts</h3>
-          <p class="text-xs text-white/40 font-bold uppercase tracking-widest mt-1">${weekSummary.workoutsCompleted}/${weekSummary.totalWorkouts} this week</p>
+          <p class="text-xs text-white/40 font-bold uppercase tracking-widest mt-1">${doneCount}/${weekSummary.totalWorkouts} done</p>
         </button>
         <button onclick="navigate('#stats')" class="bg-ink text-canvas p-5 text-left transition-colors duration-200 active:bg-ink/80">
           <h3 class="text-lg font-black uppercase tracking-tight">Stats</h3>
@@ -206,17 +279,11 @@ async function renderDashboard() {
         </button>
       </div>
 
-      ${state.currentSession && !state.currentSession.completed_at ? `
-        <button onclick="resumeWorkout()" class="w-full mb-5 px-4 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center transition-colors duration-200 active:bg-ink active:text-acid">
-          Resume: ${state.currentSession.workout_name}
-        </button>
-      ` : ''}
-
       <div class="border-2 border-ink/10 p-5 mb-5">
         <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-4">This Week</h3>
         <div class="grid grid-cols-3 gap-4 mb-4">
           <div>
-            <span class="text-3xl font-black leading-none block">${weekSummary.workoutsCompleted}</span>
+            <span class="text-3xl font-black leading-none block">${doneCount}</span>
             <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">/ ${weekSummary.totalWorkouts} done</span>
           </div>
           <div>
@@ -228,6 +295,11 @@ async function renderDashboard() {
             <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">volume</span>
           </div>
         </div>
+        ${progressDots ? `
+          <div class="flex items-center gap-2 mb-4">
+            ${progressDots}
+          </div>
+        ` : ''}
         ${weekSummary.prsThisWeek && weekSummary.prsThisWeek.length > 0 ? `
           <div class="border-t-2 border-ink/10 pt-3">
             <div class="flex items-center gap-2 mb-2">
@@ -312,18 +384,27 @@ async function renderWorkouts() {
   const week = await getWeekData();
   if (!week) return;
   const deload = isDeloadWeek(state.progress.week);
-  const completedIds = await api('GET', `/workouts/completed?cycle=${state.progress.cycle}&week=${state.progress.week}`);
-  const activeTemplateId = state.currentSession && !state.currentSession.completed_at ? state.currentSession.workout_template_id : null;
+  const statusData = await api('GET', `/workouts/status?cycle=${state.progress.cycle}&week=${state.progress.week}`);
+  const activeTemplateId = state.currentSession && !state.currentSession.completed_at && !state.currentSession.skipped_at ? state.currentSession.workout_template_id : null;
   const workoutCards = week.workouts.map(wo => {
     const focus = wo.focus;
     const name = wo.name.split('(')[0].trim();
-    const completed = completedIds.includes(wo.templateId);
+    const completed = statusData.completed.includes(wo.templateId);
+    const skipped = statusData.skipped.includes(wo.templateId);
     const isActive = wo.templateId === activeTemplateId;
     let badge = `<span class="text-sm text-white/40">${wo.exercises.length} exercises</span>`;
-    if (completed) badge = '<span class="text-xs font-bold text-ink bg-acid px-2 py-0.5">Done</span>';
-    else if (isActive) badge = '<span class="text-xs font-bold text-canvas bg-electric px-2 py-0.5">Active</span>';
+    let bgClass = 'bg-ink';
+    if (completed) {
+      badge = '<span class="text-xs font-bold text-ink bg-acid px-2 py-0.5">Done</span>';
+      bgClass = 'bg-ink/80';
+    } else if (skipped) {
+      badge = '<span class="text-xs font-bold text-ink/60 bg-ink/20 px-2 py-0.5">Skipped</span>';
+      bgClass = 'bg-ink/40';
+    } else if (isActive) {
+      badge = '<span class="text-xs font-bold text-canvas bg-electric px-2 py-0.5">Active</span>';
+    }
     return `
-      <button onclick="startWorkoutFlow('${wo.templateId}')" class="w-full ${completed ? 'bg-ink/80' : 'bg-ink'} text-canvas p-5 text-left transition-colors duration-200 active:bg-ink/80">
+      <button onclick="startWorkoutFlow('${wo.templateId}')" class="w-full ${bgClass} text-canvas p-5 text-left transition-colors duration-200 active:bg-ink/80">
         <div class="flex items-center justify-between">
           <div>
             <h3 class="text-lg font-black uppercase tracking-tight">${name}</h3>
@@ -367,7 +448,7 @@ async function renderWorkouts() {
         </div>
       </div>
 
-      ${state.currentSession && !state.currentSession.completed_at ? `
+      ${state.currentSession && !state.currentSession.completed_at && !state.currentSession.skipped_at ? `
         <button onclick="resumeWorkout()" class="w-full mb-5 px-4 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center transition-colors duration-200 active:bg-ink active:text-acid">
           Resume: ${state.currentSession.workout_name}
         </button>
@@ -458,11 +539,12 @@ async function startWorkoutFlow(templateId) {
   state.activeSubstitutions = {};
   state.lastPerformance = {};
 
-  // Check if there's already a completed or active session for this workout this week
-  const completedIds = await api('GET', `/workouts/completed?cycle=${state.progress.cycle}&week=${state.progress.week}`);
-  const isCompleted = completedIds.includes(templateId);
+  // Check if there's already a completed, skipped, or active session for this workout this week
+  const statusData = await api('GET', `/workouts/status?cycle=${state.progress.cycle}&week=${state.progress.week}`);
+  const isCompleted = statusData.completed.includes(templateId);
+  const isSkipped = statusData.skipped.includes(templateId);
 
-  if (isCompleted || (state.currentSession && state.currentSession.workout_template_id === templateId)) {
+  if (isCompleted || isSkipped || (state.currentSession && state.currentSession.workout_template_id === templateId)) {
     // Load existing session's sets for viewing
     const recent = await api('GET', '/workouts/recent?limit=50');
     const existing = recent.find(s =>
@@ -538,7 +620,9 @@ async function renderWorkout(templateId) {
   });
 
   const isCompleted = state.currentSession && state.currentSession.completed_at;
+  const isSkipped = state.currentSession && state.currentSession.skipped_at;
   const name = workout.name.split('(')[0].trim();
+  const hasLoggedSets = Object.values(state.sessionSets).some(sets => sets.length > 0);
 
   document.getElementById('app').innerHTML = `
     <div class="px-3 pt-6 pb-32">
@@ -550,25 +634,38 @@ async function renderWorkout(templateId) {
         <div class="flex items-center gap-2.5">
           <h1 class="text-2xl font-black uppercase tracking-tight leading-none">${name}</h1>
           ${isCompleted ? '<span class="text-[10px] font-bold uppercase tracking-widest text-acid bg-ink px-2 py-1 rounded-full">Completed</span>' : ''}
+          ${isSkipped ? '<span class="text-[10px] font-bold uppercase tracking-widest text-ink/60 bg-ink/10 px-2 py-1 rounded-full">Skipped</span>' : ''}
         </div>
         <p class="text-sm font-bold text-ink/40 uppercase tracking-widest mt-1">${workout.focus} &middot; Week ${state.progress.week}</p>
       </div>
 
-      <div class="flex flex-col gap-2">
-        ${exerciseRows}
-      </div>
+      ${isSkipped ? `
+        <div class="border-2 border-ink/10 bg-ink/5 p-5 mb-5 text-center">
+          <p class="text-sm font-bold text-ink/40 uppercase tracking-widest">This workout was skipped</p>
+        </div>
+      ` : `
+        <div class="flex flex-col gap-2">
+          ${exerciseRows}
+        </div>
 
-      ${allDone && !isCompleted ? `
-        <button onclick="completeWorkout()" class="w-full mt-6 px-6 py-4 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
-          Complete Workout
-        </button>
-      ` : ''}
+        ${allDone && !isCompleted ? `
+          <button onclick="completeWorkout()" class="w-full mt-6 px-6 py-4 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
+            Complete Workout
+          </button>
+        ` : ''}
 
-      ${state.currentSession && !isCompleted ? `
-        <button onclick="showCancelWorkoutModal()" class="w-full mt-4 py-3 text-xs font-bold uppercase tracking-widest text-ink/30 text-center transition-colors duration-200 active:text-red-500">
-          Cancel Workout
-        </button>
-      ` : ''}
+        ${!isCompleted && !hasLoggedSets && !state.currentSession ? `
+          <button onclick="showSkipWorkoutModal('${workout.templateId}', '${workout.name.replace(/'/g, "\\'")}')" class="w-full mt-4 py-3 text-xs font-bold uppercase tracking-widest text-ink/30 text-center transition-colors duration-200 active:text-ink/60">
+            Skip Workout
+          </button>
+        ` : ''}
+
+        ${state.currentSession && !isCompleted ? `
+          <button onclick="showCancelWorkoutModal()" class="w-full mt-4 py-3 text-xs font-bold uppercase tracking-widest text-ink/30 text-center transition-colors duration-200 active:text-red-500">
+            Cancel Workout
+          </button>
+        ` : ''}
+      `}
     </div>
   `;
 }
@@ -735,6 +832,9 @@ async function renderExercise(index) {
       <div class="mb-5">
         <div class="flex items-center gap-2 flex-wrap">
           <h1 class="text-xl font-black uppercase tracking-tight leading-tight">${name}</h1>
+          <button onclick="navigate('#exercise-stats/${encodeURIComponent(name)}')" class="w-8 h-8 flex items-center justify-center border-2 border-ink/15 text-ink/40 text-sm transition-colors duration-200 active:bg-ink active:text-canvas" title="View history">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="2 12 5 7 8 9 11 4 14 6"/><line x1="2" y1="14" x2="14" y2="14"/></svg>
+          </button>
           ${isSubbed ? '<span class="text-[10px] font-bold uppercase tracking-widest text-electric bg-electric/10 px-2 py-0.5">Swapped</span>' : ''}
         </div>
         <p class="text-xs font-bold text-ink/40 uppercase tracking-widest mt-1">Exercise ${index + 1} of ${workout.exercises.length}</p>
@@ -1022,6 +1122,185 @@ function selectSubstitution(exerciseIndex, subName) {
 function closeSubModal() {
   const modal = document.getElementById('sub-modal');
   if (modal) modal.remove();
+}
+
+// ─── Skip Workout ───────────────────────────────────────────────────────────
+function showSkipWorkoutModal(templateId, workoutName) {
+  const modal = document.createElement('div');
+  modal.id = 'skip-modal';
+  modal.className = 'fixed inset-0 z-[80] flex items-center justify-center';
+  modal.innerHTML = `
+    <div class="absolute inset-0 bg-ink/50" onclick="closeSkipModal()"></div>
+    <div class="relative bg-canvas mx-4 p-5 max-w-sm w-full">
+      <h2 class="text-lg font-black uppercase tracking-tight mb-2">Skip Workout</h2>
+      <p class="text-sm text-ink/60 mb-5">Skip this workout? You can't log sets for a skipped workout.</p>
+      <div class="flex gap-2">
+        <button onclick="closeSkipModal()" class="flex-1 py-3 border-2 border-ink/15 font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-canvas">
+          Cancel
+        </button>
+        <button onclick="confirmSkipWorkout('${templateId}', '${workoutName.replace(/'/g, "\\'")}')" class="flex-1 py-3 bg-ink text-canvas font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink/80">
+          Skip
+        </button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+function closeSkipModal() {
+  const modal = document.getElementById('skip-modal');
+  if (modal) modal.remove();
+}
+
+async function confirmSkipWorkout(templateId, workoutName) {
+  closeSkipModal();
+  await api('PUT', '/workouts/skip', {
+    cycle: state.progress.cycle,
+    weekNumber: state.progress.week,
+    workoutTemplateId: templateId,
+    workoutName: workoutName,
+  });
+  navigate('#workouts');
+}
+
+// ─── View: Exercise Stats ───────────────────────────────────────────────────
+async function renderExerciseStats(exerciseName) {
+  const history = await api('GET', `/sets/exercise-history/${encodeURIComponent(exerciseName)}`);
+  const pr = await api('GET', `/sets/pr/${encodeURIComponent(exerciseName)}`);
+
+  const prHtml = pr ? `
+    <div class="border-2 border-acid bg-acid/5 p-4 mb-5">
+      <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-1">Personal Record</h3>
+      <span class="text-2xl font-black">${pr.weight_kg}<span class="text-sm font-bold text-ink/40 ml-0.5">kg</span></span>
+      <span class="text-lg font-bold text-ink/40 mx-1">&times;</span>
+      <span class="text-2xl font-black">${pr.reps}</span>
+      <p class="text-xs text-ink/40 mt-1">${pr.logged_at ? new Date(pr.logged_at).toLocaleDateString() : ''}</p>
+    </div>
+  ` : '';
+
+  const sessionsHtml = history.length > 0 ? [...history].reverse().map(s => {
+    const date = new Date(s.date).toLocaleDateString();
+    const setsStr = s.sets.map(set => `${set.weight_kg}kg&times;${set.reps}`).join('&ensp;&ensp;');
+    return `
+      <div class="py-3 border-b border-ink/10 last:border-0">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-xs font-bold uppercase tracking-widest text-ink/40">C${s.cycle} W${s.weekNumber}</span>
+          <span class="text-xs text-ink/40">${date}</span>
+        </div>
+        <p class="text-sm font-bold">${setsStr}</p>
+      </div>
+    `;
+  }).join('') : '<p class="text-sm text-ink/30 py-4">No history yet</p>';
+
+  document.getElementById('app').innerHTML = `
+    <div class="px-3 pt-6 pb-32">
+      <button onclick="history.back()" class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-4 flex items-center gap-1 active:text-ink transition-colors duration-200">
+        <span class="text-lg leading-none">&larr;</span> Back
+      </button>
+
+      <h1 class="text-2xl font-black uppercase tracking-tight leading-none mb-1">${exerciseName}</h1>
+      <p class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-6">History</p>
+
+      ${prHtml}
+
+      ${history.length >= 2 ? `
+        <div class="border-2 border-ink/10 p-4 mb-5">
+          <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-3">Weight Over Time</h3>
+          <canvas id="progress-chart" class="w-full" height="180"></canvas>
+        </div>
+      ` : ''}
+
+      <div class="border-2 border-ink/10 p-4">
+        <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-2">All Sessions</h3>
+        ${sessionsHtml}
+      </div>
+    </div>
+  `;
+
+  if (history.length >= 2) {
+    requestAnimationFrame(() => drawProgressChart(history, pr));
+  }
+}
+
+function drawProgressChart(history, pr) {
+  const canvas = document.getElementById('progress-chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  // Hi-DPI support
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = 180 * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width;
+  const H = 180;
+
+  const weights = history.map(s => s.maxWeight);
+  const minW = Math.min(...weights);
+  const maxW = Math.max(...weights);
+  const range = maxW - minW || 1;
+
+  const padTop = 20, padBottom = 30, padLeft = 40, padRight = 15;
+  const chartW = W - padLeft - padRight;
+  const chartH = H - padTop - padBottom;
+
+  // Y axis
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.font = '10px system-ui, sans-serif';
+  ctx.textAlign = 'right';
+  const steps = 4;
+  for (let i = 0; i <= steps; i++) {
+    const val = minW + (range * i / steps);
+    const y = padTop + chartH - (chartH * i / steps);
+    ctx.fillText(Math.round(val) + '', padLeft - 8, y + 3);
+    ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+    ctx.beginPath();
+    ctx.moveTo(padLeft, y);
+    ctx.lineTo(W - padRight, y);
+    ctx.stroke();
+  }
+
+  // X axis labels
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  const points = history.map((s, i) => {
+    const x = padLeft + (chartW * i / (history.length - 1));
+    const y = padTop + chartH - (chartH * (s.maxWeight - minW) / range);
+    return { x, y, s };
+  });
+
+  points.forEach((p, i) => {
+    if (history.length <= 12 || i % Math.ceil(history.length / 8) === 0) {
+      ctx.fillText('W' + p.s.weekNumber, p.x, H - 8);
+    }
+  });
+
+  // Line
+  ctx.strokeStyle = '#CCFF00';
+  ctx.lineWidth = 2.5;
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  points.forEach((p, i) => {
+    if (i === 0) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
+  });
+  ctx.stroke();
+
+  // Dots
+  const prWeight = pr ? pr.weight_kg : null;
+  points.forEach(p => {
+    const isPr = p.s.maxWeight === prWeight;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, isPr ? 5 : 3, 0, Math.PI * 2);
+    ctx.fillStyle = '#CCFF00';
+    ctx.fill();
+    if (isPr) {
+      ctx.strokeStyle = '#0a0a0a';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  });
 }
 
 // ─── Boot ────────────────────────────────────────────────────────────────────

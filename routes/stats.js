@@ -60,8 +60,15 @@ router.get('/week-summary', (req, res) => {
     GROUP BY sl.exercise_name
   `, [cycle, week, cycle, week]);
 
+  const skippedCount = get(`
+    SELECT COUNT(DISTINCT ws.id) as cnt
+    FROM workout_sessions ws
+    WHERE ws.cycle = ? AND ws.week_number = ? AND ws.skipped_at IS NOT NULL
+  `, [cycle, week]);
+
   res.json({
     workoutsCompleted: stats.workouts_completed || 0,
+    workoutsSkipped: skippedCount?.cnt || 0,
     totalWorkouts: 5,
     totalSets: stats.total_sets || 0,
     totalVolume: Math.round(stats.total_volume || 0),

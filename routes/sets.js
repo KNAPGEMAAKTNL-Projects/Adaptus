@@ -47,6 +47,40 @@ router.get('/pr/:exerciseName', (req, res) => {
   res.json(pr || null);
 });
 
+router.get('/exercise-history/:exerciseName', (req, res) => {
+  const exerciseName = req.params.exerciseName;
+  const sessions = all(
+    `SELECT sl.workout_session_id, ws.started_at as date, ws.cycle, ws.week_number,
+            MAX(sl.weight_kg) as maxWeight,
+            SUM(sl.weight_kg * sl.reps) as totalVolume
+     FROM set_logs sl
+     JOIN workout_sessions ws ON ws.id = sl.workout_session_id
+     WHERE sl.exercise_name = ?
+     GROUP BY sl.workout_session_id
+     ORDER BY ws.started_at ASC`,
+    [exerciseName]
+  );
+
+  const result = sessions.map(s => {
+    const sets = all(
+      `SELECT set_number, weight_kg, reps, logged_at FROM set_logs
+       WHERE workout_session_id = ? AND exercise_name = ?
+       ORDER BY set_number ASC`,
+      [s.workout_session_id, exerciseName]
+    );
+    return {
+      date: s.date,
+      cycle: s.cycle,
+      weekNumber: s.week_number,
+      maxWeight: s.maxWeight,
+      totalVolume: Math.round(s.totalVolume),
+      sets,
+    };
+  });
+
+  res.json(result);
+});
+
 router.delete('/:id', (req, res) => {
   run('DELETE FROM set_logs WHERE id = ?', [parseInt(req.params.id)]);
   res.json({ deleted: true });
