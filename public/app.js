@@ -412,7 +412,7 @@ async function drawerShowNutritionGoals() {
 
   function activityBtn(val, label) {
     const active = profile.activity_level === val;
-    return `<button onclick="document.querySelectorAll('.activity-btn').forEach(b=>b.className='activity-btn w-full py-2 px-3 text-left text-sm font-bold uppercase tracking-tight border-2 border-white/20 rounded-lg text-white/40 transition-colors duration-200 mb-1');this.className='activity-btn w-full py-2 px-3 text-left text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid rounded-lg transition-colors duration-200 mb-1'" class="activity-btn w-full py-2 px-3 text-left text-sm font-bold uppercase tracking-tight border-2 ${active ? 'border-acid text-acid' : 'border-white/20 text-white/40'} rounded-lg transition-colors duration-200 mb-1" data-val="${val}">${label}</button>`;
+    return `<button onclick="document.querySelectorAll('.activity-btn').forEach(b=>b.className='activity-btn w-full py-2 px-3 text-left text-sm font-bold uppercase tracking-tight border-2 border-white/20 rounded-lg text-white/40 transition-colors duration-200 mb-1');this.className='activity-btn w-full py-2 px-3 text-left text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid rounded-lg transition-colors duration-200 mb-1';saveActivityLevel('${val}')" class="activity-btn w-full py-2 px-3 text-left text-sm font-bold uppercase tracking-tight border-2 ${active ? 'border-acid text-acid' : 'border-white/20 text-white/40'} rounded-lg transition-colors duration-200 mb-1" data-val="${val}">${label}</button>`;
   }
 
   const today = new Date().toISOString().split('T')[0];
@@ -506,10 +506,6 @@ async function drawerShowNutritionGoals() {
         ${Object.entries(activityLabels).map(([k, v]) => activityBtn(k, v)).join('')}
       </div>
 
-      <button onclick="drawerSaveNutritionGoals()" class="w-full py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-acid/20 active:text-acid mb-5">
-        Save Activity Level
-      </button>
-
       <div class="border-t border-white/10 pt-5 mb-5">
         <div class="flex items-center justify-between mb-3">
           <label class="text-[10px] font-bold uppercase tracking-widest text-white/40">Phase Schedule</label>
@@ -533,7 +529,7 @@ async function drawerShowNutritionGoals() {
                   <button onclick="document.querySelectorAll('.new-phase-btn').forEach(b=>b.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 rounded-lg text-white/40 transition-colors duration-200');this.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid rounded-lg transition-colors duration-200'" class="new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 rounded-lg text-white/40 transition-colors duration-200" data-val="bulk">Bulk</button>
                 </div>
               </div>
-              <div class="grid grid-cols-2 gap-3">
+              <div class="space-y-3">
                 <div>
                   <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-1">Start</label>
                   <input id="new-phase-start" type="date" class="w-full h-10 px-2 border-2 border-white/20 rounded-lg bg-transparent text-white text-sm font-bold focus:border-acid focus:outline-none transition-colors duration-200">
@@ -594,20 +590,13 @@ async function deletePhase(id) {
   drawerShowNutritionGoals();
 }
 
-async function drawerSaveNutritionGoals() {
+async function saveActivityLevel(val) {
   const current = await api('GET', '/nutrition/profile');
-  const activity_level = document.querySelector('.activity-btn.border-acid')?.dataset.val || current.activity_level || 'moderate';
-
   await api('PUT', '/nutrition/profile', {
     gender: current.gender, age: current.age, height_cm: current.height_cm,
-    activity_level,
+    activity_level: val,
   });
-  document.getElementById('drawer-content').innerHTML = `
-    <div class="flex items-center justify-center h-40">
-      <p class="text-lg font-bold uppercase tracking-tight text-acid">Goals saved!</p>
-    </div>
-  `;
-  setTimeout(() => drawerShowOverview(), 800);
+  drawerShowNutritionGoals();
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -746,7 +735,7 @@ function updateTimerDisplay() {
     const pct = (state.restTimer.seconds / state.restTimer.total) * 100;
     progress.style.width = `${pct}%`;
     progress.classList.remove('timer-done');
-    bar.className = 'bg-white/10 text-white rounded-xl px-4 py-3 flex items-center justify-between';
+    bar.className = 'bg-[#1a1a1a] text-white rounded-xl px-4 py-3 flex items-center justify-between';
     label.className = 'text-xs font-bold uppercase tracking-widest text-white/60';
     if (dismiss) dismiss.className = 'text-xs font-bold uppercase tracking-widest text-white/40 hover:text-white transition-colors duration-200';
   }
@@ -758,7 +747,7 @@ function dismissTimer() {
   const el = document.getElementById('rest-timer');
   if (el) el.classList.add('hidden');
   const bar = document.getElementById('timer-bar');
-  if (bar) bar.className = 'bg-white/10 text-white rounded-xl px-4 py-3 flex items-center justify-between';
+  if (bar) bar.className = 'bg-[#1a1a1a] text-white rounded-xl px-4 py-3 flex items-center justify-between';
   const progress = document.getElementById('timer-progress');
   if (progress) progress.classList.remove('timer-done');
 }
@@ -1426,7 +1415,7 @@ async function renderWorkout(templateId) {
             <p class="text-xs ${done ? 'text-ink/30' : 'text-ink/50'} mt-1">${ex.workingSets} sets &middot; ${ex.reps} reps${technique ? ` &middot; ${technique}` : ''}</p>
           </div>
           <div class="flex-shrink-0 mt-0.5">
-            ${done ? '<span class="text-xs font-bold text-ink/25">&#10003;</span>'
+            ${done ? '<span class="text-sm font-black text-acid">&#10003;</span>'
               : partial ? `<span class="text-xs font-bold text-ink/50">${logged.length}/${totalSets}</span>`
               : '<span class="w-2 h-2 rounded-full bg-ink/15 inline-block"></span>'}
           </div>
@@ -1729,10 +1718,12 @@ async function renderExercise(index) {
       <div class="mb-5">
         <div class="flex items-center gap-2 flex-wrap">
           <h1 class="text-xl font-black uppercase tracking-tight leading-tight">${name}</h1>
+          ${hasSubs ? `<button onclick="showSubstitutionModal(${index})" class="w-8 h-8 flex items-center justify-center border-2 border-ink/15 rounded-lg ${isSubbed ? 'text-electric border-electric/30' : 'text-ink/40'} text-sm transition-colors duration-200 active:bg-white/20 active:text-white" title="Swap exercise">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+          </button>` : ''}
           <button onclick="navigate('#exercise-stats/${encodeURIComponent(name)}')" class="w-8 h-8 flex items-center justify-center border-2 border-ink/15 rounded-lg text-ink/40 text-sm transition-colors duration-200 active:bg-white/20 active:text-white" title="View history">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="2 12 5 7 8 9 11 4 14 6"/><line x1="2" y1="14" x2="14" y2="14"/></svg>
           </button>
-          ${isSubbed ? '<span class="text-[10px] font-bold uppercase tracking-widest text-electric bg-electric/10 px-2 py-0.5">Swapped</span>' : ''}
         </div>
         <p class="text-xs font-bold text-ink/40 uppercase tracking-widest mt-1">Exercise ${index + 1} of ${workout.exercises.length}</p>
       </div>
@@ -1791,25 +1782,25 @@ async function renderExercise(index) {
             <div>
               <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 flex items-center gap-1 mb-1">Weight (kg) <span id="overload-arrow">${getOverloadArrow(name, prefillWeight)}</span></label>
               <div class="flex items-center gap-1">
-                <button onclick="adjustInput('weight-input', -2.5, '${draftKey}', '${name.replace(/'/g, "\\'")}')" class="w-11 h-11 border-2 border-ink/15 rounded-lg font-bold text-lg active:bg-white/20 active:text-white transition-colors duration-200">&minus;</button>
+                <button onclick="adjustInput('weight-input', -2.5, '${draftKey}', '${name.replace(/'/g, "\\'")}')" class="w-11 h-11 bg-transparent border-2 border-ink/15 rounded-lg font-bold text-lg active:bg-white/20 active:text-white transition-colors duration-200">&minus;</button>
                 <input id="weight-input" type="number" inputmode="decimal" step="0.5" value="${isSuggested ? '' : prefillWeight}" placeholder="${isSuggested ? prefillWeight : '0'}"
                   data-suggested="${isSuggested ? prefillWeight : ''}"
                   onfocus="clearSuggested(this)" onblur="restoreSuggested(this)"
                   oninput="handleInput(this, '${draftKey}', '${name.replace(/'/g, "\\'")}')"
-                  class="flex-1 h-11 border-2 border-ink/15 rounded-lg text-center font-bold text-lg focus:border-ink focus:outline-none transition-colors duration-200 ${isSuggested ? 'placeholder:text-ink/30' : ''}">
-                <button onclick="adjustInput('weight-input', 2.5, '${draftKey}', '${name.replace(/'/g, "\\'")}')" class="w-11 h-11 border-2 border-ink/15 rounded-lg font-bold text-lg active:bg-white/20 active:text-white transition-colors duration-200">+</button>
+                  class="flex-1 h-11 bg-transparent border-2 border-ink/15 rounded-lg text-center font-bold text-lg focus:border-ink focus:outline-none transition-colors duration-200 ${isSuggested ? 'placeholder:text-ink/30' : ''}">
+                <button onclick="adjustInput('weight-input', 2.5, '${draftKey}', '${name.replace(/'/g, "\\'")}')" class="w-11 h-11 bg-transparent border-2 border-ink/15 rounded-lg font-bold text-lg active:bg-white/20 active:text-white transition-colors duration-200">+</button>
               </div>
             </div>
             <div>
               <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Reps</label>
               <div class="flex items-center gap-1">
-                <button onclick="adjustInput('reps-input', -1, '${draftKey}')" class="w-11 h-11 border-2 border-ink/15 rounded-lg font-bold text-lg active:bg-white/20 active:text-white transition-colors duration-200">&minus;</button>
+                <button onclick="adjustInput('reps-input', -1, '${draftKey}')" class="w-11 h-11 bg-transparent border-2 border-ink/15 rounded-lg font-bold text-lg active:bg-white/20 active:text-white transition-colors duration-200">&minus;</button>
                 <input id="reps-input" type="number" inputmode="numeric" step="1" value="${isSuggested ? '' : prefillReps}" placeholder="${isSuggested ? prefillReps : '0'}"
                   data-suggested="${isSuggested ? prefillReps : ''}"
                   onfocus="clearSuggested(this)" onblur="restoreSuggested(this)"
                   oninput="handleInput(this, '${draftKey}')"
-                  class="flex-1 h-11 border-2 border-ink/15 rounded-lg text-center font-bold text-lg focus:border-ink focus:outline-none transition-colors duration-200 ${isSuggested ? 'placeholder:text-ink/30' : ''}">
-                <button onclick="adjustInput('reps-input', 1, '${draftKey}')" class="w-11 h-11 border-2 border-ink/15 rounded-lg font-bold text-lg active:bg-white/20 active:text-white transition-colors duration-200">+</button>
+                  class="flex-1 h-11 bg-transparent border-2 border-ink/15 rounded-lg text-center font-bold text-lg focus:border-ink focus:outline-none transition-colors duration-200 ${isSuggested ? 'placeholder:text-ink/30' : ''}">
+                <button onclick="adjustInput('reps-input', 1, '${draftKey}')" class="w-11 h-11 bg-transparent border-2 border-ink/15 rounded-lg font-bold text-lg active:bg-white/20 active:text-white transition-colors duration-200">+</button>
               </div>
             </div>
           </div>
@@ -1832,12 +1823,6 @@ async function renderExercise(index) {
         </div>
       ` : ''}
 
-      <!-- Swap exercise -->
-      ${hasSubs ? `
-        <button onclick="showSubstitutionModal(${index})" class="w-full py-3 border-2 border-ink/15 rounded-lg text-sm font-bold uppercase tracking-widest text-ink/50 text-center transition-colors duration-200 active:bg-white/20 active:text-white mb-4">
-          Swap Exercise
-        </button>
-      ` : ''}
 
       <!-- Navigation -->
       <div class="flex gap-2">
@@ -1955,6 +1940,7 @@ async function logSet(exerciseId, exerciseName, setNumber, totalSets, targetRpe,
       workoutTemplateId: state.currentWorkoutData.templateId,
       workoutName: state.currentWorkoutData.name,
     });
+    startWorkoutTimer();
   }
 
   // Check current PR before logging the new set
