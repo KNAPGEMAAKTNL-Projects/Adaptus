@@ -1711,13 +1711,15 @@ async function renderExercise(index) {
     const rpeLabel = rpe;
 
     if (loggedSet) {
-      // Logged set row — display values with green checkmark (tap to undo/delete)
+      // Logged set row — checked checkbox (tap to uncheck/delete)
       setRowsHtml.push(`
         <div class="flex items-center gap-3 py-2.5 ${s < totalSets ? 'border-b border-ink/10' : ''}">
           <span class="w-10 text-xs font-bold text-ink/40 uppercase">Set ${s}</span>
           <span class="flex-1 font-bold text-sm">${loggedSet.weight_kg}kg &times; ${loggedSet.reps}</span>
           <span class="text-[10px] font-bold text-ink/30 uppercase">${rpeLabel}</span>
-          <button onclick="deleteSet(${loggedSet.id}, '${exercise.id}')" class="text-acid text-xl font-black w-8 h-8 flex items-center justify-center active:text-red-500 transition-colors duration-200">&#10003;</button>
+          <button onclick="deleteSet(${loggedSet.id}, '${exercise.id}')" class="w-6 h-6 rounded border-2 border-acid bg-acid flex items-center justify-center flex-shrink-0 active:opacity-60 transition-all duration-200">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </button>
         </div>
       `);
     } else {
@@ -1745,9 +1747,9 @@ async function renderExercise(index) {
       }
 
       const hasData = isSuggested || (prefillWeight !== '' && prefillReps !== '');
-      const checkBtnClass = hasData
-        ? 'text-ink/60 active:text-acid'
-        : 'text-ink/15 pointer-events-none';
+      const checkboxClass = hasData
+        ? 'border-ink/30 active:border-acid active:bg-acid/20'
+        : 'border-ink/10 pointer-events-none';
 
       setRowsHtml.push(`
         <div class="flex items-center gap-2 py-2.5 ${s < totalSets ? 'border-b border-ink/10' : ''}">
@@ -1772,7 +1774,7 @@ async function renderExercise(index) {
           </div>
           <span class="text-[10px] font-bold text-ink/30 uppercase flex-1 text-right">${rpeLabel}</span>
           <button id="check-${s}" onclick="logSetRow('${exercise.id}', '${escapedName}', ${s}, ${totalSets}, '${rpe}', '${exercise.rest}')"
-            class="w-8 h-8 flex items-center justify-center rounded-lg text-xl font-bold transition-colors duration-200 ${checkBtnClass}">&#10003;</button>
+            class="w-6 h-6 rounded border-2 flex-shrink-0 transition-all duration-200 ${checkboxClass}"></button>
         </div>
       `);
     }
@@ -1885,16 +1887,16 @@ function handleInputRow(input, exerciseId, setNumber, exerciseName) {
     input.dataset.suggested = '';
   }
   saveDraftRow(exerciseId, setNumber);
-  // Toggle checkmark enabled/disabled based on data availability
+  // Toggle checkbox enabled/disabled based on data availability
   const checkBtn = document.getElementById(`check-${setNumber}`);
   if (checkBtn) {
     const hasData = getInputValueRow('weight', setNumber) && getInputValueRow('reps', setNumber);
     if (hasData) {
-      checkBtn.classList.remove('text-ink/15', 'pointer-events-none');
-      checkBtn.classList.add('text-ink/60', 'active:text-acid');
+      checkBtn.classList.remove('border-ink/10', 'pointer-events-none');
+      checkBtn.classList.add('border-ink/30', 'active:border-acid', 'active:bg-acid/20');
     } else {
-      checkBtn.classList.remove('text-ink/60', 'active:text-acid');
-      checkBtn.classList.add('text-ink/15', 'pointer-events-none');
+      checkBtn.classList.remove('border-ink/30', 'active:border-acid', 'active:bg-acid/20');
+      checkBtn.classList.add('border-ink/10', 'pointer-events-none');
     }
   }
 }
@@ -1989,8 +1991,17 @@ async function logSetRow(exerciseId, exerciseName, setNumber, totalSets, targetR
 }
 
 async function deleteSet(setId, exerciseId) {
+  // Save the logged values as a draft so they pre-fill when the row unlocks
+  const sets = state.sessionSets[exerciseId] || [];
+  const deletedSet = sets.find(s => s.id === setId);
+  if (deletedSet) {
+    localStorage.setItem(`draft-${exerciseId}-${deletedSet.set_number}`, JSON.stringify({
+      weight: deletedSet.weight_kg,
+      reps: deletedSet.reps,
+    }));
+  }
   await api('DELETE', `/sets/${setId}`);
-  state.sessionSets[exerciseId] = (state.sessionSets[exerciseId] || []).filter(s => s.id !== setId);
+  state.sessionSets[exerciseId] = sets.filter(s => s.id !== setId);
   renderExercise(state.currentExerciseIndex);
 }
 
