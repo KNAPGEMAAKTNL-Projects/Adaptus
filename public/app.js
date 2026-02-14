@@ -1244,7 +1244,7 @@ async function renderWorkouts() {
         <button onclick="changeWeek(-1)" class="flex-shrink-0 px-4 py-2.5 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-xs transition-colors duration-200 active:bg-white/20 active:text-white ${state.progress.week === 1 && state.progress.cycle === 1 ? 'opacity-30 pointer-events-none' : ''}">
           Prev
         </button>
-        <div class="flex items-center gap-1.5 flex-1 justify-center">
+        <div id="week-dots" class="flex items-center gap-1.5 flex-1 justify-center">
           ${weekDots}
         </div>
         <button onclick="changeWeek(1)" class="flex-shrink-0 px-4 py-2.5 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-xs transition-colors duration-200 active:bg-white/20 active:text-white">
@@ -1269,7 +1269,24 @@ async function changeWeek(dir) {
     return;
   }
 
-  state.progress = await api('PUT', '/progress', { cycle: newCycle, week: newWeek });
+  // Animate dots before re-render
+  const dotsContainer = document.getElementById('week-dots');
+  if (dotsContainer) {
+    const dots = dotsContainer.children;
+    for (let i = 0; i < dots.length; i++) {
+      const w = i + 1;
+      const isNew = w === newWeek;
+      dots[i].className = isNew
+        ? 'w-5 h-2 rounded-full bg-acid transition-all duration-300'
+        : 'w-2 h-2 rounded-full bg-ink/15 transition-all duration-300';
+    }
+  }
+
+  const [progress] = await Promise.all([
+    api('PUT', '/progress', { cycle: newCycle, week: newWeek }),
+    new Promise(r => setTimeout(r, 300)),
+  ]);
+  state.progress = progress;
   renderWorkouts();
 }
 
@@ -2111,7 +2128,7 @@ async function renderExerciseStats(exerciseName) {
   ` : '';
 
   const e1rmHtml = e1rm ? `
-    <div class="border-2 border-electric bg-electric/5 p-4 mb-5">
+    <div class="border-2 border-electric bg-electric/5 rounded-xl p-4 mb-5">
       <h3 class="text-[10px] font-bold uppercase tracking-widest text-electric/60 mb-1">Estimated 1RM</h3>
       <span class="text-2xl font-black text-electric">${e1rm.estimated1rm}<span class="text-sm font-bold text-electric/40 ml-0.5">kg</span></span>
       <p class="text-xs text-ink/40 mt-1">From ${e1rm.fromWeight}kg &times; ${e1rm.fromReps} reps</p>
