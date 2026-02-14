@@ -1,6 +1,8 @@
 /* Nav height custom property */
 :root {
   --nav-height: 3.5rem;
+  --page-pb: calc(var(--nav-height) + env(safe-area-inset-bottom) + 1rem);
+  --page-pb-extra: calc(var(--nav-height) + env(safe-area-inset-bottom) + 5rem);
 }
 
 /* Prevent iOS rubber-banding on non-scrollable areas */
