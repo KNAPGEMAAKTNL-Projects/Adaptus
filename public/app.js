@@ -1458,7 +1458,7 @@ async function renderWorkout(templateId) {
     const technique = ex.lastSetIntensityTechnique !== 'N/A' ? ex.lastSetIntensityTechnique : '';
 
     return `
-      <button onclick="navigate('#exercise/${i}')" class="w-full px-3 py-2.5 border-2 ${done ? 'border-ink/10' : partial ? 'border-ink/20' : 'border-ink/10'} text-left transition-colors duration-200 active:bg-ink/5">
+      <button onclick="navigate('#exercise/${i}')" class="w-full px-3 py-2.5 border-2 ${done ? 'border-ink/10' : partial ? 'border-ink/20' : 'border-ink/10'} rounded-xl text-left transition-colors duration-200 active:bg-ink/5">
         <div class="flex items-start justify-between gap-3">
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
