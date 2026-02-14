@@ -901,20 +901,33 @@ async function renderDashboard() {
         </div>
         <div class="grid grid-cols-4 gap-2 mb-3">
           <div>
-            <span class="text-2xl font-black leading-none block">${doneCount}<span class="text-sm text-ink/30">/${weekSummary.totalWorkouts}</span></span>
-            <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">done</span>
+            <div class="flex items-center gap-1 mb-0.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-acid flex-shrink-0"></span>
+              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">done</span>
+            </div>
+            <span class="text-lg font-black leading-none block">${doneCount} <span class="text-xs text-ink/30">/ ${weekSummary.totalWorkouts}</span></span>
+            <div class="h-[3px] bg-ink/10 rounded-full mt-1 overflow-hidden"><div class="h-full rounded-full" style="width:${weekSummary.totalWorkouts > 0 ? (doneCount / weekSummary.totalWorkouts) * 100 : 0}%;background:#CCFF00"></div></div>
           </div>
           <div>
-            <span class="text-2xl font-black leading-none block">${weekSummary.totalSets}</span>
-            <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">sets</span>
+            <div class="flex items-center gap-1 mb-0.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-electric flex-shrink-0"></span>
+              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">sets</span>
+            </div>
+            <span class="text-lg font-black leading-none block">${weekSummary.totalSets}</span>
           </div>
           <div>
-            <span class="text-2xl font-black leading-none block">${formatVolume(weekSummary.totalVolume)}</span>
-            <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">volume</span>
+            <div class="flex items-center gap-1 mb-0.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
+              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">volume</span>
+            </div>
+            <span class="text-lg font-black leading-none block">${formatVolume(weekSummary.totalVolume)}</span>
           </div>
           <div>
-            <span class="text-2xl font-black leading-none block">${weekSummary.totalDuration ? formatDuration(weekSummary.totalDuration) : '—'}</span>
-            <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">duration</span>
+            <div class="flex items-center gap-1 mb-0.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-orange-500 flex-shrink-0"></span>
+              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">time</span>
+            </div>
+            <span class="text-lg font-black leading-none block">${weekSummary.totalDuration ? formatDuration(weekSummary.totalDuration) : '—'}</span>
           </div>
         </div>
         ${progressDots ? `<div class="flex items-center gap-2 mb-3">${progressDots}</div>` : ''}
@@ -936,24 +949,36 @@ async function renderDashboard() {
         </div>
         <div class="grid grid-cols-4 gap-2">
           <div>
-            <span class="text-2xl font-black leading-none block">${Math.round(nTotals.calories)}</span>
-            <div class="h-1 bg-ink/10 rounded-full mt-1 overflow-hidden"><div class="h-full bg-acid rounded-full" style="width:${miniPct(nTotals.calories, nTargets.calories)}%"></div></div>
-            <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">kcal</span>
+            <div class="flex items-center gap-1 mb-0.5">
+              <svg class="flex-shrink-0" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#CCFF00" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12c2-2.96 0-7-1-8 0 3.038-1.773 4.741-3 6-1.226 1.26-2 3.24-2 5a6 6 0 1 0 12 0c0-1.532-1.056-3.94-2-5-1.786 3-2.791 3-4 2z"/></svg>
+              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">kcal</span>
+            </div>
+            <span class="text-lg font-black leading-none block">${Math.round(nTotals.calories)} <span class="text-xs text-ink/30">/ ${Math.round(nTargets.calories)}</span></span>
+            <div class="h-[3px] bg-ink/10 rounded-full mt-1 overflow-hidden"><div class="h-full rounded-full" style="width:${miniPct(nTotals.calories, nTargets.calories)}%;background:#CCFF00"></div></div>
           </div>
           <div>
-            <span class="text-2xl font-black leading-none block">${Math.round(nTotals.protein)}<span class="text-xs text-ink/30">g</span></span>
-            <div class="h-1 bg-ink/10 rounded-full mt-1 overflow-hidden"><div class="h-full bg-electric rounded-full" style="width:${miniPct(nTotals.protein, nTargets.protein)}%"></div></div>
-            <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">protein</span>
+            <div class="flex items-center gap-1 mb-0.5">
+              <span class="text-[10px] font-black text-electric">P</span>
+              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">protein</span>
+            </div>
+            <span class="text-lg font-black leading-none block">${Math.round(nTotals.protein)}<span class="text-xs text-ink/30">g</span></span>
+            <div class="h-[3px] bg-ink/10 rounded-full mt-1 overflow-hidden"><div class="h-full rounded-full" style="width:${miniPct(nTotals.protein, nTargets.protein)}%;background:#7C3AED"></div></div>
           </div>
           <div>
-            <span class="text-2xl font-black leading-none block">${Math.round(nTotals.carbs)}<span class="text-xs text-ink/30">g</span></span>
-            <div class="h-1 bg-ink/10 rounded-full mt-1 overflow-hidden"><div class="h-full bg-blue-500 rounded-full" style="width:${miniPct(nTotals.carbs, nTargets.carbs)}%"></div></div>
-            <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">carbs</span>
+            <div class="flex items-center gap-1 mb-0.5">
+              <span class="text-[10px] font-black text-blue-500">C</span>
+              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">carbs</span>
+            </div>
+            <span class="text-lg font-black leading-none block">${Math.round(nTotals.carbs)}<span class="text-xs text-ink/30">g</span></span>
+            <div class="h-[3px] bg-ink/10 rounded-full mt-1 overflow-hidden"><div class="h-full rounded-full" style="width:${miniPct(nTotals.carbs, nTargets.carbs)}%;background:#3B82F6"></div></div>
           </div>
           <div>
-            <span class="text-2xl font-black leading-none block">${Math.round(nTotals.fat)}<span class="text-xs text-ink/30">g</span></span>
-            <div class="h-1 bg-ink/10 rounded-full mt-1 overflow-hidden"><div class="h-full bg-orange-500 rounded-full" style="width:${miniPct(nTotals.fat, nTargets.fat)}%"></div></div>
-            <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">fat</span>
+            <div class="flex items-center gap-1 mb-0.5">
+              <span class="text-[10px] font-black text-orange-500">F</span>
+              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">fat</span>
+            </div>
+            <span class="text-lg font-black leading-none block">${Math.round(nTotals.fat)}<span class="text-xs text-ink/30">g</span></span>
+            <div class="h-[3px] bg-ink/10 rounded-full mt-1 overflow-hidden"><div class="h-full rounded-full" style="width:${miniPct(nTotals.fat, nTargets.fat)}%;background:#F59E0B"></div></div>
           </div>
         </div>
       </button>
@@ -1131,20 +1156,32 @@ async function renderStats() {
         <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-4">All Time</h3>
         <div class="grid grid-cols-2 gap-4">
           <div>
+            <div class="flex items-center gap-1.5 mb-1">
+              <span class="w-2 h-2 rounded-full bg-acid flex-shrink-0"></span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">workouts</span>
+            </div>
             <span class="text-3xl font-black leading-none block">${summary.totalWorkouts}</span>
-            <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">workouts</span>
           </div>
           <div>
+            <div class="flex items-center gap-1.5 mb-1">
+              <span class="w-2 h-2 rounded-full bg-electric flex-shrink-0"></span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">sets</span>
+            </div>
             <span class="text-3xl font-black leading-none block">${summary.totalSets}</span>
-            <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">sets</span>
           </div>
           <div>
+            <div class="flex items-center gap-1.5 mb-1">
+              <span class="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0"></span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">volume (kg)</span>
+            </div>
             <span class="text-3xl font-black leading-none block">${formatVolume(summary.totalVolume)}</span>
-            <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">volume (kg)</span>
           </div>
           <div>
+            <div class="flex items-center gap-1.5 mb-1">
+              <span class="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0"></span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">avg duration</span>
+            </div>
             <span class="text-3xl font-black leading-none block">${summary.avgDuration ? formatDuration(summary.avgDuration) : '—'}</span>
-            <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">avg duration</span>
           </div>
         </div>
       </div>
@@ -1747,28 +1784,43 @@ async function renderExercise(index) {
 
       <!-- Info card -->
       <div class="border-2 border-ink/10 rounded-xl p-4 mb-4">
-        <div class="grid grid-cols-2 gap-3 text-sm">
+        <div class="grid grid-cols-4 gap-2 text-sm">
           <div>
-            <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block">Warmup</span>
-            <span class="font-bold">${exercise.warmupSets} sets</span>
+            <div class="flex items-center gap-1 mb-0.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-ink/25 flex-shrink-0"></span>
+              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">warm</span>
+            </div>
+            <span class="font-black text-lg leading-none">${exercise.warmupSets}</span>
           </div>
           <div>
-            <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block">Working</span>
-            <span class="font-bold">${exercise.workingSets} sets</span>
+            <div class="flex items-center gap-1 mb-0.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-acid flex-shrink-0"></span>
+              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">work</span>
+            </div>
+            <span class="font-black text-lg leading-none">${exercise.workingSets}</span>
           </div>
           <div>
-            <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block">Reps</span>
-            <span class="font-bold">${exercise.reps}</span>
+            <div class="flex items-center gap-1 mb-0.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-electric flex-shrink-0"></span>
+              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">reps</span>
+            </div>
+            <span class="font-black text-lg leading-none">${exercise.reps}</span>
           </div>
           <div>
-            <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block">Rest</span>
-            <span class="font-bold">${exercise.rest}</span>
+            <div class="flex items-center gap-1 mb-0.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
+              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">rest</span>
+            </div>
+            <span class="font-black text-lg leading-none">${exercise.rest}</span>
           </div>
-          ${showTechnique ? `<div class="col-span-2">
-            <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block">Last Set Technique</span>
-            <span class="font-bold text-electric">${technique}</span>
-          </div>` : ''}
         </div>
+        ${showTechnique ? `<div class="mt-3 pt-3 border-t border-ink/10">
+          <div class="flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-electric flex-shrink-0"></span>
+            <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">Last Set</span>
+            <span class="font-bold text-electric text-sm">${technique}</span>
+          </div>
+        </div>` : ''}
       </div>
 
       <!-- Notes -->
