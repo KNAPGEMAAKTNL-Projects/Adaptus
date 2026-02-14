@@ -109,7 +109,7 @@ function navigate(hash) {
       <div class="px-3 pt-8">
         <h1 class="text-xl font-black uppercase mb-2">Something went wrong</h1>
         <p class="text-sm text-ink/60 mb-4">${err.message}</p>
-        <button onclick="location.reload()" class="px-4 py-2 bg-ink text-canvas font-bold uppercase text-sm">Reload</button>
+        <button onclick="location.reload()" class="px-4 py-2 bg-white/10 text-white rounded-lg font-bold uppercase text-sm">Reload</button>
       </div>`;
   });
   updateActiveTab(hash);
@@ -228,7 +228,7 @@ async function drawerShowOverview() {
       <button onclick="drawerShowMilestones()" class="w-full border-2 border-white/10 p-4 mb-5 text-left active:bg-white/5 transition-colors duration-200">
         <div class="flex items-center justify-between mb-2">
           <span class="text-[10px] font-bold uppercase tracking-widest text-white/40">Milestones</span>
-          <span class="text-xs font-bold bg-acid text-ink px-2 py-0.5">${earnedCount}/${totalCount}</span>
+          <span class="text-xs font-bold bg-acid text-canvas px-2 py-0.5">${earnedCount}/${totalCount}</span>
         </div>
         <div class="h-1.5 bg-white/10 rounded-full overflow-hidden">
           <div class="h-full bg-acid rounded-full" style="width: ${pct}%"></div>
@@ -261,7 +261,7 @@ async function drawerShowMilestones() {
   const milestonesHtml = MILESTONES.map(m => {
     const isEarned = earnedIds.has(m.id);
     return `
-      <div class="p-3 border-2 ${isEarned ? 'border-acid bg-acid/10' : 'border-white/10 opacity-30'} text-center">
+      <div class="p-3 border-2 ${isEarned ? 'border-acid bg-acid/10' : 'border-white/10 opacity-30'} rounded-xl text-center">
         <div class="text-xs font-bold uppercase tracking-tight leading-tight">${m.label}</div>
       </div>
     `;
@@ -333,7 +333,7 @@ async function drawerShowProfile() {
         </div>
       </div>
 
-      <button onclick="drawerSaveProfile()" class="w-full py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid mb-5">
+      <button onclick="drawerSaveProfile()" class="w-full py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-acid/20 active:text-acid mb-5">
         Save
       </button>
 
@@ -506,7 +506,7 @@ async function drawerShowNutritionGoals() {
         ${Object.entries(activityLabels).map(([k, v]) => activityBtn(k, v)).join('')}
       </div>
 
-      <button onclick="drawerSaveNutritionGoals()" class="w-full py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid mb-5">
+      <button onclick="drawerSaveNutritionGoals()" class="w-full py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-acid/20 active:text-acid mb-5">
         Save Activity Level
       </button>
 
@@ -545,7 +545,7 @@ async function drawerShowNutritionGoals() {
               </div>
               <div id="phase-error" class="text-red-400 text-xs font-bold hidden"></div>
               <div class="flex gap-2">
-                <button onclick="addPhase()" class="flex-1 py-2 bg-acid text-ink font-bold uppercase tracking-tight text-sm transition-colors duration-200 active:bg-ink active:text-acid">Add</button>
+                <button onclick="addPhase()" class="flex-1 py-2 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-sm transition-colors duration-200 active:bg-acid/20 active:text-acid">Add</button>
                 <button onclick="hideAddPhaseForm()" class="flex-1 py-2 border-2 border-white/20 text-white/40 font-bold uppercase tracking-tight text-sm transition-colors duration-200">Cancel</button>
               </div>
             </div>
@@ -734,19 +734,19 @@ function updateTimerDisplay() {
 
   if (state.restTimer.done) {
     display.textContent = 'DONE';
-    display.className = 'text-2xl font-black tabular-nums text-ink';
+    display.className = 'text-2xl font-black tabular-nums text-canvas';
     progress.style.width = '100%';
     progress.classList.add('timer-done');
-    bar.className = 'bg-acid text-ink px-4 py-3 flex items-center justify-between';
-    label.className = 'text-xs font-bold uppercase tracking-widest text-ink/60';
-    if (dismiss) dismiss.className = 'text-xs font-bold uppercase tracking-widest text-ink/40 hover:text-ink transition-colors duration-200';
+    bar.className = 'bg-acid text-canvas px-4 py-3 flex items-center justify-between';
+    label.className = 'text-xs font-bold uppercase tracking-widest text-canvas/60';
+    if (dismiss) dismiss.className = 'text-xs font-bold uppercase tracking-widest text-canvas/40 hover:text-canvas transition-colors duration-200';
   } else {
     display.textContent = formatTime(state.restTimer.seconds);
     display.className = 'text-2xl font-black tabular-nums text-acid';
     const pct = (state.restTimer.seconds / state.restTimer.total) * 100;
     progress.style.width = `${pct}%`;
     progress.classList.remove('timer-done');
-    bar.className = 'bg-ink text-canvas px-4 py-3 flex items-center justify-between';
+    bar.className = 'bg-white/10 text-white rounded-xl px-4 py-3 flex items-center justify-between';
     label.className = 'text-xs font-bold uppercase tracking-widest text-white/60';
     if (dismiss) dismiss.className = 'text-xs font-bold uppercase tracking-widest text-white/40 hover:text-white transition-colors duration-200';
   }
@@ -758,7 +758,7 @@ function dismissTimer() {
   const el = document.getElementById('rest-timer');
   if (el) el.classList.add('hidden');
   const bar = document.getElementById('timer-bar');
-  if (bar) bar.className = 'bg-ink text-canvas px-4 py-3 flex items-center justify-between';
+  if (bar) bar.className = 'bg-white/10 text-white rounded-xl px-4 py-3 flex items-center justify-between';
   const progress = document.getElementById('timer-progress');
   if (progress) progress.classList.remove('timer-done');
 }
@@ -818,11 +818,14 @@ function navigateToCurrentExercise() {
 // ─── View: Dashboard ────────────────────────────────────────────────────────
 async function renderDashboard() {
   const week = await getWeekData();
-  const [weekSummary, streakData, statusData, weightData] = await Promise.all([
+  const today = new Date().toISOString().split('T')[0];
+  const [weekSummary, streakData, statusData, weightData, nutritionLog, nutritionTargets] = await Promise.all([
     api('GET', `/stats/week-summary?cycle=${state.progress.cycle}&week=${state.progress.week}`),
     api('GET', '/stats/streak'),
     api('GET', `/workouts/status?cycle=${state.progress.cycle}&week=${state.progress.week}`),
     api('GET', '/weight/summary').catch(() => ({ current: null })),
+    api('GET', `/nutrition/log?date=${today}`).catch(() => ({ totals: { calories: 0, protein: 0, carbs: 0, fat: 0 }, entries: [] })),
+    api('GET', '/nutrition/targets').catch(() => null),
   ]);
 
   const deload = isDeloadWeek(state.progress.week);
@@ -845,32 +848,32 @@ async function renderDashboard() {
   let nextUpHtml = '';
   if (hasActiveSession) {
     nextUpHtml = `
-      <div class="bg-ink text-canvas p-5 mb-5 cursor-pointer active:bg-ink/80 transition-colors duration-200" onclick="startWorkoutFlow('${state.currentSession.workout_template_id}')">
+      <div class="bg-white/10 text-white rounded-xl p-5 mb-3 cursor-pointer active:bg-white/20 transition-colors duration-200" onclick="startWorkoutFlow('${state.currentSession.workout_template_id}')">
         <div class="flex items-center justify-between mb-2">
           <h3 class="text-[10px] font-bold uppercase tracking-widest text-white/40">In Progress</h3>
           <span class="workout-elapsed text-sm font-bold tabular-nums text-acid">${getElapsedText()}</span>
         </div>
         <h2 class="text-xl font-black uppercase tracking-tight leading-tight">${state.currentSession.workout_name.split('(')[0].trim()}</h2>
         <p class="text-sm text-white/50 font-bold uppercase tracking-widest mt-1">Cycle ${state.progress.cycle} &middot; Week ${state.progress.week}${deload ? ' &middot; Deload' : ''}</p>
-        <button onclick="event.stopPropagation(); resumeWorkout()" class="w-full mt-4 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
+        <button onclick="event.stopPropagation(); resumeWorkout()" class="w-full mt-4 py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-acid/20 active:text-acid">
           Resume Workout
         </button>
       </div>
     `;
   } else if (nextWorkout) {
     nextUpHtml = `
-      <div class="bg-ink text-canvas p-5 mb-5 cursor-pointer active:bg-ink/80 transition-colors duration-200" onclick="startWorkoutFlow('${nextWorkout.templateId}')">
+      <div class="bg-white/10 text-white rounded-xl p-5 mb-3 cursor-pointer active:bg-white/20 transition-colors duration-200" onclick="startWorkoutFlow('${nextWorkout.templateId}')">
         <h3 class="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-2">Next Up</h3>
         <h2 class="text-xl font-black uppercase tracking-tight leading-tight">${nextWorkout.name.split('(')[0].trim()}</h2>
         <p class="text-sm text-white/50 font-bold uppercase tracking-widest mt-1">Cycle ${state.progress.cycle} &middot; Week ${state.progress.week}${deload ? ' &middot; Deload' : ''}</p>
-        <button onclick="event.stopPropagation(); startWorkoutFlow('${nextWorkout.templateId}', true)" class="w-full mt-4 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
+        <button onclick="event.stopPropagation(); startWorkoutFlow('${nextWorkout.templateId}', true)" class="w-full mt-4 py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-acid/20 active:text-acid">
           Start Workout
         </button>
       </div>
     `;
   } else if (allAccountedFor) {
     nextUpHtml = `
-      <div class="bg-ink text-canvas p-5 mb-5">
+      <div class="bg-white/10 text-white rounded-xl p-5 mb-3">
         <h3 class="text-[10px] font-bold uppercase tracking-widest text-acid mb-2">Week Complete</h3>
         <p class="text-sm text-white/50 font-bold uppercase tracking-widest">All workouts done or skipped this week</p>
       </div>
@@ -888,101 +891,106 @@ async function renderDashboard() {
     return '<div class="w-3 h-3 rounded-full border-2 border-ink/15"></div>';
   }).join('') : '';
 
+  // Nutrition totals
+  const nTotals = nutritionLog.totals || { calories: 0, protein: 0, carbs: 0, fat: 0 };
+  const nTargets = nutritionTargets || {};
+  function miniPct(cur, tgt) { return tgt > 0 ? Math.min((cur / tgt) * 100, 100) : 0; }
+
   document.getElementById('app').innerHTML = `
     <div class="px-3 pt-8 pb-20">
-      <div class="mb-8">
+      <div class="mb-6">
         <h1 class="text-3xl font-black uppercase tracking-tight leading-none">Adaptus</h1>
         <p class="text-sm font-bold text-ink/40 mt-1">${new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</p>
       </div>
 
       ${nextUpHtml}
 
-      <div class="grid grid-cols-2 gap-2.5 mb-5">
-        <button onclick="navigate('#workouts')" class="bg-ink text-canvas p-5 text-left transition-colors duration-200 active:bg-ink/80">
-          <h3 class="text-lg font-black uppercase tracking-tight">Workouts</h3>
-          <p class="text-xs text-white/40 font-bold uppercase tracking-widest mt-1">${doneCount}/${weekSummary.totalWorkouts} done</p>
-        </button>
-        <button onclick="navigate('#stats')" class="bg-ink text-canvas p-5 text-left transition-colors duration-200 active:bg-ink/80">
-          <h3 class="text-lg font-black uppercase tracking-tight">Stats</h3>
-          <p class="text-xs text-white/40 font-bold uppercase tracking-widest mt-1">PRs &amp; records</p>
-        </button>
-      </div>
-
-      <div class="border-2 border-ink/10 p-5 mb-5">
-        <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-4">This Week</h3>
-        <div class="grid grid-cols-2 gap-4 mb-4">
+      <div class="border-2 border-ink/10 rounded-xl p-4 mb-3">
+        <div class="flex items-center gap-2 mb-3">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" class="text-ink/30"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V10h14v10z"/></svg>
+          <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40">This Week</h3>
+        </div>
+        <div class="grid grid-cols-4 gap-2 mb-3">
           <div>
-            <span class="text-3xl font-black leading-none block">${doneCount}</span>
-            <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">/ ${weekSummary.totalWorkouts} done</span>
+            <span class="text-2xl font-black leading-none block">${doneCount}<span class="text-sm text-ink/30">/${weekSummary.totalWorkouts}</span></span>
+            <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">done</span>
           </div>
           <div>
-            <span class="text-3xl font-black leading-none block">${weekSummary.totalSets}</span>
-            <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">sets</span>
+            <span class="text-2xl font-black leading-none block">${weekSummary.totalSets}</span>
+            <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">sets</span>
           </div>
           <div>
-            <span class="text-3xl font-black leading-none block">${formatVolume(weekSummary.totalVolume)}</span>
-            <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">volume</span>
+            <span class="text-2xl font-black leading-none block">${formatVolume(weekSummary.totalVolume)}</span>
+            <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">volume</span>
           </div>
           <div>
-            <span class="text-3xl font-black leading-none block">${weekSummary.totalDuration ? formatDuration(weekSummary.totalDuration) : '—'}</span>
-            <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">duration</span>
+            <span class="text-2xl font-black leading-none block">${weekSummary.totalDuration ? formatDuration(weekSummary.totalDuration) : '—'}</span>
+            <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">duration</span>
           </div>
         </div>
-        ${progressDots ? `
-          <div class="flex items-center gap-2 mb-4">
-            ${progressDots}
-          </div>
-        ` : ''}
+        ${progressDots ? `<div class="flex items-center gap-2 mb-3">${progressDots}</div>` : ''}
         ${weekSummary.prsThisWeek && weekSummary.prsThisWeek.length > 0 ? `
-          <div class="border-t-2 border-ink/10 pt-3">
-            <div class="flex items-center gap-2 mb-2">
-              <span class="text-xs font-bold text-canvas bg-electric px-2 py-0.5">PR</span>
-              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">${weekSummary.prsThisWeek.length} this week</span>
-            </div>
-            <div class="flex flex-wrap gap-1.5">
-              ${weekSummary.prsThisWeek.map(pr => `
-                <span class="text-xs font-bold bg-acid/20 text-ink px-2 py-1">${pr.exercise_name} ${pr.weight_kg}kg</span>
-              `).join('')}
-            </div>
+          <div class="flex flex-wrap gap-1.5">
+            <span class="text-xs font-bold text-canvas bg-electric rounded px-2 py-0.5">PR</span>
+            ${weekSummary.prsThisWeek.map(pr => `
+              <span class="text-xs font-bold bg-acid/20 text-ink rounded px-2 py-1">${pr.exercise_name} ${pr.weight_kg}kg</span>
+            `).join('')}
           </div>
         ` : ''}
       </div>
 
-      <div class="border-2 ${streakData.streak > 0 ? 'border-acid bg-acid/5' : 'border-ink/10'} p-5">
-        <div class="flex items-center justify-between">
+      ${nTargets.calories ? `
+      <button onclick="navigate('#nutrition')" class="w-full border-2 border-ink/10 rounded-xl p-4 mb-3 text-left active:bg-ink/5 transition-colors duration-200">
+        <div class="flex items-center gap-2 mb-3">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" class="text-ink/30"><path d="M11 9H9V2H7v7H5V2H3v7c0 2.12 1.66 3.84 3.75 3.97V22h2.5v-9.03C11.34 12.84 13 11.12 13 9V2h-2v7zm5-3v8h2.5v8H21V2c-2.76 0-5 2.24-5 4z"/></svg>
+          <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Today's Nutrition</h3>
+        </div>
+        <div class="grid grid-cols-4 gap-2">
           <div>
-            <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-1">Streak</h3>
-            <span class="text-4xl font-black leading-none">${streakData.streak}</span>
-            <span class="text-sm font-bold text-ink/40 ml-1">week${streakData.streak !== 1 ? 's' : ''}</span>
+            <span class="text-2xl font-black leading-none block">${Math.round(nTotals.calories)}</span>
+            <div class="h-1 bg-ink/10 rounded-full mt-1 overflow-hidden"><div class="h-full bg-acid rounded-full" style="width:${miniPct(nTotals.calories, nTargets.calories)}%"></div></div>
+            <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">kcal</span>
+          </div>
+          <div>
+            <span class="text-2xl font-black leading-none block">${Math.round(nTotals.protein)}<span class="text-xs text-ink/30">g</span></span>
+            <div class="h-1 bg-ink/10 rounded-full mt-1 overflow-hidden"><div class="h-full bg-electric rounded-full" style="width:${miniPct(nTotals.protein, nTargets.protein)}%"></div></div>
+            <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">protein</span>
+          </div>
+          <div>
+            <span class="text-2xl font-black leading-none block">${Math.round(nTotals.carbs)}<span class="text-xs text-ink/30">g</span></span>
+            <div class="h-1 bg-ink/10 rounded-full mt-1 overflow-hidden"><div class="h-full bg-blue-500 rounded-full" style="width:${miniPct(nTotals.carbs, nTargets.carbs)}%"></div></div>
+            <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">carbs</span>
+          </div>
+          <div>
+            <span class="text-2xl font-black leading-none block">${Math.round(nTotals.fat)}<span class="text-xs text-ink/30">g</span></span>
+            <div class="h-1 bg-ink/10 rounded-full mt-1 overflow-hidden"><div class="h-full bg-orange-500 rounded-full" style="width:${miniPct(nTotals.fat, nTargets.fat)}%"></div></div>
+            <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">fat</span>
           </div>
         </div>
-        <p class="text-xs text-ink/40 mt-2">Consecutive weeks with all 5 workouts completed</p>
-      </div>
+      </button>
+      ` : ''}
 
-      <div class="border-2 border-ink/10 p-5 mt-5">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Body Weight</h3>
-          <button onclick="showWeightLogModal()" class="text-xs font-bold uppercase tracking-widest text-ink/40 active:text-ink transition-colors duration-200">+ Log</button>
-        </div>
-        ${weightData.current ? `
-          <div class="flex items-center gap-4">
-            <div>
-              <span class="text-3xl font-black leading-none">${weightData.current}</span>
-              <span class="text-sm font-bold text-ink/40 ml-0.5">kg</span>
-            </div>
-            ${weightData.avg7day ? `
-              <div class="border-l-2 border-ink/10 pl-4">
-                <span class="text-lg font-black leading-none">${weightData.avg7day}</span>
-                <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block">7d avg</span>
-              </div>
-            ` : ''}
-            ${weightData.trend ? `
-              <span class="text-lg font-black ${weightData.trend === 'up' ? 'text-green-600' : weightData.trend === 'down' ? 'text-red-500' : 'text-ink/30'}">${weightData.trend === 'up' ? '&#9650;' : weightData.trend === 'down' ? '&#9660;' : '='}</span>
-            ` : ''}
+      <div class="grid grid-cols-2 gap-3 mb-3">
+        <div class="border-2 ${streakData.streak > 0 ? 'border-acid bg-acid/5' : 'border-ink/10'} rounded-xl p-4">
+          <div class="flex items-center gap-1.5 mb-2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" class="text-ink/30"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
+            <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Streak</h3>
           </div>
-        ` : `
-          <p class="text-sm text-ink/30">No entries yet</p>
-        `}
+          <span class="text-3xl font-black leading-none">${streakData.streak}</span>
+          <span class="text-xs font-bold text-ink/40 ml-1">week${streakData.streak !== 1 ? 's' : ''}</span>
+        </div>
+
+        <div class="border-2 border-ink/10 rounded-xl p-4 cursor-pointer active:bg-ink/5 transition-colors duration-200" onclick="showWeightLogModal()">
+          <div class="flex items-center gap-1.5 mb-2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" class="text-ink/30"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg>
+            <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Weight</h3>
+          </div>
+          ${weightData.current ? `
+            <span class="text-3xl font-black leading-none">${weightData.current}</span>
+            <span class="text-xs font-bold text-ink/40 ml-0.5">kg</span>
+            ${weightData.trend ? `<span class="text-sm font-black ml-1 ${weightData.trend === 'up' ? 'text-green-500' : weightData.trend === 'down' ? 'text-red-500' : 'text-ink/30'}">${weightData.trend === 'up' ? '&#9650;' : weightData.trend === 'down' ? '&#9660;' : '='}</span>` : ''}
+          ` : `<span class="text-sm text-ink/30">+ Log</span>`}
+        </div>
       </div>
     </div>
   `;
@@ -993,17 +1001,17 @@ function showWeightLogModal() {
   modal.id = 'weight-modal';
   modal.className = 'fixed inset-0 z-[80] flex items-center justify-center';
   modal.innerHTML = `
-    <div class="absolute inset-0 bg-ink/50" onclick="closeWeightModal()"></div>
-    <div class="relative bg-canvas mx-4 p-5 max-w-sm w-full">
+    <div class="absolute inset-0 bg-black/60" onclick="closeWeightModal()"></div>
+    <div class="relative bg-[#1a1a1a] rounded-xl mx-4 p-5 max-w-sm w-full">
       <h2 class="text-lg font-black uppercase tracking-tight mb-4">Log Weight</h2>
       <div class="mb-4">
         <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Weight (kg)</label>
         <input id="weight-log-input" type="number" inputmode="decimal" step="0.1"
-          class="w-full h-12 border-2 border-ink/15 text-center font-bold text-xl focus:border-ink focus:outline-none transition-colors duration-200">
+          class="w-full h-12 border-2 border-ink/15 rounded-lg text-center font-bold text-xl focus:border-ink focus:outline-none transition-colors duration-200">
       </div>
       <div class="flex gap-2">
-        <button onclick="closeWeightModal()" class="flex-1 py-3 border-2 border-ink/15 font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-canvas">Cancel</button>
-        <button onclick="confirmWeightLog()" class="flex-1 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-acid">Log</button>
+        <button onclick="closeWeightModal()" class="flex-1 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">Cancel</button>
+        <button onclick="confirmWeightLog()" class="flex-1 py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-acid/20 active:text-acid">Log</button>
       </div>
     </div>
   `;
@@ -1074,7 +1082,7 @@ function showMilestoneCelebration(milestone) {
   celebration.id = 'milestone-celebration';
   celebration.className = 'fixed inset-0 z-[90] flex items-center justify-center pointer-events-none';
   celebration.innerHTML = `
-    <div class="bg-ink text-canvas px-8 py-6 text-center animate-pr-pop pointer-events-auto" onclick="this.parentElement.remove()">
+    <div class="bg-white/10 text-white rounded-xl px-8 py-6 text-center animate-pr-pop pointer-events-auto" onclick="this.parentElement.remove()">
       <div class="text-[10px] font-bold uppercase tracking-widest text-acid mb-3">Milestone Unlocked</div>
       <div class="text-2xl font-black uppercase tracking-tight">${milestone.label}</div>
     </div>
@@ -1096,14 +1104,14 @@ async function renderStats() {
   ]);
 
   const exerciseBrowserHtml = exercises.length > 0 ? `
-    <div class="border-2 border-ink/10 p-5 mb-5">
+    <div class="border-2 border-ink/10 rounded-xl p-5 mb-5">
       <div class="flex items-center gap-2 mb-4">
         <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Exercise History</h3>
-        <span class="text-xs font-bold text-canvas bg-ink px-2 py-0.5">${exercises.length}</span>
+        <span class="text-xs font-bold text-canvas bg-ink rounded px-2 py-0.5">${exercises.length}</span>
       </div>
       <input id="exercise-search" type="text" placeholder="Search exercises..."
         oninput="filterExerciseList(this.value)"
-        class="w-full h-10 px-3 border-2 border-ink/15 text-sm font-bold focus:border-ink focus:outline-none transition-colors duration-200 mb-3">
+        class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg text-sm font-bold focus:border-ink focus:outline-none transition-colors duration-200 mb-3">
       <div id="exercise-list">
         ${exercises.map(ex => `
           <button onclick="navigate('#exercise-stats/${encodeURIComponent(ex.exercise_name)}')"
@@ -1130,7 +1138,7 @@ async function renderStats() {
         <p class="text-sm font-bold text-ink/40 mt-1">${new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</p>
       </div>
 
-      <div class="border-2 border-ink/10 p-5 mb-5">
+      <div class="border-2 border-ink/10 rounded-xl p-5 mb-5">
         <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-4">All Time</h3>
         <div class="grid grid-cols-2 gap-4">
           <div>
@@ -1153,7 +1161,7 @@ async function renderStats() {
       </div>
 
       ${weightHistory.length >= 2 ? `
-        <div class="border-2 border-ink/10 p-5 mb-5">
+        <div class="border-2 border-ink/10 rounded-xl p-5 mb-5">
           <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-3">Body Weight</h3>
           ${buildWeightTrend(tdeeData)}
           <canvas id="weight-chart" class="w-full mt-3" height="160"></canvas>
@@ -1189,18 +1197,18 @@ async function renderWorkouts() {
     const skipped = statusData.skipped.includes(wo.templateId);
     const isActive = wo.templateId === activeTemplateId;
     let badge = `<span class="text-sm text-white/40">${wo.exercises.length} exercises</span>`;
-    let bgClass = 'bg-ink';
+    let bgClass = 'bg-white/10';
     if (completed) {
-      badge = '<span class="text-xs font-bold text-ink bg-acid px-2 py-0.5">Done</span>';
-      bgClass = 'bg-ink/80';
+      badge = '<span class="text-xs font-bold text-canvas bg-acid rounded px-2 py-0.5">Done</span>';
+      bgClass = 'bg-white/8';
     } else if (skipped) {
-      badge = '<span class="text-xs font-bold text-ink/60 bg-ink/20 px-2 py-0.5">Skipped</span>';
-      bgClass = 'bg-ink/40';
+      badge = '<span class="text-xs font-bold text-white/40 bg-white/10 rounded px-2 py-0.5">Skipped</span>';
+      bgClass = 'bg-white/5';
     } else if (isActive) {
-      badge = `<span class="text-xs font-bold text-canvas bg-ink px-2 py-0.5 flex items-center gap-1.5">In Progress <span class="workout-elapsed tabular-nums text-acid">${getElapsedText()}</span></span>`;
+      badge = `<span class="text-xs font-bold text-white bg-white/15 rounded px-2 py-0.5 flex items-center gap-1.5">In Progress <span class="workout-elapsed tabular-nums text-acid">${getElapsedText()}</span></span>`;
     }
     return `
-      <button onclick="startWorkoutFlow('${wo.templateId}')" class="w-full ${bgClass} text-canvas px-4 py-3 text-left transition-colors duration-200 active:bg-ink/80">
+      <button onclick="startWorkoutFlow('${wo.templateId}')" class="w-full ${bgClass} text-white rounded-xl px-4 py-3 text-left transition-colors duration-200 active:bg-white/20">
         <div class="flex items-center justify-between">
           <div>
             <h3 class="text-lg font-black uppercase tracking-tight">${name}</h3>
@@ -1234,7 +1242,7 @@ async function renderWorkouts() {
       </div>
 
       ${state.currentSession && !state.currentSession.completed_at && !state.currentSession.skipped_at ? `
-        <button onclick="resumeWorkout()" class="w-full mb-3 px-4 py-2.5 bg-acid text-ink font-bold uppercase tracking-tight text-center transition-colors duration-200 active:bg-ink active:text-acid">
+        <button onclick="resumeWorkout()" class="w-full mb-3 px-4 py-2.5 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-center transition-colors duration-200 active:bg-acid/20 active:text-acid">
           Resume: ${state.currentSession.workout_name}
         </button>
       ` : ''}
@@ -1244,13 +1252,13 @@ async function renderWorkouts() {
       </div>
 
       <div class="mt-5 flex items-center gap-3">
-        <button onclick="changeWeek(-1)" class="flex-shrink-0 px-4 py-2.5 border-2 border-ink/15 font-bold uppercase tracking-tight text-xs transition-colors duration-200 active:bg-ink active:text-canvas ${state.progress.week === 1 && state.progress.cycle === 1 ? 'opacity-30 pointer-events-none' : ''}">
+        <button onclick="changeWeek(-1)" class="flex-shrink-0 px-4 py-2.5 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-xs transition-colors duration-200 active:bg-white/20 active:text-white ${state.progress.week === 1 && state.progress.cycle === 1 ? 'opacity-30 pointer-events-none' : ''}">
           Prev
         </button>
         <div class="flex items-center gap-1.5 flex-1 justify-center">
           ${weekDots}
         </div>
-        <button onclick="changeWeek(1)" class="flex-shrink-0 px-4 py-2.5 border-2 border-ink/15 font-bold uppercase tracking-tight text-xs transition-colors duration-200 active:bg-ink active:text-canvas">
+        <button onclick="changeWeek(1)" class="flex-shrink-0 px-4 py-2.5 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-xs transition-colors duration-200 active:bg-white/20 active:text-white">
           Next
         </button>
       </div>
@@ -1289,15 +1297,15 @@ function showCycleModal(fromCycle, toCycle) {
   modal.id = 'cycle-modal';
   modal.className = 'fixed inset-0 z-[80] flex items-center justify-center';
   modal.innerHTML = `
-    <div class="absolute inset-0 bg-ink/50" onclick="closeCycleModal()"></div>
-    <div class="relative bg-canvas mx-4 p-5 max-w-sm w-full">
+    <div class="absolute inset-0 bg-black/60" onclick="closeCycleModal()"></div>
+    <div class="relative bg-[#1a1a1a] rounded-xl mx-4 p-5 max-w-sm w-full">
       <h2 class="text-lg font-black uppercase tracking-tight mb-2">${title}</h2>
       <p class="text-sm text-ink/60 mb-5">${message}</p>
       <div class="flex gap-2">
-        <button onclick="closeCycleModal()" class="flex-1 py-3 border-2 border-ink/15 font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-canvas">
+        <button onclick="closeCycleModal()" class="flex-1 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">
           Cancel
         </button>
-        <button onclick="confirmCycleChange(${toCycle}, ${newWeek})" class="flex-1 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-acid">
+        <button onclick="confirmCycleChange(${toCycle}, ${newWeek})" class="flex-1 py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-acid/20 active:text-acid">
           ${confirmLabel}
         </button>
       </div>
@@ -1457,20 +1465,20 @@ async function renderWorkout(templateId) {
       </div>
 
       ${isSkipped ? `
-        <div class="border-2 border-ink/10 bg-ink/5 p-5 mb-5 text-center">
+        <div class="border-2 border-ink/10 bg-ink/5 rounded-xl p-5 mb-5 text-center">
           <p class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-4">This workout was skipped</p>
-          <button onclick="unskipWorkout()" class="px-6 py-2.5 border-2 border-ink/15 font-bold uppercase tracking-tight text-sm transition-colors duration-200 active:bg-ink active:text-canvas">
+          <button onclick="unskipWorkout()" class="px-6 py-2.5 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm transition-colors duration-200 active:bg-white/20 active:text-white">
             Undo Skip
           </button>
         </div>
       ` : `
         ${isActive ? `
-          <button onclick="startWorkoutFlow('${workout.templateId}', true)" class="w-full mb-3 py-2.5 bg-ink text-canvas font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink/80">
+          <button onclick="startWorkoutFlow('${workout.templateId}', true)" class="w-full mb-3 py-2.5 bg-white/10 text-white rounded-lg font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-white/20">
             ${hasLoggedSets ? 'Continue Logging' : 'Start Logging'}
           </button>
         ` : ''}
         ${!isCompleted && !isActive ? `
-          <button onclick="startWorkoutFlow('${workout.templateId}', true)" class="w-full mb-3 py-2.5 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
+          <button onclick="startWorkoutFlow('${workout.templateId}', true)" class="w-full mb-3 py-2.5 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-acid/20 active:text-acid">
             Start Workout
           </button>
         ` : ''}
@@ -1480,7 +1488,7 @@ async function renderWorkout(templateId) {
         </div>
 
         ${allDone && !isCompleted ? `
-          <button onclick="completeWorkout()" class="w-full mt-6 px-6 py-4 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
+          <button onclick="completeWorkout()" class="w-full mt-6 px-6 py-4 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-acid/20 active:text-acid">
             Complete Workout
           </button>
         ` : ''}
@@ -1512,15 +1520,15 @@ function showDeleteWorkoutModal() {
   modal.id = 'delete-modal';
   modal.className = 'fixed inset-0 z-[80] flex items-center justify-center';
   modal.innerHTML = `
-    <div class="absolute inset-0 bg-ink/50" onclick="closeDeleteModal()"></div>
-    <div class="relative bg-canvas mx-4 p-5 max-w-sm w-full">
+    <div class="absolute inset-0 bg-black/60" onclick="closeDeleteModal()"></div>
+    <div class="relative bg-[#1a1a1a] rounded-xl mx-4 p-5 max-w-sm w-full">
       <h2 class="text-lg font-black uppercase tracking-tight mb-2">Delete Workout</h2>
       <p class="text-sm text-ink/60 mb-5">This will permanently delete this workout and all its logged sets.</p>
       <div class="flex gap-2">
-        <button onclick="closeDeleteModal()" class="flex-1 py-3 border-2 border-ink/15 font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-canvas">
+        <button onclick="closeDeleteModal()" class="flex-1 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">
           Keep
         </button>
-        <button onclick="confirmDeleteWorkout()" class="flex-1 py-3 bg-red-500 text-canvas font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-red-700">
+        <button onclick="confirmDeleteWorkout()" class="flex-1 py-3 bg-red-500 text-canvas rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-red-700">
           Delete
         </button>
       </div>
@@ -1548,18 +1556,18 @@ async function confirmDeleteWorkout() {
 function renderLastExerciseButton(index, workout) {
   if (index < workout.exercises.length - 1) {
     const allDone = getLoggedSets(workout.exercises[index].id).length >= (parseInt(workout.exercises[index].workingSets) || 0);
-    return `<button onclick="navigate('#exercise/${index + 1}')" class="flex-1 py-3 ${allDone ? 'bg-acid text-ink' : 'border-2 border-ink/15'} font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-canvas">
+    return `<button onclick="navigate('#exercise/${index + 1}')" class="flex-1 py-3 ${allDone ? 'bg-acid text-canvas rounded-lg' : 'border-2 border-ink/15 rounded-lg'} font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">
       Next &rarr;
     </button>`;
   }
   const workoutAllDone = workout.exercises.every(ex => getLoggedSets(ex.id).length >= (parseInt(ex.workingSets) || 0));
   const isCompleted = state.currentSession && state.currentSession.completed_at;
   if (workoutAllDone && !isCompleted) {
-    return `<button onclick="completeWorkout()" class="flex-1 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-acid">
+    return `<button onclick="completeWorkout()" class="flex-1 py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-acid/20 active:text-acid">
       Complete Workout
     </button>`;
   }
-  return `<button onclick="navigate('#workout/${workout.templateId}')" class="flex-1 py-3 border-2 border-ink/15 font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-canvas">
+  return `<button onclick="navigate('#workout/${workout.templateId}')" class="flex-1 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">
     Back to Workout
   </button>`;
 }
@@ -1569,15 +1577,15 @@ function showCancelWorkoutModal() {
   modal.id = 'cancel-modal';
   modal.className = 'fixed inset-0 z-[80] flex items-center justify-center';
   modal.innerHTML = `
-    <div class="absolute inset-0 bg-ink/50" onclick="closeCancelModal()"></div>
-    <div class="relative bg-canvas mx-4 p-5 max-w-sm w-full">
+    <div class="absolute inset-0 bg-black/60" onclick="closeCancelModal()"></div>
+    <div class="relative bg-[#1a1a1a] rounded-xl mx-4 p-5 max-w-sm w-full">
       <h2 class="text-lg font-black uppercase tracking-tight mb-2">Cancel Workout</h2>
       <p class="text-sm text-ink/60 mb-5">This will delete all logged sets for this workout. Are you sure?</p>
       <div class="flex gap-2">
-        <button onclick="closeCancelModal()" class="flex-1 py-3 border-2 border-ink/15 font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-canvas">
+        <button onclick="closeCancelModal()" class="flex-1 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">
           Keep
         </button>
-        <button onclick="confirmCancelWorkout()" class="flex-1 py-3 bg-red-500 text-canvas font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-red-700">
+        <button onclick="confirmCancelWorkout()" class="flex-1 py-3 bg-red-500 text-canvas rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-red-700">
           Delete
         </button>
       </div>
@@ -1721,7 +1729,7 @@ async function renderExercise(index) {
       <div class="mb-5">
         <div class="flex items-center gap-2 flex-wrap">
           <h1 class="text-xl font-black uppercase tracking-tight leading-tight">${name}</h1>
-          <button onclick="navigate('#exercise-stats/${encodeURIComponent(name)}')" class="w-8 h-8 flex items-center justify-center border-2 border-ink/15 text-ink/40 text-sm transition-colors duration-200 active:bg-ink active:text-canvas" title="View history">
+          <button onclick="navigate('#exercise-stats/${encodeURIComponent(name)}')" class="w-8 h-8 flex items-center justify-center border-2 border-ink/15 rounded-lg text-ink/40 text-sm transition-colors duration-200 active:bg-white/20 active:text-white" title="View history">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="2 12 5 7 8 9 11 4 14 6"/><line x1="2" y1="14" x2="14" y2="14"/></svg>
           </button>
           ${isSubbed ? '<span class="text-[10px] font-bold uppercase tracking-widest text-electric bg-electric/10 px-2 py-0.5">Swapped</span>' : ''}
@@ -1730,7 +1738,7 @@ async function renderExercise(index) {
       </div>
 
       <!-- Info card -->
-      <div class="border-2 border-ink/10 p-4 mb-4">
+      <div class="border-2 border-ink/10 rounded-xl p-4 mb-4">
         <div class="grid grid-cols-2 gap-3 text-sm">
           <div>
             <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block">Warmup</span>
@@ -1757,21 +1765,21 @@ async function renderExercise(index) {
 
       <!-- Notes -->
       ${exercise.notes ? `
-        <details class="mb-4 border-2 border-ink/10">
+        <details class="mb-4 border-2 border-ink/10 rounded-xl overflow-hidden">
           <summary class="px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-ink/40 cursor-pointer select-none">Notes</summary>
           <div class="px-4 pb-3 text-sm text-ink/70 leading-relaxed">${exercise.notes}</div>
         </details>
       ` : ''}
 
       <!-- Previous performance -->
-      <div class="mb-5 p-4 bg-ink/[0.03]">
+      <div class="mb-5 p-4 bg-ink/[0.03] rounded-xl">
         <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-2">Previous</h3>
         ${perfHtml}
       </div>
 
       <!-- Set logging -->
       ${!allDone ? `
-        <div class="border-2 border-acid p-4 mb-4">
+        <div class="border-2 border-acid rounded-xl p-4 mb-4">
           <div class="flex items-center justify-between mb-3">
             <h3 class="font-black uppercase tracking-tight">Set ${nextSet} of ${totalSets}</h3>
             <span class="text-xs font-bold uppercase tracking-widest ${isLastSet || isSingleSet ? 'text-electric' : 'text-ink/50'}">
@@ -1783,36 +1791,36 @@ async function renderExercise(index) {
             <div>
               <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 flex items-center gap-1 mb-1">Weight (kg) <span id="overload-arrow">${getOverloadArrow(name, prefillWeight)}</span></label>
               <div class="flex items-center gap-1">
-                <button onclick="adjustInput('weight-input', -2.5, '${draftKey}', '${name.replace(/'/g, "\\'")}')" class="w-11 h-11 border-2 border-ink/15 font-bold text-lg active:bg-ink active:text-canvas transition-colors duration-200">&minus;</button>
+                <button onclick="adjustInput('weight-input', -2.5, '${draftKey}', '${name.replace(/'/g, "\\'")}')" class="w-11 h-11 border-2 border-ink/15 rounded-lg font-bold text-lg active:bg-white/20 active:text-white transition-colors duration-200">&minus;</button>
                 <input id="weight-input" type="number" inputmode="decimal" step="0.5" value="${isSuggested ? '' : prefillWeight}" placeholder="${isSuggested ? prefillWeight : '0'}"
                   data-suggested="${isSuggested ? prefillWeight : ''}"
                   onfocus="clearSuggested(this)" onblur="restoreSuggested(this)"
                   oninput="handleInput(this, '${draftKey}', '${name.replace(/'/g, "\\'")}')"
-                  class="flex-1 h-11 border-2 border-ink/15 text-center font-bold text-lg focus:border-ink focus:outline-none transition-colors duration-200 ${isSuggested ? 'placeholder:text-ink/30' : ''}">
-                <button onclick="adjustInput('weight-input', 2.5, '${draftKey}', '${name.replace(/'/g, "\\'")}')" class="w-11 h-11 border-2 border-ink/15 font-bold text-lg active:bg-ink active:text-canvas transition-colors duration-200">+</button>
+                  class="flex-1 h-11 border-2 border-ink/15 rounded-lg text-center font-bold text-lg focus:border-ink focus:outline-none transition-colors duration-200 ${isSuggested ? 'placeholder:text-ink/30' : ''}">
+                <button onclick="adjustInput('weight-input', 2.5, '${draftKey}', '${name.replace(/'/g, "\\'")}')" class="w-11 h-11 border-2 border-ink/15 rounded-lg font-bold text-lg active:bg-white/20 active:text-white transition-colors duration-200">+</button>
               </div>
             </div>
             <div>
               <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Reps</label>
               <div class="flex items-center gap-1">
-                <button onclick="adjustInput('reps-input', -1, '${draftKey}')" class="w-11 h-11 border-2 border-ink/15 font-bold text-lg active:bg-ink active:text-canvas transition-colors duration-200">&minus;</button>
+                <button onclick="adjustInput('reps-input', -1, '${draftKey}')" class="w-11 h-11 border-2 border-ink/15 rounded-lg font-bold text-lg active:bg-white/20 active:text-white transition-colors duration-200">&minus;</button>
                 <input id="reps-input" type="number" inputmode="numeric" step="1" value="${isSuggested ? '' : prefillReps}" placeholder="${isSuggested ? prefillReps : '0'}"
                   data-suggested="${isSuggested ? prefillReps : ''}"
                   onfocus="clearSuggested(this)" onblur="restoreSuggested(this)"
                   oninput="handleInput(this, '${draftKey}')"
-                  class="flex-1 h-11 border-2 border-ink/15 text-center font-bold text-lg focus:border-ink focus:outline-none transition-colors duration-200 ${isSuggested ? 'placeholder:text-ink/30' : ''}">
-                <button onclick="adjustInput('reps-input', 1, '${draftKey}')" class="w-11 h-11 border-2 border-ink/15 font-bold text-lg active:bg-ink active:text-canvas transition-colors duration-200">+</button>
+                  class="flex-1 h-11 border-2 border-ink/15 rounded-lg text-center font-bold text-lg focus:border-ink focus:outline-none transition-colors duration-200 ${isSuggested ? 'placeholder:text-ink/30' : ''}">
+                <button onclick="adjustInput('reps-input', 1, '${draftKey}')" class="w-11 h-11 border-2 border-ink/15 rounded-lg font-bold text-lg active:bg-white/20 active:text-white transition-colors duration-200">+</button>
               </div>
             </div>
           </div>
 
           <button onclick="logSet('${exercise.id}', '${name.replace(/'/g, "\\'")}', ${nextSet}, ${totalSets}, '${currentRpe}', '${exercise.rest}')"
-            class="w-full py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center transition-colors duration-200 active:bg-ink active:text-acid">
+            class="w-full py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-center transition-colors duration-200 active:bg-acid/20 active:text-acid">
             Log Set ${nextSet}
           </button>
         </div>
       ` : `
-        <div class="border-2 border-acid bg-acid/10 p-4 mb-4 text-center">
+        <div class="border-2 border-acid bg-acid/10 rounded-xl p-4 mb-4 text-center">
           <span class="font-bold uppercase tracking-tight text-ink/60">All sets complete</span>
         </div>
       `}
@@ -1826,7 +1834,7 @@ async function renderExercise(index) {
 
       <!-- Swap exercise -->
       ${hasSubs ? `
-        <button onclick="showSubstitutionModal(${index})" class="w-full py-3 border-2 border-ink/15 text-sm font-bold uppercase tracking-widest text-ink/50 text-center transition-colors duration-200 active:bg-ink active:text-canvas mb-4">
+        <button onclick="showSubstitutionModal(${index})" class="w-full py-3 border-2 border-ink/15 rounded-lg text-sm font-bold uppercase tracking-widest text-ink/50 text-center transition-colors duration-200 active:bg-white/20 active:text-white mb-4">
           Swap Exercise
         </button>
       ` : ''}
@@ -1834,7 +1842,7 @@ async function renderExercise(index) {
       <!-- Navigation -->
       <div class="flex gap-2">
         ${index > 0 ? `
-          <button onclick="navigate('#exercise/${index - 1}')" class="flex-1 py-3 border-2 border-ink/15 font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-canvas">
+          <button onclick="navigate('#exercise/${index - 1}')" class="flex-1 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">
             &larr; Prev
           </button>
         ` : '<div class="flex-1"></div>'}
@@ -1921,7 +1929,7 @@ function showPrCelebration(exerciseName, weight) {
   celebration.id = 'pr-celebration';
   celebration.className = 'fixed inset-0 z-[90] flex items-center justify-center pointer-events-none';
   celebration.innerHTML = `
-    <div class="bg-ink text-canvas px-8 py-6 text-center animate-pr-pop pointer-events-auto" onclick="this.parentElement.remove()">
+    <div class="bg-white/10 text-white rounded-xl px-8 py-6 text-center animate-pr-pop pointer-events-auto" onclick="this.parentElement.remove()">
       <div class="text-4xl font-black text-acid mb-2">NEW PR</div>
       <div class="text-lg font-bold">${exerciseName}</div>
       <div class="text-3xl font-black text-acid mt-1">${weight}kg</div>
@@ -2005,7 +2013,7 @@ function showSubstitutionModal(exerciseIndex) {
     const isActive = getExerciseName(exercise) === opt.name;
     return `
       <button onclick="selectSubstitution(${exerciseIndex}, ${opt.isOriginal ? 'null' : `'${opt.name.replace(/'/g, "\\'")}'`})"
-        class="w-full p-4 text-left border-2 ${isActive ? 'border-acid bg-acid/5' : 'border-ink/10'} font-bold transition-colors duration-200 active:bg-ink/5">
+        class="w-full p-4 text-left border-2 ${isActive ? 'border-acid bg-acid/5' : 'border-ink/10'} rounded-xl font-bold transition-colors duration-200 active:bg-ink/5">
         <div class="flex items-center justify-between">
           <span>${opt.name}</span>
           ${opt.isOriginal ? '<span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Original</span>' : ''}
@@ -2019,8 +2027,8 @@ function showSubstitutionModal(exerciseIndex) {
   modal.id = 'sub-modal';
   modal.className = 'fixed inset-0 z-[80] flex items-end';
   modal.innerHTML = `
-    <div class="absolute inset-0 bg-ink/50" onclick="closeSubModal()"></div>
-    <div class="relative w-full bg-canvas p-5 pb-8" style="padding-bottom: calc(2rem + env(safe-area-inset-bottom))">
+    <div class="absolute inset-0 bg-black/60" onclick="closeSubModal()"></div>
+    <div class="relative w-full bg-[#1a1a1a] rounded-t-2xl p-5 pb-8" style="padding-bottom: calc(2rem + env(safe-area-inset-bottom))">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-black uppercase tracking-tight">Swap Exercise</h2>
         <button onclick="closeSubModal()" class="text-ink/40 font-bold text-2xl leading-none">&times;</button>
@@ -2057,15 +2065,15 @@ function showSkipWorkoutModal(templateId, workoutName) {
   modal.id = 'skip-modal';
   modal.className = 'fixed inset-0 z-[80] flex items-center justify-center';
   modal.innerHTML = `
-    <div class="absolute inset-0 bg-ink/50" onclick="closeSkipModal()"></div>
-    <div class="relative bg-canvas mx-4 p-5 max-w-sm w-full">
+    <div class="absolute inset-0 bg-black/60" onclick="closeSkipModal()"></div>
+    <div class="relative bg-[#1a1a1a] rounded-xl mx-4 p-5 max-w-sm w-full">
       <h2 class="text-lg font-black uppercase tracking-tight mb-2">Skip Workout</h2>
       <p class="text-sm text-ink/60 mb-5">Skip this workout? You can't log sets for a skipped workout.</p>
       <div class="flex gap-2">
-        <button onclick="closeSkipModal()" class="flex-1 py-3 border-2 border-ink/15 font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-canvas">
+        <button onclick="closeSkipModal()" class="flex-1 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">
           Cancel
         </button>
-        <button onclick="confirmSkipWorkout('${templateId}', '${workoutName.replace(/'/g, "\\'")}')" class="flex-1 py-3 bg-ink text-canvas font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink/80">
+        <button onclick="confirmSkipWorkout('${templateId}', '${workoutName.replace(/'/g, "\\'")}')" class="flex-1 py-3 bg-white/10 text-white rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20">
           Skip
         </button>
       </div>
@@ -2107,7 +2115,7 @@ async function renderExerciseStats(exerciseName) {
   ]);
 
   const prHtml = pr ? `
-    <div class="border-2 border-acid bg-acid/5 p-4 mb-5">
+    <div class="border-2 border-acid bg-acid/5 rounded-xl p-4 mb-5">
       <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-1">Personal Record</h3>
       <span class="text-2xl font-black">${pr.weight_kg}<span class="text-sm font-bold text-ink/40 ml-0.5">kg</span></span>
       <span class="text-lg font-bold text-ink/40 mx-1">&times;</span>
@@ -2151,7 +2159,7 @@ async function renderExerciseStats(exerciseName) {
       ${e1rmHtml}
 
       ${history.length >= 2 ? `
-        <div class="border-2 border-ink/10 p-4 mb-5">
+        <div class="border-2 border-ink/10 rounded-xl p-4 mb-5">
           <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-3">Progress Over Time</h3>
           <canvas id="progress-chart" class="w-full" height="200"></canvas>
           <div class="flex items-center justify-center gap-4 mt-3">
@@ -2167,7 +2175,7 @@ async function renderExerciseStats(exerciseName) {
         </div>
       ` : ''}
 
-      <div class="border-2 border-ink/10 p-4">
+      <div class="border-2 border-ink/10 rounded-xl p-4">
         <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-2">All Sessions</h3>
         ${sessionsHtml}
       </div>
@@ -2205,7 +2213,7 @@ function drawProgressChart(history, pr) {
   const chartH = H - padTop - padBottom;
 
   // Y axis
-  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
   ctx.font = '10px system-ui, sans-serif';
   ctx.textAlign = 'right';
   const steps = 4;
@@ -2213,7 +2221,7 @@ function drawProgressChart(history, pr) {
     const val = minV + (range * i / steps);
     const y = padTop + chartH - (chartH * i / steps);
     ctx.fillText(Math.round(val) + '', padLeft - 8, y + 3);
-    ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
     ctx.beginPath();
     ctx.moveTo(padLeft, y);
     ctx.lineTo(W - padRight, y);
@@ -2225,7 +2233,7 @@ function drawProgressChart(history, pr) {
 
   // X axis labels
   ctx.textAlign = 'center';
-  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
   xPositions.forEach((x, i) => {
     if (history.length <= 12 || i % Math.ceil(history.length / 8) === 0) {
       ctx.fillText('W' + history[i].weekNumber, x, H - 8);
@@ -2285,7 +2293,7 @@ function drawProgressChart(history, pr) {
     ctx.fillStyle = '#CCFF00';
     ctx.fill();
     if (isPr) {
-      ctx.strokeStyle = '#0a0a0a';
+      ctx.strokeStyle = '#CCFF00';
       ctx.lineWidth = 2;
       ctx.stroke();
     }
@@ -2315,7 +2323,7 @@ function drawWeightChart(history) {
   const chartH = H - padTop - padBottom;
 
   // Y axis
-  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
   ctx.font = '10px system-ui, sans-serif';
   ctx.textAlign = 'right';
   const steps = 4;
@@ -2323,7 +2331,7 @@ function drawWeightChart(history) {
     const val = minV + (range * i / steps);
     const y = padTop + chartH - (chartH * i / steps);
     ctx.fillText(val.toFixed(1), padLeft - 8, y + 3);
-    ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
     ctx.beginPath();
     ctx.moveTo(padLeft, y);
     ctx.lineTo(W - padRight, y);
@@ -2335,7 +2343,7 @@ function drawWeightChart(history) {
 
   // X axis labels
   ctx.textAlign = 'center';
-  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
   xPositions.forEach((x, i) => {
     if (history.length <= 10 || i % Math.ceil(history.length / 6) === 0) {
       const d = parseUtc(history[i].logged_at);
@@ -2508,7 +2516,7 @@ function buildCompactMacroBar(totals, targets) {
     return `<div class="h-[3px] bg-ink/10 rounded-full overflow-hidden mt-0.5"><div class="h-full rounded-full" style="width:${pct}%;background:${color}"></div></div>`;
   }
   return `
-    <button onclick="openDrawer(drawerShowNutritionGoals)" class="w-full flex items-center gap-2.5 p-3 border-2 border-ink/10 active:bg-ink/5 transition-colors duration-200">
+    <button onclick="openDrawer(drawerShowNutritionGoals)" class="w-full flex items-center gap-2.5 p-3 border-2 border-ink/10 rounded-xl active:bg-ink/5 transition-colors duration-200">
       <div class="flex-1 min-w-0">
         <div class="flex items-center justify-between text-xs">
           <svg class="flex-shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#CCFF00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12c2-2.96 0-7-1-8 0 3.038-1.773 4.741-3 6-1.226 1.26-2 3.24-2 5a6 6 0 1 0 12 0c0-1.532-1.056-3.94-2-5-1.786 3-2.791 3-4 2z"/></svg>
@@ -2582,12 +2590,12 @@ function showNutritionSearchBar() {
   const bar = document.createElement('div');
   bar.id = 'nutrition-search-bar';
   bar.innerHTML = `
-    <div class="flex items-center gap-2 px-3 py-2 bg-canvas border-t border-ink/10">
-      <button onclick="openNutritionSearch()" class="flex-1 flex items-center gap-2 h-10 px-3 bg-ink/5 rounded-full active:bg-ink/10 transition-colors duration-200">
+    <div class="flex items-center gap-2 px-3 py-2 bg-[#1a1a1a] border-t border-white/10">
+      <button onclick="openNutritionSearch()" class="flex-1 flex items-center gap-2 h-10 px-3 bg-ink/5 rounded-lg active:bg-ink/10 transition-colors duration-200">
         <svg class="text-ink/30 flex-shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <span class="text-sm text-ink/30 font-medium">Search food database</span>
       </button>
-      <button onclick="navigate('#nutrition/add')" class="w-10 h-10 flex items-center justify-center bg-[#CCFF00] rounded-full font-bold text-lg text-ink active:bg-[#b8e600] transition-colors duration-200 flex-shrink-0">+</button>
+      <button onclick="navigate('#nutrition/add')" class="w-10 h-10 flex items-center justify-center bg-[#CCFF00] rounded-full font-bold text-lg text-canvas active:bg-[#b8e600] transition-colors duration-200 flex-shrink-0">+</button>
     </div>
   `;
   document.body.appendChild(bar);
@@ -2602,14 +2610,14 @@ async function openNutritionSearch() {
   // Create overlay
   const overlay = document.createElement('div');
   overlay.id = 'nutrition-search-overlay';
-  overlay.innerHTML = '<div class="absolute inset-0 bg-ink/30" onclick="closeNutritionSearch()"></div>';
+  overlay.innerHTML = '<div class="absolute inset-0 bg-black/40" onclick="closeNutritionSearch()"></div>';
   document.body.appendChild(overlay);
 
   // Create panel
   const panel = document.createElement('div');
   panel.id = 'nutrition-search-panel';
   panel.innerHTML = `
-    <div class="bg-canvas rounded-t-2xl border-t border-ink/10 max-h-[60vh] flex flex-col">
+    <div class="bg-[#1a1a1a] rounded-t-2xl border-t border-white/10 max-h-[60vh] flex flex-col">
       <div class="flex items-center gap-2 px-3 py-3 border-b border-ink/5">
         <svg class="text-ink/30 flex-shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input id="nutrition-search-input" type="text" placeholder="Search foods..."
@@ -2742,7 +2750,7 @@ function buildWeightTrend(tdeeData) {
     ? `<span class="text-[10px] font-bold text-amber-500/60 ml-1">${tdeeData.stabilization.days_remaining}d left</span>`
     : '';
   return `
-    <div class="flex items-center justify-between p-3 border-2 border-ink/10">
+    <div class="flex items-center justify-between p-3 border-2 border-ink/10 rounded-xl">
       <div class="flex items-center gap-3">
         <span class="text-lg font-black">${wt.current} <span class="text-sm font-bold text-ink/40">kg</span></span>
         ${wt.avg_7d ? `<span class="text-xs text-ink/40">7d avg ${wt.avg_7d}</span>` : ''}
@@ -2827,8 +2835,8 @@ function buildFoodsTab(foods) {
     <div class="flex items-center gap-2 mb-3">
       <input type="text" placeholder="Search foods..."
         oninput="filterFoodItems(this.value)"
-        class="flex-1 h-10 px-3 border-2 border-ink/15 text-sm font-bold focus:border-ink focus:outline-none transition-colors duration-200">
-      <button onclick="navigate('#nutrition/food/new')" class="h-10 px-3 border-2 border-ink/15 text-xs font-bold uppercase tracking-tight whitespace-nowrap active:bg-ink active:text-canvas transition-colors duration-200">+ New</button>
+        class="flex-1 h-10 px-3 border-2 border-ink/15 rounded-lg text-sm font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+      <button onclick="navigate('#nutrition/food/new')" class="h-10 px-3 border-2 border-ink/15 rounded-lg text-xs font-bold uppercase tracking-tight whitespace-nowrap active:bg-white/20 active:text-white transition-colors duration-200">+ New</button>
     </div>
     <div class="food-list">${foodsHtml}</div>
   `;
@@ -2836,7 +2844,7 @@ function buildFoodsTab(foods) {
 
 function buildMealsTab(meals) {
   const mealsHtml = meals.length > 0 ? meals.map(m => `
-    <div class="border-2 border-ink/10 p-4 mb-2">
+    <div class="border-2 border-ink/10 rounded-xl p-4 mb-2">
       <div class="flex items-center justify-between mb-1">
         <h3 class="font-bold text-[15px] truncate flex-1 mr-2">${m.name}</h3>
         <div class="flex items-center gap-1 flex-shrink-0">
@@ -2847,7 +2855,7 @@ function buildMealsTab(meals) {
         </div>
       </div>
       <p class="text-xs text-ink/40 mb-3">${Math.round(m.totalCalories)} cal · ${Math.round(m.totalProtein)}p · ${Math.round(m.totalCarbs)}c · ${Math.round(m.totalFat)}f</p>
-      <button onclick="quickLogMeal(${m.id})" class="w-full py-2 bg-ink text-canvas font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink/80">
+      <button onclick="quickLogMeal(${m.id})" class="w-full py-2 bg-white/10 text-white rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20">
         Log Meal
       </button>
     </div>
@@ -2855,7 +2863,7 @@ function buildMealsTab(meals) {
 
   return `
     <div class="flex items-center justify-end mb-3">
-      <button onclick="navigate('#nutrition/meal/new')" class="h-10 px-3 border-2 border-ink/15 text-xs font-bold uppercase tracking-tight whitespace-nowrap active:bg-ink active:text-canvas transition-colors duration-200">+ New</button>
+      <button onclick="navigate('#nutrition/meal/new')" class="h-10 px-3 border-2 border-ink/15 rounded-lg text-xs font-bold uppercase tracking-tight whitespace-nowrap active:bg-white/20 active:text-white transition-colors duration-200">+ New</button>
     </div>
     ${mealsHtml}
   `;
@@ -2882,8 +2890,8 @@ function showFoodServingsModal(foodId, foodName, cal, pro, carb, fat, servingNam
   if (hasServing) {
     const perServingCal = Math.round(cal * servingGrams / 100);
     modal.innerHTML = `
-      <div class="absolute inset-0 bg-ink/50" onclick="closeFoodServingsModal()"></div>
-      <div class="relative bg-canvas mx-4 p-5 max-w-sm w-full">
+      <div class="absolute inset-0 bg-black/60" onclick="closeFoodServingsModal()"></div>
+      <div class="relative bg-[#1a1a1a] rounded-xl mx-4 p-5 max-w-sm w-full">
         <h2 class="text-lg font-black uppercase tracking-tight mb-1">${foodName}</h2>
         <p class="text-xs text-ink/40 mb-1">${perServingCal} cal per ${servingName} (${servingGrams}g)</p>
         <p id="food-grams-equiv" class="text-xs text-ink/30 mb-4">= ${servingGrams}g</p>
@@ -2892,28 +2900,28 @@ function showFoodServingsModal(foodId, foodName, cal, pro, carb, fat, servingNam
           <input id="food-servings-input" type="number" inputmode="decimal" step="0.5" value="1"
             data-serving-grams="${servingGrams}"
             oninput="document.getElementById('food-grams-equiv').textContent = '= ' + Math.round((parseFloat(this.value)||0) * ${servingGrams}) + 'g'"
-            class="w-full h-12 border-2 border-ink/15 text-center font-bold text-xl focus:border-ink focus:outline-none transition-colors duration-200">
+            class="w-full h-12 border-2 border-ink/15 rounded-lg text-center font-bold text-xl focus:border-ink focus:outline-none transition-colors duration-200">
         </div>
         <div class="flex gap-2">
-          <button onclick="closeFoodServingsModal()" class="flex-1 py-3 border-2 border-ink/15 font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-canvas">Cancel</button>
-          <button onclick="confirmLogFood(${foodId}, true, ${servingGrams})" class="flex-1 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-acid">Log</button>
+          <button onclick="closeFoodServingsModal()" class="flex-1 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">Cancel</button>
+          <button onclick="confirmLogFood(${foodId}, true, ${servingGrams})" class="flex-1 py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-acid/20 active:text-acid">Log</button>
         </div>
       </div>
     `;
   } else {
     modal.innerHTML = `
-      <div class="absolute inset-0 bg-ink/50" onclick="closeFoodServingsModal()"></div>
-      <div class="relative bg-canvas mx-4 p-5 max-w-sm w-full">
+      <div class="absolute inset-0 bg-black/60" onclick="closeFoodServingsModal()"></div>
+      <div class="relative bg-[#1a1a1a] rounded-xl mx-4 p-5 max-w-sm w-full">
         <h2 class="text-lg font-black uppercase tracking-tight mb-1">${foodName}</h2>
         <p class="text-xs text-ink/40 mb-4">${Math.round(cal)} cal per 100g</p>
         <div class="mb-4">
           <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Grams</label>
           <input id="food-servings-input" type="number" inputmode="decimal" step="10" value="100"
-            class="w-full h-12 border-2 border-ink/15 text-center font-bold text-xl focus:border-ink focus:outline-none transition-colors duration-200">
+            class="w-full h-12 border-2 border-ink/15 rounded-lg text-center font-bold text-xl focus:border-ink focus:outline-none transition-colors duration-200">
         </div>
         <div class="flex gap-2">
-          <button onclick="closeFoodServingsModal()" class="flex-1 py-3 border-2 border-ink/15 font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-canvas">Cancel</button>
-          <button onclick="confirmLogFood(${foodId}, false, null)" class="flex-1 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-acid">Log</button>
+          <button onclick="closeFoodServingsModal()" class="flex-1 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">Cancel</button>
+          <button onclick="confirmLogFood(${foodId}, false, null)" class="flex-1 py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-acid/20 active:text-acid">Log</button>
         </div>
       </div>
     `;
@@ -2964,7 +2972,7 @@ async function renderFoodForm(id) {
         <div>
           <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Name</label>
           <input id="food-name" type="text" value="${food.name}" placeholder="e.g. Chicken Breast"
-            class="w-full h-12 px-3 border-2 border-ink/15 font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+            class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg font-bold focus:border-ink focus:outline-none transition-colors duration-200">
         </div>
 
         <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mt-2">Nutrition per 100g</p>
@@ -2972,22 +2980,22 @@ async function renderFoodForm(id) {
           <div>
             <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Calories</label>
             <input id="food-calories" type="number" inputmode="decimal" value="${food.calories}" placeholder="0"
-              class="w-full h-12 px-3 border-2 border-ink/15 text-center font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+              class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg text-center font-bold focus:border-ink focus:outline-none transition-colors duration-200">
           </div>
           <div>
             <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Protein (g)</label>
             <input id="food-protein" type="number" inputmode="decimal" value="${food.protein}" placeholder="0"
-              class="w-full h-12 px-3 border-2 border-ink/15 text-center font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+              class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg text-center font-bold focus:border-ink focus:outline-none transition-colors duration-200">
           </div>
           <div>
             <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Carbs (g)</label>
             <input id="food-carbs" type="number" inputmode="decimal" value="${food.carbs}" placeholder="0"
-              class="w-full h-12 px-3 border-2 border-ink/15 text-center font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+              class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg text-center font-bold focus:border-ink focus:outline-none transition-colors duration-200">
           </div>
           <div>
             <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Fat (g)</label>
             <input id="food-fat" type="number" inputmode="decimal" value="${food.fat}" placeholder="0"
-              class="w-full h-12 px-3 border-2 border-ink/15 text-center font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+              class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg text-center font-bold focus:border-ink focus:outline-none transition-colors duration-200">
           </div>
         </div>
 
@@ -3003,18 +3011,18 @@ async function renderFoodForm(id) {
             <div>
               <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Serving Name</label>
               <input id="food-serving-name" type="text" value="${hasServing ? food.serving_unit : ''}" placeholder="e.g. scoop"
-                class="w-full h-12 px-3 border-2 border-ink/15 font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+                class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg font-bold focus:border-ink focus:outline-none transition-colors duration-200">
             </div>
             <div>
               <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Grams per Serving</label>
               <input id="food-serving-grams" type="number" inputmode="decimal" value="${hasServing ? food.serving_size : ''}" placeholder="e.g. 30"
-                class="w-full h-12 px-3 border-2 border-ink/15 text-center font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+                class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg text-center font-bold focus:border-ink focus:outline-none transition-colors duration-200">
             </div>
           </div>
         </div>
       </div>
 
-      <button onclick="saveFood(${id || 'null'})" class="w-full py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
+      <button onclick="saveFood(${id || 'null'})" class="w-full py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-acid/20 active:text-acid">
         ${id ? 'Update Food' : 'Create Food'}
       </button>
 
@@ -3094,9 +3102,9 @@ function renderMealFormInner(id, mealName, allFoods) {
         <span class="text-xs text-ink/40">${Math.round(f.calories * f.servings)} cal</span>
       </div>
       <div class="flex items-center gap-2 flex-shrink-0">
-        <button onclick="adjustMealFoodServings(${i}, -0.5, ${id || 'null'}, '${(mealName || '').replace(/'/g, "\\'")}', ${JSON.stringify(allFoods).length > 5000 ? 'null' : 'null'})" class="w-8 h-8 border border-ink/15 font-bold text-sm active:bg-ink active:text-canvas transition-colors duration-200">&minus;</button>
+        <button onclick="adjustMealFoodServings(${i}, -0.5, ${id || 'null'}, '${(mealName || '').replace(/'/g, "\\'")}', ${JSON.stringify(allFoods).length > 5000 ? 'null' : 'null'})" class="w-8 h-8 border border-ink/15 font-bold text-sm active:bg-white/20 active:text-white transition-colors duration-200">&minus;</button>
         <span class="text-sm font-bold w-8 text-center">${f.servings}</span>
-        <button onclick="adjustMealFoodServings(${i}, 0.5, ${id || 'null'}, '${(mealName || '').replace(/'/g, "\\'")}', null)" class="w-8 h-8 border border-ink/15 font-bold text-sm active:bg-ink active:text-canvas transition-colors duration-200">+</button>
+        <button onclick="adjustMealFoodServings(${i}, 0.5, ${id || 'null'}, '${(mealName || '').replace(/'/g, "\\'")}', null)" class="w-8 h-8 border border-ink/15 font-bold text-sm active:bg-white/20 active:text-white transition-colors duration-200">+</button>
         <button onclick="removeMealFood(${i}, ${id || 'null'}, '${(mealName || '').replace(/'/g, "\\'")}', null)" class="text-ink/20 hover:text-red-500 text-xs font-bold transition-colors duration-200 ml-1">&times;</button>
       </div>
     </div>
@@ -3113,21 +3121,21 @@ function renderMealFormInner(id, mealName, allFoods) {
       <div class="mb-4">
         <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Meal Name</label>
         <input id="meal-name" type="text" value="${mealName || ''}" placeholder="e.g. Weekday Breakfast"
-          class="w-full h-12 px-3 border-2 border-ink/15 font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+          class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg font-bold focus:border-ink focus:outline-none transition-colors duration-200">
       </div>
 
-      <div class="border-2 border-ink/10 p-4 mb-4">
+      <div class="border-2 border-ink/10 rounded-xl p-4 mb-4">
         <div class="flex items-center justify-between mb-2">
           <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Foods in Meal</h3>
         </div>
         ${foodListHtml}
       </div>
 
-      <button onclick="showMealFoodPicker()" class="w-full py-2.5 border-2 border-ink/15 font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-canvas mb-4">
+      <button onclick="showMealFoodPicker()" class="w-full py-2.5 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white mb-4">
         + Add Food
       </button>
 
-      <div class="border-2 border-ink/10 p-4 mb-5">
+      <div class="border-2 border-ink/10 rounded-xl p-4 mb-5">
         <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-2">Meal Totals</h3>
         <div class="grid grid-cols-4 gap-2 text-center">
           <div>
@@ -3149,7 +3157,7 @@ function renderMealFormInner(id, mealName, allFoods) {
         </div>
       </div>
 
-      <button onclick="saveMeal(${id || 'null'})" class="w-full py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
+      <button onclick="saveMeal(${id || 'null'})" class="w-full py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-acid/20 active:text-acid">
         ${id ? 'Update Meal' : 'Create Meal'}
       </button>
 
@@ -3190,8 +3198,8 @@ async function showMealFoodPicker() {
   modal.id = 'food-picker-modal';
   modal.className = 'fixed inset-0 z-[80] flex items-end';
   modal.innerHTML = `
-    <div class="absolute inset-0 bg-ink/50" onclick="closeFoodPickerModal()"></div>
-    <div id="food-picker-content" class="relative w-full bg-canvas p-5 max-h-[70vh] overflow-y-auto" style="padding-bottom: calc(2rem + env(safe-area-inset-bottom))">
+    <div class="absolute inset-0 bg-black/60" onclick="closeFoodPickerModal()"></div>
+    <div id="food-picker-content" class="relative w-full bg-[#1a1a1a] rounded-t-2xl p-5 max-h-[70vh] overflow-y-auto" style="padding-bottom: calc(2rem + env(safe-area-inset-bottom))">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-black uppercase tracking-tight">Pick Food</h2>
         <button onclick="closeFoodPickerModal()" class="text-ink/40 font-bold text-2xl leading-none">&times;</button>
@@ -3199,8 +3207,8 @@ async function showMealFoodPicker() {
       <div class="flex gap-2 mb-3">
         <input type="text" placeholder="Search..."
           oninput="filterPickerFoods(this.value)"
-          class="flex-1 h-10 px-3 border-2 border-ink/15 text-sm font-bold focus:border-ink focus:outline-none transition-colors duration-200">
-        <button onclick="showInlineFoodCreator()" class="h-10 px-3 border-2 border-ink/15 text-xs font-bold uppercase tracking-tight whitespace-nowrap active:bg-ink active:text-canvas transition-colors duration-200">+ Create</button>
+          class="flex-1 h-10 px-3 border-2 border-ink/15 rounded-lg text-sm font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+        <button onclick="showInlineFoodCreator()" class="h-10 px-3 border-2 border-ink/15 rounded-lg text-xs font-bold uppercase tracking-tight whitespace-nowrap active:bg-white/20 active:text-white transition-colors duration-200">+ Create</button>
       </div>
       <div id="picker-food-list">
         ${allFoods.length > 0 ? allFoods.map(f => `
@@ -3256,29 +3264,29 @@ function showInlineFoodCreator() {
       <div>
         <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Name</label>
         <input id="inline-food-name" type="text" placeholder="e.g. Chicken Breast"
-          class="w-full h-10 px-3 border-2 border-ink/15 font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
+          class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
       </div>
       <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Nutrition per 100g</p>
       <div class="grid grid-cols-2 gap-2">
         <div>
           <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Calories</label>
           <input id="inline-food-cal" type="number" inputmode="decimal" placeholder="0"
-            class="w-full h-10 px-3 border-2 border-ink/15 text-center font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
+            class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg text-center font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
         </div>
         <div>
           <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Protein (g)</label>
           <input id="inline-food-pro" type="number" inputmode="decimal" placeholder="0"
-            class="w-full h-10 px-3 border-2 border-ink/15 text-center font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
+            class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg text-center font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
         </div>
         <div>
           <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Carbs (g)</label>
           <input id="inline-food-carb" type="number" inputmode="decimal" placeholder="0"
-            class="w-full h-10 px-3 border-2 border-ink/15 text-center font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
+            class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg text-center font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
         </div>
         <div>
           <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Fat (g)</label>
           <input id="inline-food-fat" type="number" inputmode="decimal" placeholder="0"
-            class="w-full h-10 px-3 border-2 border-ink/15 text-center font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
+            class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg text-center font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
         </div>
       </div>
       <div class="border-t border-ink/10 pt-3">
@@ -3286,18 +3294,18 @@ function showInlineFoodCreator() {
         <div class="grid grid-cols-2 gap-2">
           <div>
             <input id="inline-food-serving-name" type="text" placeholder="e.g. scoop"
-              class="w-full h-10 px-3 border-2 border-ink/15 font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
+              class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
           </div>
           <div>
             <input id="inline-food-serving-grams" type="number" inputmode="decimal" placeholder="grams"
-              class="w-full h-10 px-3 border-2 border-ink/15 text-center font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
+              class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg text-center font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
           </div>
         </div>
       </div>
     </div>
     <div class="flex gap-2">
-      <button onclick="closeFoodPickerModal();showMealFoodPicker()" class="flex-1 py-2.5 border-2 border-ink/15 font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-canvas">Cancel</button>
-      <button onclick="saveInlineFood()" class="flex-1 py-2.5 bg-acid text-ink font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-ink active:text-acid">Save & Add</button>
+      <button onclick="closeFoodPickerModal();showMealFoodPicker()" class="flex-1 py-2.5 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">Cancel</button>
+      <button onclick="saveInlineFood()" class="flex-1 py-2.5 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-acid/20 active:text-acid">Save & Add</button>
     </div>
   `;
   requestAnimationFrame(() => document.getElementById('inline-food-name')?.focus());
