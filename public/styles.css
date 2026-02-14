@@ -58,11 +58,11 @@ button, .no-select {
 
 /* Bottom nav tab styles */
 .nav-tab {
-  color: rgba(0, 0, 0, 0.3);
+  color: rgba(255, 255, 255, 0.45);
   transition: color 150ms ease;
 }
 .nav-tab.active {
-  color: #000000;
+  color: #CCFF00;
 }
 
 /* Week date picker — horizontal scroll snap */
@@ -122,11 +122,11 @@ button, .no-select {
   font-weight: 700;
   font-size: 13px;
   text-transform: uppercase;
-  color: rgba(0,0,0,0.3);
+  color: rgba(255,255,255,0.3);
   border-bottom: 2px solid transparent;
   transition: 150ms;
 }
 .lib-tab.active {
-  color: #000;
-  border-bottom-color: #000;
+  color: #fff;
+  border-bottom-color: #fff;
 }
