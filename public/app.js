@@ -703,7 +703,7 @@ async function renderWorkout(templateId) {
     const technique = ex.lastSetIntensityTechnique !== 'N/A' ? ex.lastSetIntensityTechnique : '';
 
     return `
-      <button onclick="navigate('#exercise/${i}')" class="w-full p-4 border-2 ${done ? 'border-ink/10' : partial ? 'border-ink/20' : 'border-ink/10'} text-left transition-colors duration-200 active:bg-ink/5">
+      <button onclick="navigate('#exercise/${i}')" class="w-full px-3 py-2.5 border-2 ${done ? 'border-ink/10' : partial ? 'border-ink/20' : 'border-ink/10'} text-left transition-colors duration-200 active:bg-ink/5">
         <div class="flex items-start justify-between gap-3">
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
@@ -735,15 +735,15 @@ async function renderWorkout(templateId) {
   const hasLoggedSets = Object.values(state.sessionSets).some(sets => sets.length > 0);
 
   document.getElementById('app').innerHTML = `
-    <div class="px-3 pt-6 pb-6">
-      <div class="flex items-center justify-between mb-4">
+    <div class="px-3 pt-6 pb-2">
+      <div class="flex items-center justify-between mb-3">
         <button onclick="navigate('#workouts')" class="text-sm font-bold text-ink/40 uppercase tracking-widest flex items-center gap-1 active:text-ink transition-colors duration-200">
           <span class="text-lg leading-none">&larr;</span> Back
         </button>
         ${isActive ? `<span class="workout-elapsed text-sm font-bold tabular-nums text-electric min-w-[3.5rem] text-right">${getElapsedText()}</span>` : ''}
       </div>
 
-      <div class="mb-6">
+      <div class="mb-4">
         <div class="flex items-center gap-2.5">
           <h1 class="text-2xl font-black uppercase tracking-tight leading-none">${name}</h1>
           ${isCompleted ? '<span class="text-[10px] font-bold uppercase tracking-widest text-acid bg-ink px-2 py-1 rounded-full">Completed</span>' : ''}
@@ -761,17 +761,17 @@ async function renderWorkout(templateId) {
         </div>
       ` : `
         ${isActive ? `
-          <button onclick="startWorkoutFlow('${workout.templateId}', true)" class="w-full mb-4 py-3 bg-ink text-canvas font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink/80">
+          <button onclick="startWorkoutFlow('${workout.templateId}', true)" class="w-full mb-3 py-2.5 bg-ink text-canvas font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink/80">
             ${hasLoggedSets ? 'Continue Logging' : 'Start Logging'}
           </button>
         ` : ''}
         ${!isCompleted && !isActive ? `
-          <button onclick="startWorkoutFlow('${workout.templateId}', true)" class="w-full mb-4 py-3 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
+          <button onclick="startWorkoutFlow('${workout.templateId}', true)" class="w-full mb-3 py-2.5 bg-acid text-ink font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink active:text-acid">
             Start Workout
           </button>
         ` : ''}
 
-        <div class="flex flex-col gap-2">
+        <div class="flex flex-col gap-1.5">
           ${exerciseRows}
         </div>
 
