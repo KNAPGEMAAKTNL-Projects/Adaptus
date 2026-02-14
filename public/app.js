@@ -9,6 +9,7 @@ const state = {
   sessionSets: {},
   lastPerformance: {},
   restTimer: { active: false, seconds: 0, total: 0, intervalId: null, done: false },
+  workoutTimer: { intervalId: null },
 };
 
 // ─── API helpers ─────────────────────────────────────────────────────────────
@@ -42,6 +43,7 @@ async function init() {
       if (!state.sessionSets[key]) state.sessionSets[key] = [];
       state.sessionSets[key].push(s);
     });
+    startWorkoutTimer();
   }
   navigate(location.hash || '#home');
 
@@ -334,6 +336,61 @@ document.addEventListener('click', (e) => {
   if (e.target.id === 'timer-dismiss') dismissTimer();
 });
 
+// ─── Workout Timer ──────────────────────────────────────────────────────────
+function startWorkoutTimer() {
+  stopWorkoutTimer();
+  if (!state.currentSession || !state.currentSession.started_at) return;
+  state.workoutTimer.intervalId = setInterval(updateWorkoutTimer, 1000);
+  updateWorkoutTimer();
+}
+
+function stopWorkoutTimer() {
+  if (state.workoutTimer.intervalId) {
+    clearInterval(state.workoutTimer.intervalId);
+    state.workoutTimer.intervalId = null;
+  }
+  const el = document.getElementById('workout-timer');
+  if (el) el.classList.add('hidden');
+}
+
+function updateWorkoutTimer() {
+  const el = document.getElementById('workout-timer');
+  const display = document.getElementById('workout-elapsed');
+  if (!el || !display || !state.currentSession?.started_at) {
+    if (el) el.classList.add('hidden');
+    return;
+  }
+  if (state.currentSession.completed_at || state.currentSession.skipped_at) {
+    el.classList.add('hidden');
+    return;
+  }
+  const elapsed = Math.floor((Date.now() - new Date(state.currentSession.started_at).getTime()) / 1000);
+  const h = Math.floor(elapsed / 3600);
+  const m = Math.floor((elapsed % 3600) / 60);
+  const s = elapsed % 60;
+  display.textContent = h > 0
+    ? `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+    : `${m}:${s.toString().padStart(2, '0')}`;
+  el.classList.remove('hidden');
+}
+
+function formatElapsed(startedAt) {
+  const elapsed = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000);
+  const h = Math.floor(elapsed / 3600);
+  const m = Math.floor((elapsed % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+function findFirstIncompleteExercise(workout) {
+  for (let i = 0; i < workout.exercises.length; i++) {
+    const logged = getLoggedSets(workout.exercises[i].id);
+    const total = parseInt(workout.exercises[i].workingSets) || 0;
+    if (logged.length < total) return i;
+  }
+  return 0;
+}
+
 // ─── View: Dashboard ────────────────────────────────────────────────────────
 async function renderDashboard() {
   const week = await getWeekData();
@@ -559,7 +616,7 @@ async function renderWorkouts() {
       badge = '<span class="text-xs font-bold text-ink/60 bg-ink/20 px-2 py-0.5">Skipped</span>';
       bgClass = 'bg-ink/40';
     } else if (isActive) {
-      badge = '<span class="text-xs font-bold text-canvas bg-electric px-2 py-0.5">Active</span>';
+      badge = `<span class="text-xs font-bold text-canvas bg-ink px-2 py-0.5">In Progress${state.currentSession?.started_at ? ' · ' + formatElapsed(state.currentSession.started_at) : ''}</span>`;
     }
     return `
       <button onclick="startWorkoutFlow('${wo.templateId}')" class="w-full ${bgClass} text-canvas p-5 text-left transition-colors duration-200 active:bg-ink/80">
@@ -702,8 +759,8 @@ async function startWorkoutFlow(templateId) {
   const isCompleted = statusData.completed.includes(templateId);
   const isSkipped = statusData.skipped.includes(templateId);
 
-  if (isCompleted || isSkipped || (state.currentSession && state.currentSession.workout_template_id === templateId)) {
-    // Load existing session's sets for viewing
+  if (isCompleted || isSkipped) {
+    // Load existing session for viewing
     const recent = await api('GET', '/workouts/recent?limit=50');
     const existing = recent.find(s =>
       s.workout_template_id === templateId &&
@@ -719,20 +776,37 @@ async function startWorkoutFlow(templateId) {
         state.sessionSets[s.exercise_id].push(s);
       });
     }
-  } else {
-    // Don't create session yet — wait until first set is logged
+    navigate(`#workout/${templateId}`);
+  } else if (state.currentSession && !state.currentSession.completed_at && !state.currentSession.skipped_at && state.currentSession.workout_template_id === templateId) {
+    // Active session — resume to first incomplete exercise
     state.sessionSets = {};
-    state.currentSession = null;
+    const sets = await api('GET', `/sets/session/${state.currentSession.id}`);
+    sets.forEach(s => {
+      if (!state.sessionSets[s.exercise_id]) state.sessionSets[s.exercise_id] = [];
+      state.sessionSets[s.exercise_id].push(s);
+    });
+    startWorkoutTimer();
+    navigate(`#exercise/${findFirstIncompleteExercise(workout)}`);
+  } else {
+    // New workout — create session immediately and go to first exercise
+    state.sessionSets = {};
+    state.currentSession = await api('POST', '/workouts', {
+      cycle: state.progress.cycle,
+      weekNumber: state.progress.week,
+      workoutTemplateId: workout.templateId,
+      workoutName: workout.name,
+    });
+    startWorkoutTimer();
+    navigate(`#exercise/0`);
   }
-
-  navigate(`#workout/${templateId}`);
 }
 
 async function resumeWorkout() {
   const week = await getWeekData(state.currentSession.week_number);
   const workout = week.workouts.find(wo => wo.templateId === state.currentSession.workout_template_id);
   state.currentWorkoutData = workout;
-  navigate(`#workout/${state.currentSession.workout_template_id}`);
+  startWorkoutTimer();
+  navigate(`#exercise/${findFirstIncompleteExercise(workout)}`);
 }
 
 // ─── View: Workout Overview ──────────────────────────────────────────────────
@@ -779,6 +853,7 @@ async function renderWorkout(templateId) {
 
   const isCompleted = state.currentSession && state.currentSession.completed_at;
   const isSkipped = state.currentSession && state.currentSession.skipped_at;
+  const isActive = state.currentSession && !isCompleted && !isSkipped;
   const name = workout.name.split('(')[0].trim();
   const hasLoggedSets = Object.values(state.sessionSets).some(sets => sets.length > 0);
 
@@ -805,6 +880,12 @@ async function renderWorkout(templateId) {
           </button>
         </div>
       ` : `
+        ${isActive ? `
+          <button onclick="navigate('#exercise/${findFirstIncompleteExercise(workout)}')" class="w-full mb-4 py-3 bg-ink text-canvas font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-ink/80">
+            ${hasLoggedSets ? 'Continue Logging' : 'Start Logging'}
+          </button>
+        ` : ''}
+
         <div class="flex flex-col gap-2">
           ${exerciseRows}
         </div>
@@ -869,6 +950,7 @@ async function confirmDeleteWorkout() {
   if (state.currentSession) {
     await api('DELETE', `/workouts/${state.currentSession.id}`);
   }
+  stopWorkoutTimer();
   state.currentSession = null;
   state.sessionSets = {};
   navigate('#workouts');
@@ -936,6 +1018,7 @@ async function confirmCancelWorkout() {
     }
   }
   dismissTimer();
+  stopWorkoutTimer();
   // Clear all localStorage drafts for this workout
   const keys = [];
   for (let i = 0; i < localStorage.length; i++) {
@@ -953,6 +1036,7 @@ async function completeWorkout() {
   if (!state.currentSession) return;
   await api('PUT', `/workouts/${state.currentSession.id}/complete`);
   dismissTimer();
+  stopWorkoutTimer();
   state.currentSession = null;
   state.currentWorkoutData = null;
   navigate('#workouts');

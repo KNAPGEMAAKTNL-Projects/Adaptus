@@ -7,11 +7,16 @@ router.get('/summary', (req, res) => {
     SELECT
       COUNT(DISTINCT ws.id) as total_workouts,
       COALESCE(SUM(sl.weight_kg * sl.reps), 0) as total_volume,
-      COUNT(sl.id) as total_sets,
-      AVG((julianday(ws.completed_at) - julianday(ws.started_at)) * 24 * 60) as avg_duration_minutes
+      COUNT(sl.id) as total_sets
     FROM workout_sessions ws
     LEFT JOIN set_logs sl ON sl.workout_session_id = ws.id
     WHERE ws.completed_at IS NOT NULL
+  `);
+
+  const duration = get(`
+    SELECT AVG((julianday(completed_at) - julianday(started_at)) * 24 * 60) as avg_duration_minutes
+    FROM workout_sessions
+    WHERE completed_at IS NOT NULL
   `);
 
   const prs = all(`
@@ -36,7 +41,7 @@ router.get('/summary', (req, res) => {
     totalWorkouts: totals.total_workouts || 0,
     totalSets: totals.total_sets || 0,
     totalVolume: Math.round(totals.total_volume || 0),
-    avgDuration: totals.avg_duration_minutes ? Math.round(totals.avg_duration_minutes) : null,
+    avgDuration: duration.avg_duration_minutes ? Math.round(duration.avg_duration_minutes) : null,
     prs,
   });
 });
@@ -49,11 +54,16 @@ router.get('/week-summary', (req, res) => {
     SELECT
       COUNT(DISTINCT ws.id) as workouts_completed,
       COALESCE(SUM(sl.weight_kg * sl.reps), 0) as total_volume,
-      COUNT(sl.id) as total_sets,
-      SUM((julianday(ws.completed_at) - julianday(ws.started_at)) * 24 * 60) as total_duration_minutes
+      COUNT(sl.id) as total_sets
     FROM workout_sessions ws
     LEFT JOIN set_logs sl ON sl.workout_session_id = ws.id
     WHERE ws.cycle = ? AND ws.week_number = ? AND ws.completed_at IS NOT NULL
+  `, [cycle, week]);
+
+  const weekDuration = get(`
+    SELECT SUM((julianday(completed_at) - julianday(started_at)) * 24 * 60) as total_duration_minutes
+    FROM workout_sessions
+    WHERE cycle = ? AND week_number = ? AND completed_at IS NOT NULL
   `, [cycle, week]);
 
   const prsThisWeek = all(`
@@ -86,7 +96,7 @@ router.get('/week-summary', (req, res) => {
     totalWorkouts: 5,
     totalSets: stats.total_sets || 0,
     totalVolume: Math.round(stats.total_volume || 0),
-    totalDuration: stats.total_duration_minutes ? Math.round(stats.total_duration_minutes) : null,
+    totalDuration: weekDuration.total_duration_minutes ? Math.round(weekDuration.total_duration_minutes) : null,
     prsThisWeek,
   });
 });

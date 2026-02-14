@@ -45,6 +45,14 @@
     <!-- Views rendered here by app.js -->
   </div>
 
+  <!-- Workout timer (persistent top bar) -->
+  <div id="workout-timer" class="fixed top-2 left-1/2 -translate-x-1/2 z-[60] hidden">
+    <span class="text-xs font-bold uppercase tracking-widest text-canvas bg-ink px-3 py-1.5 flex items-center gap-2">
+      <span class="w-1.5 h-1.5 rounded-full bg-acid animate-pulse"></span>
+      <span id="workout-elapsed">0:00</span>
+    </span>
+  </div>
+
   <!-- Offline queue badge -->
   <div id="offline-badge" class="fixed top-2 right-2 z-[60] hidden">
     <span class="text-xs font-bold uppercase tracking-widest text-canvas bg-electric px-2 py-1">
