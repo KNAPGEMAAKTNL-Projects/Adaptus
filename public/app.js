@@ -1021,7 +1021,7 @@ function showWeightLogModal() {
       <div class="mb-4">
         <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Weight (kg)</label>
         <input id="weight-log-input" type="number" inputmode="decimal" step="0.1"
-          class="w-full h-12 border-2 border-ink/15 rounded-lg text-center font-bold text-xl focus:border-ink focus:outline-none transition-colors duration-200">
+          class="w-full h-12 bg-transparent border-2 border-ink/15 rounded-lg text-center font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
       </div>
       <div class="flex gap-2">
         <button onclick="closeWeightModal()" class="flex-1 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">Cancel</button>
