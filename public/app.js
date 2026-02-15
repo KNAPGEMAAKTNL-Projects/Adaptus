@@ -1265,7 +1265,7 @@ async function renderStats() {
       </div>
       <input id="exercise-search" type="text" placeholder="Search exercises..."
         oninput="filterExerciseList(this.value)"
-        class="w-full h-10 px-3 bg-transparent border-2 border-ink/15 rounded-lg text-sm font-bold focus:border-ink focus:outline-none transition-colors duration-200 mb-3">
+        class="w-full h-10 px-3 bg-transparent border-2 border-ink/15 rounded-lg text-sm font-bold focus:border-acid focus:outline-none transition-colors duration-200 mb-3">
       <div id="exercise-list">
         ${exercises.map(ex => `
           <button onclick="navigate('#exercise-stats/${encodeURIComponent(ex.exercise_name)}')"
@@ -3049,7 +3049,7 @@ function showFoodServingsModal(foodId, foodName, cal, pro, carb, fat, servingNam
           <input id="food-servings-input" type="number" inputmode="decimal" step="0.5" value="1"
             data-serving-grams="${servingGrams}"
             oninput="document.getElementById('food-grams-equiv').textContent = '= ' + Math.round((parseFloat(this.value)||0) * ${servingGrams}) + 'g'"
-            class="w-full h-12 border-2 border-ink/15 rounded-lg text-center font-bold text-xl focus:border-ink focus:outline-none transition-colors duration-200">
+            class="w-full h-12 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
         </div>
         <div class="flex gap-2">
           <button onclick="closeFoodServingsModal()" class="flex-1 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">Cancel</button>
@@ -3066,7 +3066,7 @@ function showFoodServingsModal(foodId, foodName, cal, pro, carb, fat, servingNam
         <div class="mb-4">
           <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Grams</label>
           <input id="food-servings-input" type="number" inputmode="decimal" step="10" value="100"
-            class="w-full h-12 border-2 border-ink/15 rounded-lg text-center font-bold text-xl focus:border-ink focus:outline-none transition-colors duration-200">
+            class="w-full h-12 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
         </div>
         <div class="flex gap-2">
           <button onclick="closeFoodServingsModal()" class="flex-1 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">Cancel</button>
@@ -3121,7 +3121,7 @@ async function renderFoodForm(id) {
         <div>
           <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Name</label>
           <input id="food-name" type="text" value="${food.name}" placeholder="e.g. Chicken Breast"
-            class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+            class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent font-bold focus:border-acid focus:outline-none transition-colors duration-200">
         </div>
 
         <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mt-2">Nutrition per 100g</p>
@@ -3129,22 +3129,22 @@ async function renderFoodForm(id) {
           <div>
             <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Calories</label>
             <input id="food-calories" type="number" inputmode="decimal" value="${food.calories}" placeholder="0"
-              class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg text-center font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+              class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold focus:border-acid focus:outline-none transition-colors duration-200">
           </div>
           <div>
             <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Protein (g)</label>
             <input id="food-protein" type="number" inputmode="decimal" value="${food.protein}" placeholder="0"
-              class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg text-center font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+              class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold focus:border-acid focus:outline-none transition-colors duration-200">
           </div>
           <div>
             <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Carbs (g)</label>
             <input id="food-carbs" type="number" inputmode="decimal" value="${food.carbs}" placeholder="0"
-              class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg text-center font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+              class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold focus:border-acid focus:outline-none transition-colors duration-200">
           </div>
           <div>
             <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Fat (g)</label>
             <input id="food-fat" type="number" inputmode="decimal" value="${food.fat}" placeholder="0"
-              class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg text-center font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+              class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold focus:border-acid focus:outline-none transition-colors duration-200">
           </div>
         </div>
 
@@ -3160,12 +3160,12 @@ async function renderFoodForm(id) {
             <div>
               <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Serving Name</label>
               <input id="food-serving-name" type="text" value="${hasServing ? food.serving_unit : ''}" placeholder="e.g. scoop"
-                class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+                class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent font-bold focus:border-acid focus:outline-none transition-colors duration-200">
             </div>
             <div>
               <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Grams per Serving</label>
               <input id="food-serving-grams" type="number" inputmode="decimal" value="${hasServing ? food.serving_size : ''}" placeholder="e.g. 30"
-                class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg text-center font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+                class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold focus:border-acid focus:outline-none transition-colors duration-200">
             </div>
           </div>
         </div>
@@ -3270,7 +3270,7 @@ function renderMealFormInner(id, mealName, allFoods) {
       <div class="mb-4">
         <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Meal Name</label>
         <input id="meal-name" type="text" value="${mealName || ''}" placeholder="e.g. Weekday Breakfast"
-          class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+          class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent font-bold focus:border-acid focus:outline-none transition-colors duration-200">
       </div>
 
       <div class="border-2 border-ink/10 rounded-xl p-4 mb-4">
@@ -3356,7 +3356,7 @@ async function showMealFoodPicker() {
       <div class="flex gap-2 mb-3">
         <input type="text" placeholder="Search..."
           oninput="filterPickerFoods(this.value)"
-          class="flex-1 h-10 px-3 bg-transparent border-2 border-ink/15 rounded-lg text-sm font-bold focus:border-ink focus:outline-none transition-colors duration-200">
+          class="flex-1 h-10 px-3 bg-transparent border-2 border-ink/15 rounded-lg text-sm font-bold focus:border-acid focus:outline-none transition-colors duration-200">
         <button onclick="showInlineFoodCreator()" class="h-10 px-3 border-2 border-ink/15 rounded-lg text-xs font-bold uppercase tracking-tight whitespace-nowrap active:bg-white/20 active:text-white transition-colors duration-200">+ Create</button>
       </div>
       <div id="picker-food-list">
@@ -3413,29 +3413,29 @@ function showInlineFoodCreator() {
       <div>
         <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Name</label>
         <input id="inline-food-name" type="text" placeholder="e.g. Chicken Breast"
-          class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
+          class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
       </div>
       <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Nutrition per 100g</p>
       <div class="grid grid-cols-2 gap-2">
         <div>
           <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Calories</label>
           <input id="inline-food-cal" type="number" inputmode="decimal" placeholder="0"
-            class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg text-center font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
+            class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
         </div>
         <div>
           <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Protein (g)</label>
           <input id="inline-food-pro" type="number" inputmode="decimal" placeholder="0"
-            class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg text-center font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
+            class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
         </div>
         <div>
           <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Carbs (g)</label>
           <input id="inline-food-carb" type="number" inputmode="decimal" placeholder="0"
-            class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg text-center font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
+            class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
         </div>
         <div>
           <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Fat (g)</label>
           <input id="inline-food-fat" type="number" inputmode="decimal" placeholder="0"
-            class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg text-center font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
+            class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
         </div>
       </div>
       <div class="border-t border-ink/10 pt-3">
@@ -3443,11 +3443,11 @@ function showInlineFoodCreator() {
         <div class="grid grid-cols-2 gap-2">
           <div>
             <input id="inline-food-serving-name" type="text" placeholder="e.g. scoop"
-              class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
+              class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
           </div>
           <div>
             <input id="inline-food-serving-grams" type="number" inputmode="decimal" placeholder="grams"
-              class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg text-center font-bold text-sm focus:border-ink focus:outline-none transition-colors duration-200">
+              class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
           </div>
         </div>
       </div>
