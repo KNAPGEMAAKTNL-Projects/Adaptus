@@ -183,24 +183,29 @@ async function drawerShowOverview() {
     </div>
   `;
 
-  let profile, summary, streakData;
+  let profile, summary, streakData, recentPrs;
   try {
-    [profile, summary, streakData] = await Promise.all([
+    [profile, summary, streakData, recentPrs] = await Promise.all([
       api('GET', '/nutrition/profile').catch(() => null),
       api('GET', '/stats/summary').catch(() => null),
       api('GET', '/stats/streak').catch(() => null),
+      api('GET', '/stats/recent-prs').catch(() => []),
     ]);
   } catch (e) {
-    profile = null; summary = null; streakData = null;
+    profile = null; summary = null; streakData = null; recentPrs = [];
   }
   if (!profile) profile = {};
   if (!summary) summary = { totalWorkouts: 0, totalSets: 0, totalVolume: 0 };
   if (!streakData) streakData = { streak: 0 };
+  if (!recentPrs) recentPrs = [];
 
   const earned = computeEarnedMilestones(summary, streakData.streak);
   const earnedCount = earned.length;
   const totalCount = MILESTONES.length;
   const pct = totalCount > 0 ? Math.round((earnedCount / totalCount) * 100) : 0;
+
+  const recentMilestones = earned.slice(-3).reverse();
+  const prCount = summary.prs ? summary.prs.length : 0;
 
   document.getElementById('drawer-content').innerHTML = `
     <div class="flex items-center justify-between px-5 pt-6 pb-4">
@@ -225,13 +230,38 @@ async function drawerShowOverview() {
         </div>
       </div>
 
-      <button onclick="drawerShowMilestones()" class="w-full border-2 border-white/10 rounded-xl p-4 mb-5 text-left active:bg-white/5 transition-colors duration-200">
+      ${recentMilestones.length > 0 ? `
+        <div class="mb-4" onclick="drawerShowMilestones()">
+          <span class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-2">Recent Milestones</span>
+          <div class="flex flex-wrap gap-1.5">
+            ${recentMilestones.map(m => `<span class="text-xs font-bold bg-acid/20 text-acid rounded px-2 py-1">${m.label}</span>`).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      ${recentPrs.length > 0 ? `
+        <div class="mb-4" onclick="drawerShowPRWall()">
+          <span class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-2">Recent PRs</span>
+          <div class="flex flex-wrap gap-1.5">
+            ${recentPrs.map(pr => `<span class="text-xs font-bold bg-electric/20 text-electric rounded px-2 py-1">${pr.exercise_name} ${pr.weight_kg}kg</span>`).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      <button onclick="drawerShowMilestones()" class="w-full border-2 border-white/10 rounded-xl p-4 mb-3 text-left active:bg-white/5 transition-colors duration-200">
         <div class="flex items-center justify-between mb-2">
           <span class="text-[10px] font-bold uppercase tracking-widest text-white/40">Milestones</span>
           <span class="text-xs font-bold bg-acid text-canvas rounded px-2 py-0.5">${earnedCount}/${totalCount}</span>
         </div>
         <div class="h-1.5 bg-white/10 rounded-full overflow-hidden">
           <div class="h-full bg-acid rounded-full" style="width: ${pct}%"></div>
+        </div>
+      </button>
+
+      <button onclick="drawerShowPRWall()" class="w-full border-2 border-white/10 rounded-xl p-4 mb-5 text-left active:bg-white/5 transition-colors duration-200">
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] font-bold uppercase tracking-widest text-white/40">PR Wall</span>
+          <span class="text-xs font-bold bg-acid text-canvas rounded px-2 py-0.5">${prCount} PRs</span>
         </div>
       </button>
 
@@ -281,6 +311,50 @@ async function drawerShowMilestones() {
       <p class="text-sm font-bold text-white/40 mb-5">${earned.length} of ${MILESTONES.length} unlocked</p>
       <div class="grid grid-cols-3 gap-2 mb-5">
         ${milestonesHtml}
+      </div>
+    </div>
+  `;
+}
+
+async function drawerShowPRWall() {
+  document.getElementById('drawer-content').innerHTML = `
+    <div class="flex items-center justify-between px-5 pt-6 pb-4">
+      <button onclick="drawerShowOverview()" class="text-sm font-bold text-white/40 uppercase tracking-widest flex items-center gap-1 active:text-white transition-colors duration-200">
+        <span class="text-lg leading-none">&larr;</span> Back
+      </button>
+      <button onclick="closeDrawer()" class="w-8 h-8 flex items-center justify-center text-white/40 hover:text-white transition-colors duration-200">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="flex items-center justify-center h-40">
+      <p class="text-sm font-bold uppercase tracking-tight text-white/20">Loading...</p>
+    </div>
+  `;
+
+  const exercises = await api('GET', '/stats/exercises').catch(() => []);
+
+  const cardsHtml = exercises.map(ex => `
+    <div class="border-2 border-acid/20 rounded-xl p-4 text-center">
+      <div class="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-2 truncate">${ex.exercise_name}</div>
+      <div class="text-2xl font-black text-acid leading-none">${ex.best_weight}<span class="text-sm text-white/40">kg</span></div>
+      <div class="text-xs font-bold text-white/30 mt-1">E1RM ${ex.best_e1rm}kg</div>
+    </div>
+  `).join('');
+
+  document.getElementById('drawer-content').innerHTML = `
+    <div class="flex items-center justify-between px-5 pt-6 pb-4">
+      <button onclick="drawerShowOverview()" class="text-sm font-bold text-white/40 uppercase tracking-widest flex items-center gap-1 active:text-white transition-colors duration-200">
+        <span class="text-lg leading-none">&larr;</span> Back
+      </button>
+      <button onclick="closeDrawer()" class="w-8 h-8 flex items-center justify-center text-white/40 hover:text-white transition-colors duration-200">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="px-5 overflow-y-auto" style="max-height: calc(100vh - 80px - env(safe-area-inset-top) - env(safe-area-inset-bottom))">
+      <h1 class="text-2xl font-black uppercase tracking-tight leading-none mb-2">PR Wall</h1>
+      <p class="text-sm font-bold text-white/40 mb-5">${exercises.length} exercise${exercises.length !== 1 ? 's' : ''} tracked</p>
+      <div class="grid grid-cols-2 gap-3 mb-5">
+        ${cardsHtml}
       </div>
     </div>
   `;
@@ -833,6 +907,13 @@ async function renderDashboard() {
   const skippedCount = statusData.skipped.length;
   const allAccountedFor = (doneCount + skippedCount) >= 5;
 
+  let durationEstimate = null;
+  if (nextWorkout && !hasActiveSession) {
+    const names = nextWorkout.exercises.map(e => encodeURIComponent(e.name)).join(',');
+    const sets = nextWorkout.exercises.map(e => e.workingSets).join(',');
+    durationEstimate = await api('GET', `/stats/estimate-duration/${nextWorkout.templateId}?exercises=${names}&sets=${sets}`).catch(() => null);
+  }
+
   // Next Up card content
   let nextUpHtml = '';
   if (hasActiveSession) {
@@ -861,7 +942,7 @@ async function renderDashboard() {
             <span class="text-[10px] font-bold uppercase tracking-widest text-white/40 whitespace-nowrap flex-shrink-0">Next Up</span>
             <h2 class="text-xl font-black uppercase tracking-tight leading-tight truncate">${nextWorkout.name.split('(')[0].trim()}</h2>
           </div>
-          <span class="text-[10px] text-white/40 font-bold uppercase tracking-widest whitespace-nowrap flex-shrink-0">C${state.progress.cycle} &middot; W${state.progress.week}${deload ? ' &middot; Deload' : ''}</span>
+          <span class="text-[10px] text-white/40 font-bold uppercase tracking-widest whitespace-nowrap flex-shrink-0">${durationEstimate && durationEstimate.estimatedMinutes ? `~${durationEstimate.estimatedMinutes}m &middot; ` : ''}C${state.progress.cycle} &middot; W${state.progress.week}${deload ? ' &middot; Deload' : ''}</span>
         </div>
         <button onclick="event.stopPropagation(); startWorkoutFlow('${nextWorkout.templateId}', true)" class="w-full mt-4 py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-acid/20 active:text-acid">
           Start Workout
@@ -929,6 +1010,13 @@ async function renderDashboard() {
               <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">volume</span>
             </div>
             <span class="text-lg font-black leading-none block">${formatVolume(weekSummary.totalVolume)}</span>
+            ${weekSummary.prevWeekVolume > 0 && weekSummary.totalVolume > 0 ? (() => {
+              const delta = ((weekSummary.totalVolume - weekSummary.prevWeekVolume) / weekSummary.prevWeekVolume * 100);
+              const isUp = delta >= 0;
+              return `<span class="text-[10px] font-bold ${isUp ? 'text-green-400' : 'text-red-400'} block mt-0.5">
+                ${isUp ? '&#9650;' : '&#9660;'} ${Math.abs(Math.round(delta))}%
+              </span>`;
+            })() : ''}
           </div>
           <div>
             <div class="flex items-center gap-1 mb-0.5">
@@ -1064,6 +1152,50 @@ function markMilestoneShown(id) {
     shown.push(id);
     localStorage.setItem('milestones-shown', JSON.stringify(shown));
   }
+}
+
+function launchConfetti() {
+  const canvas = document.createElement('canvas');
+  canvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:100';
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+  const colors = ['#CCFF00', '#7C3AED', '#3B82F6', '#F59E0B', '#FFFFFF'];
+  const particles = Array.from({ length: 80 }, () => ({
+    x: canvas.width / 2,
+    y: canvas.height / 2,
+    vx: (Math.random() - 0.5) * 16,
+    vy: (Math.random() - 1) * 14 - 2,
+    w: Math.random() * 8 + 4,
+    h: Math.random() * 6 + 2,
+    color: colors[Math.floor(Math.random() * colors.length)],
+    rot: Math.random() * Math.PI * 2,
+    rv: (Math.random() - 0.5) * 0.3,
+    alpha: 1,
+  }));
+  const start = performance.now();
+  function frame(now) {
+    const elapsed = (now - start) / 1000;
+    if (elapsed > 3) { canvas.remove(); return; }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (const p of particles) {
+      p.x += p.vx;
+      p.vy += 0.35;
+      p.y += p.vy;
+      p.rot += p.rv;
+      p.alpha = elapsed > 2 ? Math.max(0, 1 - (elapsed - 2)) : 1;
+      ctx.save();
+      ctx.globalAlpha = p.alpha;
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      ctx.restore();
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
 }
 
 function computeEarnedMilestones(stats, streak) {
@@ -1677,6 +1809,7 @@ async function completeWorkout() {
   stopWorkoutTimer();
   state.currentSession = null;
   state.currentWorkoutData = null;
+  launchConfetti();
   navigate('#workouts');
   setTimeout(() => checkAndCelebrateMilestones(), 500);
 }
