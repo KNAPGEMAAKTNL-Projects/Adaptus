@@ -90,6 +90,17 @@ router.get('/week-summary', (req, res) => {
     WHERE ws.cycle = ? AND ws.week_number = ? AND ws.skipped_at IS NOT NULL
   `, [cycle, week]);
 
+  let prevCycle = cycle;
+  let prevWeek = week - 1;
+  if (prevWeek < 1) { prevCycle = cycle - 1; prevWeek = 12; }
+
+  const prevStats = prevCycle >= 1 ? get(`
+    SELECT COALESCE(SUM(sl.weight_kg * sl.reps), 0) as total_volume
+    FROM workout_sessions ws
+    LEFT JOIN set_logs sl ON sl.workout_session_id = ws.id
+    WHERE ws.cycle = ? AND ws.week_number = ? AND ws.completed_at IS NOT NULL
+  `, [prevCycle, prevWeek]) : null;
+
   res.json({
     workoutsCompleted: stats.workouts_completed || 0,
     workoutsSkipped: skippedCount?.cnt || 0,
@@ -97,6 +108,7 @@ router.get('/week-summary', (req, res) => {
     totalSets: stats.total_sets || 0,
     totalVolume: Math.round(stats.total_volume || 0),
     totalDuration: weekDuration.total_duration_minutes ? Math.round(weekDuration.total_duration_minutes) : null,
+    prevWeekVolume: prevStats ? Math.round(prevStats.total_volume || 0) : null,
     prsThisWeek,
   });
 });
@@ -144,6 +156,73 @@ router.get('/exercises', (req, res) => {
   }
 
   res.json(exercises);
+});
+
+router.get('/recent-prs', (req, res) => {
+  const prs = all(`
+    SELECT sl.exercise_name, sl.weight_kg, sl.reps, MAX(sl.logged_at) as logged_at
+    FROM set_logs sl
+    WHERE sl.weight_kg = (
+      SELECT MAX(s2.weight_kg) FROM set_logs s2 WHERE s2.exercise_name = sl.exercise_name
+    )
+    GROUP BY sl.exercise_name
+    ORDER BY MAX(sl.logged_at) DESC
+    LIMIT 3
+  `);
+  res.json(prs);
+});
+
+router.get('/estimate-duration/:templateId', (req, res) => {
+  const exerciseNames = (req.query.exercises || '').split(',').map(decodeURIComponent).filter(Boolean);
+  const setCounts = (req.query.sets || '').split(',').map(Number);
+
+  if (exerciseNames.length === 0) return res.json({ estimatedMinutes: null });
+
+  let totalSeconds = 0;
+  const FALLBACK_SECONDS_PER_SET = 180;
+  const TRANSITION_SECONDS = 90;
+
+  for (let i = 0; i < exerciseNames.length; i++) {
+    const name = exerciseNames[i];
+    const sets = setCounts[i] || 3;
+
+    const rows = all(`
+      SELECT sl.workout_session_id, sl.set_number, sl.logged_at
+      FROM set_logs sl
+      JOIN workout_sessions ws ON ws.id = sl.workout_session_id
+      WHERE sl.exercise_name = ? AND ws.completed_at IS NOT NULL
+      ORDER BY sl.workout_session_id DESC, sl.set_number ASC
+      LIMIT 50
+    `, [name]);
+
+    if (rows.length < 2) {
+      totalSeconds += sets * FALLBACK_SECONDS_PER_SET + TRANSITION_SECONDS;
+      continue;
+    }
+
+    const sessions = {};
+    for (const r of rows) {
+      if (!sessions[r.workout_session_id]) sessions[r.workout_session_id] = [];
+      sessions[r.workout_session_id].push(r.logged_at);
+    }
+
+    const intervals = [];
+    for (const sid of Object.keys(sessions)) {
+      const timestamps = sessions[sid];
+      for (let j = 1; j < timestamps.length; j++) {
+        const diff = (new Date(timestamps[j]) - new Date(timestamps[j - 1])) / 1000;
+        if (diff > 0 && diff < 600) intervals.push(diff);
+      }
+    }
+
+    const avgPerSet = intervals.length > 0
+      ? intervals.reduce((a, b) => a + b, 0) / intervals.length
+      : FALLBACK_SECONDS_PER_SET;
+
+    totalSeconds += sets * avgPerSet + TRANSITION_SECONDS;
+  }
+
+  res.json({ estimatedMinutes: Math.round(totalSeconds / 60) });
 });
 
 module.exports = router;
