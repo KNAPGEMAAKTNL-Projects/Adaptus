@@ -1,4 +1,4 @@
-const APP_VERSION = 'v58';
+const APP_VERSION = 'v59';
 console.log('[Adaptus]', APP_VERSION);
 // ─── State ───────────────────────────────────────────────────────────────────
 const state = {
@@ -107,7 +107,6 @@ function navigate(hash) {
       if (parts[1] === 'add') return renderNutritionAdd('meals');
       if (parts[1] === 'foods') return renderNutritionAdd('foods');
       if (parts[1] === 'meals') return renderNutritionAdd('meals');
-      if (parts[1] === 'food' && parts[2] === 'scan') return renderFoodForm(null, parts[3]);
       if (parts[1] === 'food') return renderFoodForm(parts[2] === 'new' ? null : parts[2]);
       if (parts[1] === 'meal') return renderMealForm(parts[2] === 'new' ? null : parts[2]);
       if (parts[1] === 'settings') { openDrawer(drawerShowNutritionGoals); return; }
@@ -3042,7 +3041,7 @@ function closeNutritionSearch() {
 // ─── Barcode Scanner ──────────────────────────────────────────────────────
 let _barcodeScanner = null;
 
-function openBarcodeScanner() {
+function _openScannerModal(callback) {
   const modal = document.createElement('div');
   modal.id = 'barcode-scanner-modal';
   modal.className = 'fixed inset-0 z-[80] bg-canvas flex flex-col';
@@ -3060,8 +3059,66 @@ function openBarcodeScanner() {
     </div>
   `;
   document.body.appendChild(modal);
+  startBarcodeCamera(callback);
+}
 
-  startBarcodeCamera(lookupBarcode);
+function openBarcodeScanner() {
+  _openScannerModal(lookupBarcode);
+}
+
+function openBarcodeScannerForForm() {
+  _openScannerModal(lookupBarcodeForForm);
+}
+
+async function lookupBarcodeForForm(barcode) {
+  closeBarcodeScanner();
+  // Fill in the food form fields directly
+  const barcodeEl = document.getElementById('food-barcode');
+  if (barcodeEl) barcodeEl.value = barcode;
+  // Check local DB
+  try {
+    const localFood = await api('GET', `/nutrition/foods/barcode/${encodeURIComponent(barcode)}`);
+    if (localFood) {
+      showScanToast('Found in your library — fields filled', 'success');
+      const nameEl = document.getElementById('food-name');
+      const proEl = document.getElementById('food-protein');
+      const carbEl = document.getElementById('food-carbs');
+      const fatEl = document.getElementById('food-fat');
+      if (nameEl) nameEl.value = localFood.name;
+      if (proEl) proEl.value = localFood.protein;
+      if (carbEl) carbEl.value = localFood.carbs;
+      if (fatEl) fatEl.value = localFood.fat;
+      calcFoodCalories();
+      return;
+    }
+  } catch (e) {}
+  // Check Open Food Facts
+  try {
+    const resp = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}`);
+    const data = await resp.json();
+    if (data.status === 1 && data.product) {
+      const p = data.product;
+      const n = p.nutriments || {};
+      const name = p.product_name || p.product_name_en || p.product_name_nl || p.product_name_de || p.product_name_fr || '';
+      const pro = Math.round((n.proteins_100g || 0) * 10) / 10;
+      const carb = Math.round((n['carbohydrates_100g'] || 0) * 10) / 10;
+      const fat = Math.round((n.fat_100g || 0) * 10) / 10;
+      if (name || pro > 0 || carb > 0 || fat > 0) {
+        showScanToast('Imported from Open Food Facts', 'info');
+        const nameEl = document.getElementById('food-name');
+        const proEl = document.getElementById('food-protein');
+        const carbEl = document.getElementById('food-carbs');
+        const fatEl = document.getElementById('food-fat');
+        if (nameEl && name) nameEl.value = name;
+        if (proEl) proEl.value = pro;
+        if (carbEl) carbEl.value = carb;
+        if (fatEl) fatEl.value = fat;
+        calcFoodCalories();
+        return;
+      }
+    }
+  } catch (e) {}
+  showScanToast('Not found online — barcode saved', 'warn');
 }
 
 function closeBarcodeScanner() {
@@ -3152,36 +3209,127 @@ function showScanToast(message, type = 'success') {
   setTimeout(() => toast.remove(), 3000);
 }
 
-function lookupBarcode(barcode) {
-  // Simply navigate — renderFoodForm will do the lookup with the barcode in the URL
+async function lookupBarcode(barcode) {
   closeBarcodeScanner();
-  navigate(`#nutrition/food/scan/${encodeURIComponent(barcode)}`);
+  // Check local DB first
+  try {
+    const localFood = await api('GET', `/nutrition/foods/barcode/${encodeURIComponent(barcode)}`);
+    if (localFood) {
+      showScanToast('Found in your library', 'success');
+      showFoodServingsModal(localFood.id, localFood.name, localFood.calories, localFood.protein, localFood.carbs, localFood.fat,
+        localFood.serving_unit !== 'g' ? localFood.serving_unit : null, localFood.serving_unit !== 'g' ? localFood.serving_size : null);
+      return;
+    }
+  } catch (e) {}
+  // Check Open Food Facts
+  let name = '', protein = 0, carbs = 0, fat = 0, notFound = true;
+  try {
+    const resp = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}`);
+    const data = await resp.json();
+    if (data.status === 1 && data.product) {
+      const p = data.product;
+      const n = p.nutriments || {};
+      name = p.product_name || p.product_name_en || p.product_name_nl || p.product_name_de || p.product_name_fr || '';
+      protein = Math.round((n.proteins_100g || 0) * 10) / 10;
+      carbs = Math.round((n['carbohydrates_100g'] || 0) * 10) / 10;
+      fat = Math.round((n.fat_100g || 0) * 10) / 10;
+      if (name || protein > 0 || carbs > 0 || fat > 0) notFound = false;
+    }
+  } catch (e) {}
+  showScanFoodPopup({ barcode, name, protein, carbs, fat, notFound });
+}
+
+function showScanFoodPopup({ barcode, name, protein, carbs, fat, notFound }) {
+  document.getElementById('scan-food-popup')?.remove();
+  const cal = Math.round((protein || 0) * 4 + (carbs || 0) * 4 + (fat || 0) * 9);
+  const banner = notFound
+    ? `<div class="bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mb-3 flex items-start gap-2"><span class="text-amber-400 text-sm leading-none mt-0.5">!</span><div><p class="text-[11px] font-bold text-amber-400">Not found online</p><p class="text-[10px] text-ink/40">Barcode saved — fill in details</p></div></div>`
+    : `<div class="bg-purple-500/10 border border-purple-500/20 rounded-lg px-3 py-2 mb-3 flex items-start gap-2"><span class="text-purple-400 text-sm leading-none mt-0.5">&#x2713;</span><div><p class="text-[11px] font-bold text-purple-400">Found on Open Food Facts</p><p class="text-[10px] text-ink/40">Verify and save</p></div></div>`;
+
+  const modal = document.createElement('div');
+  modal.id = 'scan-food-popup';
+  modal.className = 'fixed inset-0 z-[80] flex items-end';
+  modal.innerHTML = `
+    <div class="absolute inset-0 bg-black/60" onclick="document.getElementById('scan-food-popup')?.remove()"></div>
+    <div class="relative w-full bg-[#1a1a1a] rounded-t-2xl p-5 max-h-[80vh] overflow-y-auto" style="padding-bottom: calc(2rem + env(safe-area-inset-bottom))">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-black uppercase tracking-tight">Scanned Food</h2>
+        <button onclick="document.getElementById('scan-food-popup')?.remove()" class="text-ink/40 font-bold text-2xl leading-none">&times;</button>
+      </div>
+      ${banner}
+      <div class="space-y-3 mb-4">
+        <div>
+          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Name</label>
+          <input id="scan-food-name" type="text" value="${(name || '').replace(/"/g, '&quot;')}" placeholder="e.g. Chicken Breast"
+            class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
+        </div>
+        <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Per 100g</p>
+        <div>
+          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Calories (auto)</label>
+          <div class="w-full h-10 px-3 border-2 border-ink/10 rounded-lg bg-ink/5 flex items-center justify-center font-bold text-sm text-ink/60">
+            <span id="scan-food-cal">${cal}</span>
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Protein</label>
+            <input id="scan-food-pro" type="text" inputmode="decimal" value="${protein || ''}" placeholder="0" oninput="calcScanFoodCal()"
+              class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
+          </div>
+          <div>
+            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Carbs</label>
+            <input id="scan-food-carb" type="text" inputmode="decimal" value="${carbs || ''}" placeholder="0" oninput="calcScanFoodCal()"
+              class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
+          </div>
+          <div>
+            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Fat</label>
+            <input id="scan-food-fat" type="text" inputmode="decimal" value="${fat || ''}" placeholder="0" oninput="calcScanFoodCal()"
+              class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
+          </div>
+        </div>
+        <div class="text-[10px] text-ink/30 tabular-nums">Barcode: ${barcode}</div>
+      </div>
+      <input id="scan-food-barcode" type="hidden" value="${barcode}">
+      <button onclick="saveScanFood()" class="w-full py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-center text-sm transition-colors duration-200 active:bg-acid/20 active:text-acid">Save & Log</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  if (notFound || !name) requestAnimationFrame(() => document.getElementById('scan-food-name')?.focus());
+}
+
+function calcScanFoodCal() {
+  const p = parseNum(document.getElementById('scan-food-pro')?.value) || 0;
+  const c = parseNum(document.getElementById('scan-food-carb')?.value) || 0;
+  const f = parseNum(document.getElementById('scan-food-fat')?.value) || 0;
+  const el = document.getElementById('scan-food-cal');
+  if (el) el.textContent = Math.round(p * 4 + c * 4 + f * 9);
+}
+
+async function saveScanFood() {
+  const nameEl = document.getElementById('scan-food-name');
+  const name = nameEl?.value.trim();
+  if (!name) {
+    if (nameEl) { nameEl.style.borderColor = '#ef4444'; nameEl.placeholder = 'Name is required'; nameEl.focus(); }
+    return;
+  }
+  const pro = parseNum(document.getElementById('scan-food-pro')?.value) || 0;
+  const carb = parseNum(document.getElementById('scan-food-carb')?.value) || 0;
+  const fat = parseNum(document.getElementById('scan-food-fat')?.value) || 0;
+  const cal = Math.round(pro * 4 + carb * 4 + fat * 9);
+  const barcode = document.getElementById('scan-food-barcode')?.value || null;
+
+  // Create the food
+  const food = await api('POST', '/nutrition/foods', { name, calories: cal, protein: pro, carbs: carb, fat: fat, barcode });
+  document.getElementById('scan-food-popup')?.remove();
+  showScanToast('Saved to library', 'success');
+  // Show servings modal to log it
+  showFoodServingsModal(food.id, food.name, food.calories, food.protein, food.carbs, food.fat, null, null);
 }
 
 
 function openBarcodeScannerForMeal() {
-  // Close the food picker temporarily but keep meal state
   closeFoodPickerModal();
-
-  const modal = document.createElement('div');
-  modal.id = 'barcode-scanner-modal';
-  modal.className = 'fixed inset-0 z-[80] bg-canvas flex flex-col';
-  modal.innerHTML = `
-    <div class="flex items-center justify-between px-4 pt-6 pb-3" style="padding-top: calc(env(safe-area-inset-top) + 1.5rem)">
-      <h2 class="text-lg font-black uppercase tracking-tight">Scan Barcode</h2>
-      <button onclick="closeBarcodeScanner();showMealFoodPicker()" class="w-8 h-8 flex items-center justify-center text-ink/40 hover:text-ink transition-colors duration-200">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <div class="flex-1 flex flex-col items-center justify-center px-4">
-      <div id="barcode-reader" class="w-full max-w-sm rounded-xl overflow-hidden"></div>
-      <p id="barcode-status" class="text-sm text-ink/40 mt-4 text-center">Point camera at a barcode</p>
-      <div id="barcode-confirm"></div>
-    </div>
-  `;
-  document.body.appendChild(modal);
-
-  startBarcodeCamera(lookupBarcodeForMeal);
+  _openScannerModal(lookupBarcodeForMeal);
 }
 
 async function lookupBarcodeForMeal(barcode) {
@@ -3820,63 +3968,11 @@ function calcInlineFoodCalories() {
 }
 
 // ─── View: Food Form ────────────────────────────────────────────────────────
-async function renderFoodForm(id, scannedBarcode) {
+async function renderFoodForm(id) {
   let food = { name: '', calories: '', protein: '', carbs: '', fat: '', serving_size: null, serving_unit: null };
   if (id) {
     const foods = await api('GET', '/nutrition/foods');
     food = foods.find(f => f.id === parseInt(id)) || food;
-  }
-  // If we arrived via barcode scan, do the lookups right here
-  let scanBanner = '';
-  if (!id && scannedBarcode) {
-    const barcode = decodeURIComponent(scannedBarcode);
-    food.barcode = barcode;
-    // Check local DB first
-    try {
-      const localFood = await api('GET', `/nutrition/foods/barcode/${encodeURIComponent(barcode)}`);
-      if (localFood) {
-        // Found locally — redirect to servings modal instead of showing form
-        showScanToast('Found in your library', 'success');
-        showFoodServingsModal(localFood.id, localFood.name, localFood.calories, localFood.protein, localFood.carbs, localFood.fat,
-          localFood.serving_unit !== 'g' ? localFood.serving_unit : null, localFood.serving_unit !== 'g' ? localFood.serving_size : null);
-        return;
-      }
-    } catch (e) {}
-    // Check Open Food Facts
-    try {
-      const resp = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}`);
-      const data = await resp.json();
-      if (data.status === 1 && data.product) {
-        const p = data.product;
-        const n = p.nutriments || {};
-        food.name = p.product_name || p.product_name_en || p.product_name_nl || p.product_name_de || p.product_name_fr || '';
-        food.protein = Math.round((n.proteins_100g || 0) * 10) / 10;
-        food.carbs = Math.round((n['carbohydrates_100g'] || 0) * 10) / 10;
-        food.fat = Math.round((n.fat_100g || 0) * 10) / 10;
-        food.calories = Math.round((food.protein * 4) + (food.carbs * 4) + (food.fat * 9));
-        if (!food.name && food.protein === 0 && food.carbs === 0 && food.fat === 0) {
-          scanBanner = `<div class="bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2.5 mb-5 flex items-start gap-2.5">
-            <span class="text-amber-400 text-base leading-none mt-0.5">!</span>
-            <div><p class="text-xs font-bold text-amber-400">Not found online</p><p class="text-[11px] text-ink/40 mt-0.5">Barcode saved — fill in the details manually</p></div>
-          </div>`;
-        } else {
-          scanBanner = `<div class="bg-purple-500/10 border border-purple-500/20 rounded-lg px-3 py-2.5 mb-5 flex items-start gap-2.5">
-            <span class="text-purple-400 text-base leading-none mt-0.5">&#x2713;</span>
-            <div><p class="text-xs font-bold text-purple-400">Imported from Open Food Facts</p><p class="text-[11px] text-ink/40 mt-0.5">Verify the details and save to your library</p></div>
-          </div>`;
-        }
-      } else {
-        scanBanner = `<div class="bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2.5 mb-5 flex items-start gap-2.5">
-          <span class="text-amber-400 text-base leading-none mt-0.5">!</span>
-          <div><p class="text-xs font-bold text-amber-400">Not found online</p><p class="text-[11px] text-ink/40 mt-0.5">Barcode saved — fill in the details manually</p></div>
-        </div>`;
-      }
-    } catch (e) {
-      scanBanner = `<div class="bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2.5 mb-5 flex items-start gap-2.5">
-        <span class="text-amber-400 text-base leading-none mt-0.5">!</span>
-        <div><p class="text-xs font-bold text-amber-400">Not found online</p><p class="text-[11px] text-ink/40 mt-0.5">Barcode saved — fill in the details manually</p></div>
-      </div>`;
-    }
   }
 
   const hasServing = food.serving_unit && food.serving_unit !== 'g';
@@ -3887,9 +3983,13 @@ async function renderFoodForm(id, scannedBarcode) {
         <span class="text-lg leading-none">&larr;</span> Back
       </button>
 
-      <h1 class="text-2xl font-black uppercase tracking-tight leading-none mb-5">${id ? 'Edit Food' : 'New Food'}</h1>
-
-      ${scanBanner}
+      <div class="flex items-center justify-between mb-5">
+        <h1 class="text-2xl font-black uppercase tracking-tight leading-none">${id ? 'Edit Food' : 'New Food'}</h1>
+        <button onclick="openBarcodeScannerForForm()" class="flex items-center gap-1.5 px-3 py-1.5 border border-ink/15 rounded-lg text-xs font-bold uppercase tracking-tight text-ink/50 active:bg-ink/10 transition-colors duration-200">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="16" x2="17" y2="16"/></svg>
+          Scan
+        </button>
+      </div>
 
       <div class="space-y-4 mb-6">
         <div>
