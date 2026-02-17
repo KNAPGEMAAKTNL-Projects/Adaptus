@@ -90,6 +90,13 @@ async function initDb() {
     // Column already exists
   }
 
+  // Migration: add assistance_kg column for assisted exercises
+  try {
+    db.run(`ALTER TABLE set_logs ADD COLUMN assistance_kg REAL`);
+  } catch (e) {
+    // Column already exists
+  }
+
   // ─── Nutrition tables ───────────────────────────────────────────────────
   db.run(`
     CREATE TABLE IF NOT EXISTS foods (

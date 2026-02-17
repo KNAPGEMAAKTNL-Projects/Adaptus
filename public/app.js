@@ -10,6 +10,7 @@ const state = {
   lastPerformance: {},
   restTimer: { active: false, seconds: 0, total: 0, intervalId: null, done: false },
   workoutTimer: { intervalId: null },
+  cachedBodyweight: null,
 };
 
 // ─── Milestones ─────────────────────────────────────────────────────────────
@@ -1815,6 +1816,7 @@ async function completeWorkout() {
   stopWorkoutTimer();
   state.currentSession = null;
   state.currentWorkoutData = null;
+  state.cachedBodyweight = null;
   launchConfetti();
   navigate('#workouts');
   setTimeout(() => checkAndCelebrateMilestones(), 500);
@@ -1835,6 +1837,12 @@ async function renderExercise(index) {
   const isSingleSet = totalSets === 1;
   const technique = exercise.lastSetIntensityTechnique;
   const showTechnique = technique && technique !== 'N/A';
+
+  // Fetch bodyweight for assisted exercises
+  if (exercise.isAssisted && !state.cachedBodyweight) {
+    const bw = await api('GET', '/weight/latest').catch(() => null);
+    state.cachedBodyweight = bw ? bw.weight_kg : null;
+  }
 
   // Fetch last performance if not cached
   if (!state.lastPerformance[name]) {
@@ -1858,15 +1866,25 @@ async function renderExercise(index) {
     const rpeLabel = rpe;
 
     if (loggedSet) {
-      // Logged set row — checked checkbox (tap to uncheck/delete)
+      // Logged set row — edit button (completed workout) or checked checkbox (active workout)
+      const loggedDisplay = loggedSet.assistance_kg
+        ? `${loggedSet.assistance_kg}kg assist &times; ${loggedSet.reps}`
+        : `${loggedSet.weight_kg}kg &times; ${loggedSet.reps}`;
+      const isCompleted = state.currentSession && state.currentSession.completed_at;
+      const displayWeight = loggedSet.assistance_kg || loggedSet.weight_kg;
+      const actionButton = isCompleted
+        ? `<button onclick="showEditSetModal(${loggedSet.id}, '${exercise.id}', ${s}, ${displayWeight}, ${loggedSet.reps}, ${!!exercise.isAssisted})" class="w-6 h-6 rounded border-2 border-ink/20 flex items-center justify-center flex-shrink-0 active:opacity-60 transition-all duration-200">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>`
+        : `<button onclick="deleteSet(${loggedSet.id}, '${exercise.id}')" class="w-6 h-6 rounded border-2 border-acid bg-acid flex items-center justify-center flex-shrink-0 active:opacity-60 transition-all duration-200">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </button>`;
       setRowsHtml.push(`
         <div class="flex items-center gap-3 py-2.5 ${s < totalSets ? 'border-b border-ink/10' : ''}">
           <span class="w-10 text-xs font-bold text-ink/40 uppercase">Set ${s}</span>
-          <span class="flex-1 font-bold text-sm">${loggedSet.weight_kg}kg &times; ${loggedSet.reps}</span>
+          <span class="flex-1 font-bold text-sm">${loggedDisplay}</span>
           <span class="text-[10px] font-bold text-ink/30 uppercase">${rpeLabel}</span>
-          <button onclick="deleteSet(${loggedSet.id}, '${exercise.id}')" class="w-6 h-6 rounded border-2 border-acid bg-acid flex items-center justify-center flex-shrink-0 active:opacity-60 transition-all duration-200">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          </button>
+          ${actionButton}
         </div>
       `);
     } else {
@@ -1890,6 +1908,10 @@ async function renderExercise(index) {
             prefillWeight = suggestOverloadWeight(lastPerf[0].weight_kg);
           }
         }
+        // Convert effective weight back to assistance for display
+        if (exercise.isAssisted && state.cachedBodyweight) {
+          prefillWeight = Math.round((state.cachedBodyweight - prefillWeight) * 10) / 10;
+        }
         isSuggested = true;
       }
 
@@ -1908,7 +1930,7 @@ async function renderExercise(index) {
               onfocus="clearSuggested(this)" onblur="restoreSuggested(this)"
               oninput="handleInputRow(this, '${exercise.id}', ${s}, '${escapedName}')"
               class="w-20 h-9 bg-transparent border-2 border-ink/15 rounded-lg text-center font-bold text-sm pr-7 focus:border-acid focus:outline-none transition-colors duration-200 ${isSuggested ? 'placeholder:text-ink/30' : ''}">
-            <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-ink/30 pointer-events-none">kg</span>
+            <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-ink/30 pointer-events-none">${exercise.isAssisted ? 'assist' : 'kg'}</span>
           </div>
           <div class="relative flex-shrink-0">
             <input id="reps-${s}" type="number" inputmode="numeric" step="1"
@@ -2001,7 +2023,13 @@ async function renderExercise(index) {
 
       <!-- Set rows -->
       <div class="mb-5 px-1">
-        ${setRowsHtml.join('')}
+        ${exercise.isAssisted && !state.cachedBodyweight ? `
+          <div class="border-2 border-electric/30 bg-electric/5 rounded-xl p-4 text-center">
+            <p class="text-sm font-bold text-ink/60 mb-1">Log your bodyweight first</p>
+            <p class="text-xs text-ink/40">Assisted exercises need your bodyweight to calculate effective weight.</p>
+            <button onclick="navigate('#weight')" class="mt-3 px-4 py-2 bg-electric/20 text-electric rounded-lg font-bold text-sm uppercase tracking-tight active:bg-electric/30 transition-colors duration-200">Log Weight</button>
+          </div>
+        ` : setRowsHtml.join('')}
       </div>
 
       <!-- Navigation -->
@@ -2092,6 +2120,21 @@ async function logSetRow(exerciseId, exerciseName, setNumber, totalSets, targetR
   const reps = parseInt(getInputValueRow('reps', setNumber));
   if (!weight || weight <= 0 || !reps || reps <= 0) return;
 
+  // Determine if this is an assisted exercise
+  const currentExercise = state.currentWorkoutData?.exercises?.[state.currentExerciseIndex];
+  const isAssisted = currentExercise?.isAssisted && state.cachedBodyweight;
+
+  let effectiveWeight = weight;
+  let assistanceKg = null;
+  if (isAssisted) {
+    assistanceKg = weight;
+    effectiveWeight = Math.round((state.cachedBodyweight - weight) * 10) / 10;
+    if (effectiveWeight <= 0) {
+      alert('Assistance weight must be less than your bodyweight (' + state.cachedBodyweight + 'kg)');
+      return;
+    }
+  }
+
   // Create session on first logged set
   if (!state.currentSession || state.currentSession.completed_at) {
     state.currentSession = await api('POST', '/workouts', {
@@ -2117,23 +2160,80 @@ async function logSetRow(exerciseId, exerciseName, setNumber, totalSets, targetR
     exerciseId,
     exerciseName,
     setNumber,
-    weightKg: weight,
+    weightKg: effectiveWeight,
     reps,
     isLastSet,
     targetRpe,
     substitutionUsed: subUsed,
+    assistanceKg,
   });
 
   if (!state.sessionSets[exerciseId]) state.sessionSets[exerciseId] = [];
   state.sessionSets[exerciseId].push(set);
 
   // PR celebration (only when beating an existing PR, not on first-ever set)
-  if (previousPr && weight > previousPr.weight_kg) {
-    showPrCelebration(exerciseName, weight);
+  if (previousPr && effectiveWeight > previousPr.weight_kg) {
+    showPrCelebration(exerciseName, effectiveWeight);
   }
 
   clearDraft(exerciseId, setNumber);
   startRestTimer(restStr);
+  renderExercise(state.currentExerciseIndex);
+}
+
+// ─── Edit Set Modal (completed workouts) ────────────────────────────────────
+function showEditSetModal(setId, exerciseId, setNumber, weight, reps, isAssisted) {
+  const modal = document.createElement('div');
+  modal.id = 'edit-set-modal';
+  modal.className = 'fixed inset-0 z-[80] flex items-center justify-center';
+  modal.innerHTML = `
+    <div class="absolute inset-0 bg-black/60" onclick="closeEditSetModal()"></div>
+    <div class="relative bg-[#1a1a1a] rounded-xl mx-4 p-5 max-w-sm w-full">
+      <h2 class="text-lg font-black uppercase tracking-tight mb-4">Edit Set ${setNumber}</h2>
+      <div class="flex gap-3 mb-4">
+        <div class="flex-1">
+          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Weight (${isAssisted ? 'assist' : 'kg'})</label>
+          <input id="edit-set-weight" type="text" inputmode="decimal" value="${weight}"
+            class="w-full h-12 bg-transparent border-2 border-ink/15 rounded-lg text-center font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
+        </div>
+        <div class="flex-1">
+          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Reps</label>
+          <input id="edit-set-reps" type="number" inputmode="numeric" step="1" value="${reps}"
+            class="w-full h-12 bg-transparent border-2 border-ink/15 rounded-lg text-center font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="closeEditSetModal()" class="flex-1 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">Cancel</button>
+        <button onclick="confirmEditSet(${setId}, '${exerciseId}', ${isAssisted})" class="flex-1 py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-acid/20 active:text-acid">Save</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  requestAnimationFrame(() => document.getElementById('edit-set-weight')?.focus());
+}
+
+function closeEditSetModal() {
+  document.getElementById('edit-set-modal')?.remove();
+}
+
+async function confirmEditSet(setId, exerciseId, isAssisted) {
+  const weight = parseNum(document.getElementById('edit-set-weight')?.value);
+  const reps = parseInt(document.getElementById('edit-set-reps')?.value);
+  if (!weight || weight <= 0 || !reps || reps <= 0) return;
+
+  let weightKg = weight;
+  let assistanceKg = null;
+  if (isAssisted) {
+    weightKg = state.cachedBodyweight - weight;
+    if (weightKg <= 0) return;
+    assistanceKg = weight;
+  }
+
+  const updated = await api('PUT', `/sets/${setId}`, { weightKg, reps, assistanceKg });
+  const sets = state.sessionSets[exerciseId] || [];
+  const idx = sets.findIndex(s => s.id === setId);
+  if (idx !== -1) sets[idx] = updated;
+  closeEditSetModal();
   renderExercise(state.currentExerciseIndex);
 }
 
@@ -2142,8 +2242,10 @@ async function deleteSet(setId, exerciseId) {
   const sets = state.sessionSets[exerciseId] || [];
   const deletedSet = sets.find(s => s.id === setId);
   if (deletedSet) {
+    // For assisted exercises, store assistance_kg as draft weight (what user originally entered)
+    const draftWeight = deletedSet.assistance_kg || deletedSet.weight_kg;
     localStorage.setItem(`draft-${exerciseId}-${deletedSet.set_number}`, JSON.stringify({
-      weight: deletedSet.weight_kg,
+      weight: draftWeight,
       reps: deletedSet.reps,
     }));
   }
@@ -2269,12 +2371,16 @@ async function renderExerciseStats(exerciseName) {
     api('GET', `/sets/e1rm/${encodeURIComponent(exerciseName)}`),
   ]);
 
+  // Check if this exercise has any assisted data
+  const hasAssistanceData = history.some(s => s.sets.some(set => set.assistance_kg));
+
   const prHtml = pr ? `
     <div class="border-2 border-acid bg-acid/5 rounded-xl p-4 mb-5">
       <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-1">Personal Record</h3>
       <span class="text-2xl font-black">${pr.weight_kg}<span class="text-sm font-bold text-ink/40 ml-0.5">kg</span></span>
       <span class="text-lg font-bold text-ink/40 mx-1">&times;</span>
       <span class="text-2xl font-black">${pr.reps}</span>
+      ${hasAssistanceData ? `<p class="text-xs text-ink/40 mt-1">Effective weight (bodyweight &minus; assistance)</p>` : ''}
       <p class="text-xs text-ink/40 mt-1">${pr.logged_at ? parseUtc(pr.logged_at).toLocaleDateString() : ''}</p>
     </div>
   ` : '';
@@ -2289,7 +2395,10 @@ async function renderExerciseStats(exerciseName) {
 
   const sessionsHtml = history.length > 0 ? [...history].reverse().map(s => {
     const date = parseUtc(s.date).toLocaleDateString();
-    const setsStr = s.sets.map(set => `${set.weight_kg}kg&times;${set.reps}`).join('&ensp;&ensp;');
+    const setsStr = s.sets.map(set => set.assistance_kg
+      ? `${set.assistance_kg}kg assist&times;${set.reps}`
+      : `${set.weight_kg}kg&times;${set.reps}`
+    ).join('&ensp;&ensp;');
     return `
       <div class="py-3 border-b border-ink/10 last:border-0">
         <div class="flex items-center justify-between mb-1">
