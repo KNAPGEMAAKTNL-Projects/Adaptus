@@ -462,6 +462,7 @@ async function drawerShowProfile() {
 }
 
 function renderWeightTrendChart(entries) {
+  if (typeof Chart === 'undefined') return;
   const canvas = document.getElementById('weight-trend-chart');
   if (!canvas) return;
   if (_weightTrendChart) { _weightTrendChart.destroy(); _weightTrendChart = null; }
@@ -3416,6 +3417,7 @@ async function renderNutritionTrends() {
 }
 
 async function loadTrendChart(days, metric) {
+  if (typeof Chart === 'undefined') return;
   const COLORS = { calories: '#CCFF00', protein: '#7C3AED', fat: '#F59E0B', carbs: '#3B82F6' };
   const color = COLORS[metric] || '#CCFF00';
 
