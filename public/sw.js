@@ -1,4 +1,4 @@
-const CACHE_NAME = 'adaptus-v61';
+const CACHE_NAME = 'adaptus-v62';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -9,7 +9,11 @@ const STATIC_ASSETS = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
+    caches.open(CACHE_NAME).then(cache =>
+      Promise.all(STATIC_ASSETS.map(url =>
+        fetch(url, { cache: 'no-store' }).then(r => cache.put(url, r))
+      ))
+    )
   );
   self.skipWaiting();
 });
@@ -23,12 +27,11 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Network-first for everything — always get latest, cache as fallback
+// Network-first, bypassing browser HTTP cache to avoid stale responses
 self.addEventListener('fetch', (event) => {
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, { cache: 'no-store' })
       .then(response => {
-        // Cache successful GET responses
         if (event.request.method === 'GET') {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
