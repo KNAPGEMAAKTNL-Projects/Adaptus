@@ -104,6 +104,7 @@ function navigate(hash) {
       if (parts[1] === 'food') return renderFoodForm(parts[2] === 'new' ? null : parts[2]);
       if (parts[1] === 'meal') return renderMealForm(parts[2] === 'new' ? null : parts[2]);
       if (parts[1] === 'settings') { openDrawer(drawerShowNutritionGoals); return; }
+      if (parts[1] === 'trends') return renderNutritionTrends();
       return renderNutrition();
     }; break;
     default: renderFn = () => renderDashboard();
@@ -367,11 +368,14 @@ async function drawerShowPRWall() {
   `;
 }
 
+let _weightTrendChart = null;
+
 async function drawerShowProfile() {
   const [profile, weightHistory] = await Promise.all([
     api('GET', '/nutrition/profile').catch(() => ({ gender: 'male', age: 28, height_cm: 183, current_weight_kg: null })),
-    api('GET', '/weight/history?limit=10').catch(() => []),
+    api('GET', '/weight/history?limit=90').catch(() => []),
   ]);
+  const recentHistory = weightHistory.slice(-10);
 
   function genderBtn(val, label) {
     const active = profile.gender === val;
@@ -418,11 +422,19 @@ async function drawerShowProfile() {
         Save
       </button>
 
-      ${weightHistory.length > 0 ? `
+      ${weightHistory.length >= 2 ? `
         <div class="border-t border-white/10 pt-5 mb-5">
+          <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-3">Weight Trend</label>
+          <div class="border-2 border-white/10 rounded-xl p-3 mb-4" style="height:200px">
+            <canvas id="weight-trend-chart"></canvas>
+          </div>
+        </div>
+      ` : ''}
+      ${recentHistory.length > 0 ? `
+        <div class="${weightHistory.length < 2 ? 'border-t border-white/10 pt-5' : ''} mb-5">
           <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-3">Weight History</label>
           <div class="space-y-1">
-            ${weightHistory.map(w => {
+            ${recentHistory.slice().reverse().map(w => {
               const d = new Date(w.logged_at);
               const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
               const dateLabel = months[d.getMonth()] + ' ' + d.getDate();
@@ -441,6 +453,73 @@ async function drawerShowProfile() {
       ` : ''}
     </div>
   `;
+
+  if (weightHistory.length >= 2) {
+    requestAnimationFrame(() => renderWeightTrendChart(weightHistory));
+  }
+}
+
+function renderWeightTrendChart(entries) {
+  const canvas = document.getElementById('weight-trend-chart');
+  if (!canvas) return;
+  if (_weightTrendChart) { _weightTrendChart.destroy(); _weightTrendChart = null; }
+
+  const labels = entries.map(e => {
+    const d = new Date(e.logged_at);
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return months[d.getMonth()] + ' ' + d.getDate();
+  });
+  const weights = entries.map(e => e.weight_kg);
+
+  // 7-day moving average
+  const trend = weights.map((w, i) => {
+    const start = Math.max(0, i - 6);
+    const slice = weights.slice(start, i + 1);
+    return Math.round((slice.reduce((s, v) => s + v, 0) / slice.length) * 10) / 10;
+  });
+
+  _weightTrendChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Weight',
+          data: weights,
+          borderColor: 'rgba(255,255,255,0.3)',
+          borderWidth: 1,
+          pointRadius: 3,
+          pointBackgroundColor: 'rgba(255,255,255,0.5)',
+          fill: false,
+          tension: 0,
+        },
+        {
+          label: '7d Trend',
+          data: trend,
+          borderColor: '#7C3AED',
+          borderWidth: 2.5,
+          pointRadius: 0,
+          fill: false,
+          tension: 0.4,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          ticks: { color: 'rgba(255,255,255,0.3)', font: { size: 9, weight: 'bold' }, maxRotation: 0, maxTicksLimit: 6 },
+        },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          ticks: { color: 'rgba(255,255,255,0.3)', font: { size: 10, weight: 'bold' } },
+        }
+      }
+    }
+  });
 }
 
 async function drawerDeleteWeight(id) {
@@ -2836,10 +2915,10 @@ function buildTimeGroupedLog(entries) {
       <h4 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-2">${labels[key]}</h4>
       ${items.map(e => `
         <div class="flex items-center justify-between py-2.5 border-b border-ink/5 last:border-0">
-          <div class="flex-1 min-w-0 mr-3">
+          <button onclick="showEditLogEntryModal(${e.id}, '${e.name.replace(/'/g, "\\'")}', ${e.servings}, ${e.food_id || 'null'}, ${e.meal_id || 'null'})" class="flex-1 min-w-0 mr-3 text-left active:bg-ink/5 transition-colors duration-200 rounded-lg -ml-1 pl-1">
             <span class="font-bold text-[14px] block truncate">${e.name}</span>
-            <span class="text-[11px] text-ink/40">${Math.round(e.calories)} cal · ${Math.round(e.protein)}p · ${Math.round(e.carbs)}c · ${Math.round(e.fat)}f${e.servings !== 1 ? ` · ${e.servings}x` : ''}</span>
-          </div>
+            <span class="text-[11px] text-ink/40">${Math.round(e.calories)} cal · ${Math.round(e.protein)}p · ${Math.round(e.carbs)}c · ${Math.round(e.fat)}f${e.food_id ? ` · ${e.servings}g` : e.servings !== 1 ? ` · ${e.servings}x` : ''}</span>
+          </button>
           <button onclick="deleteLogEntry(${e.id})" class="text-ink/20 hover:text-red-500 text-xs font-bold transition-colors duration-200 flex-shrink-0">&times;</button>
         </div>
       `).join('')}
@@ -2858,6 +2937,9 @@ function showNutritionSearchBar() {
       <button onclick="openNutritionSearch()" class="flex-1 flex items-center gap-2 h-10 px-3 bg-ink/5 rounded-lg active:bg-ink/10 transition-colors duration-200">
         <svg class="text-ink/30 flex-shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <span class="text-sm text-ink/30 font-medium">Search food database</span>
+      </button>
+      <button onclick="openBarcodeScanner()" class="w-10 h-10 flex items-center justify-center bg-ink/10 rounded-full active:bg-ink/15 transition-colors duration-200 flex-shrink-0" title="Scan barcode">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="16" x2="17" y2="16"/></svg>
       </button>
       <button onclick="navigate('#nutrition/add')" class="w-10 h-10 flex items-center justify-center bg-[#CCFF00] rounded-full font-bold text-lg text-canvas active:bg-[#b8e600] transition-colors duration-200 flex-shrink-0">+</button>
     </div>
@@ -2946,6 +3028,248 @@ function closeNutritionSearch() {
   }
 }
 
+// ─── Barcode Scanner ──────────────────────────────────────────────────────
+let _barcodeScanner = null;
+
+function openBarcodeScanner() {
+  const modal = document.createElement('div');
+  modal.id = 'barcode-scanner-modal';
+  modal.className = 'fixed inset-0 z-[80] bg-canvas flex flex-col';
+  modal.innerHTML = `
+    <div class="flex items-center justify-between px-4 pt-6 pb-3" style="padding-top: calc(env(safe-area-inset-top) + 1.5rem)">
+      <h2 class="text-lg font-black uppercase tracking-tight">Scan Barcode</h2>
+      <button onclick="closeBarcodeScanner()" class="w-8 h-8 flex items-center justify-center text-ink/40 hover:text-ink transition-colors duration-200">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="flex-1 flex flex-col items-center justify-center px-4">
+      <div id="barcode-reader" class="w-full max-w-sm rounded-xl overflow-hidden"></div>
+      <p id="barcode-status" class="text-sm text-ink/40 mt-4 text-center">Point camera at a barcode</p>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  if (typeof Html5Qrcode === 'undefined') {
+    document.getElementById('barcode-status').textContent = 'Scanner library not loaded';
+    return;
+  }
+
+  _barcodeScanner = new Html5Qrcode('barcode-reader');
+  _barcodeScanner.start(
+    { facingMode: 'environment' },
+    { fps: 10, qrbox: { width: 250, height: 150 }, formatsToSupport: [
+      Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.UPC_A, Html5QrcodeSupportedFormats.UPC_E,
+      Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39
+    ]},
+    (decodedText) => {
+      document.getElementById('barcode-status').textContent = `Found: ${decodedText}`;
+      _barcodeScanner.stop().then(() => { _barcodeScanner = null; }).catch(() => {});
+      lookupBarcode(decodedText);
+    },
+    () => {}
+  ).catch(err => {
+    document.getElementById('barcode-status').textContent = 'Camera access denied or unavailable';
+  });
+}
+
+function closeBarcodeScanner() {
+  if (_barcodeScanner) {
+    _barcodeScanner.stop().then(() => { _barcodeScanner = null; }).catch(() => { _barcodeScanner = null; });
+  }
+  document.getElementById('barcode-scanner-modal')?.remove();
+}
+
+async function lookupBarcode(barcode) {
+  const statusEl = document.getElementById('barcode-status');
+  if (statusEl) statusEl.textContent = 'Checking local database...';
+  try {
+    // Check local database first
+    const localFood = await api('GET', `/nutrition/foods/barcode/${encodeURIComponent(barcode)}`);
+    if (localFood) {
+      closeBarcodeScanner();
+      showFoodServingsModal(localFood.id, localFood.name, localFood.calories, localFood.protein, localFood.carbs, localFood.fat,
+        localFood.serving_unit !== 'g' ? localFood.serving_unit : null, localFood.serving_unit !== 'g' ? localFood.serving_size : null);
+      return;
+    }
+  } catch (e) {}
+
+  // Not found locally — try Open Food Facts
+  if (statusEl) statusEl.textContent = 'Looking up product online...';
+  try {
+    const resp = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}`);
+    const data = await resp.json();
+    if (data.status === 1 && data.product) {
+      const p = data.product;
+      const n = p.nutriments || {};
+      window._scannedFoodData = {
+        name: p.product_name || 'Unknown Product',
+        protein: Math.round((n.proteins_100g || 0) * 10) / 10,
+        carbs: Math.round((n['carbohydrates_100g'] || 0) * 10) / 10,
+        fat: Math.round((n.fat_100g || 0) * 10) / 10,
+        barcode,
+      };
+      closeBarcodeScanner();
+      navigate('#nutrition/food/new');
+    } else {
+      closeBarcodeScanner();
+      showBarcodeNotFoundModal(barcode);
+    }
+  } catch (e) {
+    closeBarcodeScanner();
+    showBarcodeNotFoundModal(barcode);
+  }
+}
+
+function showBarcodeNotFoundModal(barcode) {
+  const modal = document.createElement('div');
+  modal.id = 'barcode-notfound-modal';
+  modal.className = 'fixed inset-0 z-[80] flex items-center justify-center';
+  modal.innerHTML = `
+    <div class="absolute inset-0 bg-black/60" onclick="document.getElementById('barcode-notfound-modal')?.remove()"></div>
+    <div class="relative bg-[#1a1a1a] rounded-xl mx-4 p-5 max-w-sm w-full text-center">
+      <h2 class="text-lg font-black uppercase tracking-tight mb-2">Not Found</h2>
+      <p class="text-sm text-ink/40 mb-1">Barcode: ${barcode}</p>
+      <p class="text-sm text-ink/40 mb-4">This product isn't in the Open Food Facts database.</p>
+      <div class="flex gap-2">
+        <button onclick="document.getElementById('barcode-notfound-modal')?.remove()" class="flex-1 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">Close</button>
+        <button onclick="document.getElementById('barcode-notfound-modal')?.remove();navigate('#nutrition/food/new')" class="flex-1 py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-acid/20 active:text-acid">Create Manually</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+function openBarcodeScannerForMeal() {
+  // Close the food picker temporarily but keep meal state
+  closeFoodPickerModal();
+
+  const modal = document.createElement('div');
+  modal.id = 'barcode-scanner-modal';
+  modal.className = 'fixed inset-0 z-[80] bg-canvas flex flex-col';
+  modal.innerHTML = `
+    <div class="flex items-center justify-between px-4 pt-6 pb-3" style="padding-top: calc(env(safe-area-inset-top) + 1.5rem)">
+      <h2 class="text-lg font-black uppercase tracking-tight">Scan Barcode</h2>
+      <button onclick="closeBarcodeScanner();showMealFoodPicker()" class="w-8 h-8 flex items-center justify-center text-ink/40 hover:text-ink transition-colors duration-200">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="flex-1 flex flex-col items-center justify-center px-4">
+      <div id="barcode-reader" class="w-full max-w-sm rounded-xl overflow-hidden"></div>
+      <p id="barcode-status" class="text-sm text-ink/40 mt-4 text-center">Point camera at a barcode</p>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  if (typeof Html5Qrcode === 'undefined') {
+    document.getElementById('barcode-status').textContent = 'Scanner library not loaded';
+    return;
+  }
+
+  _barcodeScanner = new Html5Qrcode('barcode-reader');
+  _barcodeScanner.start(
+    { facingMode: 'environment' },
+    { fps: 10, qrbox: { width: 250, height: 150 }, formatsToSupport: [
+      Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.UPC_A, Html5QrcodeSupportedFormats.UPC_E,
+      Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39
+    ]},
+    (decodedText) => {
+      document.getElementById('barcode-status').textContent = `Found: ${decodedText}`;
+      _barcodeScanner.stop().then(() => { _barcodeScanner = null; }).catch(() => {});
+      lookupBarcodeForMeal(decodedText);
+    },
+    () => {}
+  ).catch(() => {
+    document.getElementById('barcode-status').textContent = 'Camera access denied or unavailable';
+  });
+}
+
+async function lookupBarcodeForMeal(barcode) {
+  const statusEl = document.getElementById('barcode-status');
+  if (statusEl) statusEl.textContent = 'Checking local database...';
+  try {
+    // Check local database first
+    const localFood = await api('GET', `/nutrition/foods/barcode/${encodeURIComponent(barcode)}`);
+    if (localFood) {
+      closeBarcodeScanner();
+      // Add directly to meal
+      if (!window._mealFormFoods) window._mealFormFoods = [];
+      const ratio = (localFood.serving_size || 100) / 100;
+      window._mealFormFoods.push({ foodId: localFood.id, name: localFood.name, servings: 1, calories: localFood.calories * ratio, protein: localFood.protein * ratio, carbs: localFood.carbs * ratio, fat: localFood.fat * ratio });
+      reRenderMealForm();
+      if (window._mealFormName) {
+        const nameInput = document.getElementById('meal-name');
+        if (nameInput) nameInput.value = window._mealFormName;
+      }
+      return;
+    }
+  } catch (e) {}
+
+  // Not found locally — try Open Food Facts
+  if (statusEl) statusEl.textContent = 'Looking up product online...';
+  try {
+    const resp = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}`);
+    const data = await resp.json();
+    if (data.status === 1 && data.product) {
+      const p = data.product;
+      const n = p.nutriments || {};
+      window._scannedFoodDataForMeal = {
+        name: p.product_name || 'Unknown Product',
+        protein: Math.round((n.proteins_100g || 0) * 10) / 10,
+        carbs: Math.round((n['carbohydrates_100g'] || 0) * 10) / 10,
+        fat: Math.round((n.fat_100g || 0) * 10) / 10,
+        barcode,
+      };
+      closeBarcodeScanner();
+      // Re-open food picker and immediately show inline creator pre-filled
+      await showMealFoodPicker();
+      showInlineFoodCreator();
+      // Pre-fill fields
+      const s = window._scannedFoodDataForMeal;
+      if (s) {
+        const nameEl = document.getElementById('inline-food-name');
+        const proEl = document.getElementById('inline-food-pro');
+        const carbEl = document.getElementById('inline-food-carb');
+        const fatEl = document.getElementById('inline-food-fat');
+        const barcodeEl = document.getElementById('inline-food-barcode');
+        if (nameEl) nameEl.value = s.name;
+        if (proEl) proEl.value = s.protein;
+        if (carbEl) carbEl.value = s.carbs;
+        if (fatEl) fatEl.value = s.fat;
+        if (barcodeEl && s.barcode) barcodeEl.value = s.barcode;
+        calcInlineFoodCalories();
+        window._scannedFoodDataForMeal = null;
+      }
+    } else {
+      closeBarcodeScanner();
+      showBarcodeNotFoundForMeal(barcode);
+    }
+  } catch (e) {
+    closeBarcodeScanner();
+    showBarcodeNotFoundForMeal(barcode);
+  }
+}
+
+function showBarcodeNotFoundForMeal(barcode) {
+  const modal = document.createElement('div');
+  modal.id = 'barcode-notfound-modal';
+  modal.className = 'fixed inset-0 z-[80] flex items-center justify-center';
+  modal.innerHTML = `
+    <div class="absolute inset-0 bg-black/60" onclick="document.getElementById('barcode-notfound-modal')?.remove();showMealFoodPicker()"></div>
+    <div class="relative bg-[#1a1a1a] rounded-xl mx-4 p-5 max-w-sm w-full text-center">
+      <h2 class="text-lg font-black uppercase tracking-tight mb-2">Not Found</h2>
+      <p class="text-sm text-ink/40 mb-1">Barcode: ${barcode}</p>
+      <p class="text-sm text-ink/40 mb-4">This product isn't in the Open Food Facts database.</p>
+      <div class="flex gap-2">
+        <button onclick="document.getElementById('barcode-notfound-modal')?.remove();showMealFoodPicker()" class="flex-1 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">Back</button>
+        <button onclick="document.getElementById('barcode-notfound-modal')?.remove();showMealFoodPicker().then(()=>showInlineFoodCreator())" class="flex-1 py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-acid/20 active:text-acid">Create Manually</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
 // ─── View: Nutrition (Main) ─────────────────────────────────────────────────
 async function renderNutrition() {
   const [logData, targets, tdeeData] = await Promise.all([
@@ -2968,9 +3292,19 @@ async function renderNutrition() {
 
   document.getElementById('app').innerHTML = `
     <div class="px-3 pt-6" style="padding-bottom:var(--page-pb-extra)">
-      <div class="mb-4">
-        <h1 class="text-2xl font-black uppercase tracking-tight leading-none">Nutrition</h1>
-        <p id="nutrition-date-label" class="text-sm font-bold text-ink/40 mt-1">${getNutritionDateLabel()}</p>
+      <div class="flex items-start justify-between mb-4">
+        <div>
+          <h1 class="text-2xl font-black uppercase tracking-tight leading-none">Nutrition</h1>
+          <p id="nutrition-date-label" class="text-sm font-bold text-ink/40 mt-1">${getNutritionDateLabel()}</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="showCopyDayModal()" class="w-9 h-9 flex items-center justify-center bg-ink/5 rounded-full active:bg-ink/10 transition-colors duration-200" title="Copy day">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+          <button onclick="navigate('#nutrition/trends')" class="w-9 h-9 flex items-center justify-center bg-ink/5 rounded-full active:bg-ink/10 transition-colors duration-200" title="Trends">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </button>
+        </div>
       </div>
 
       <div id="week-picker" class="week-picker flex mb-4">
@@ -3027,6 +3361,169 @@ function buildWeightTrend(tdeeData) {
   `;
 }
 
+// ─── Nutrition Trends ─────────────────────────────────────────────────────
+let _trendChart = null;
+let _trendMetric = 'calories';
+let _trendRange = 7;
+
+async function renderNutritionTrends() {
+  const METRICS = [
+    { key: 'calories', label: 'Cal', color: '#CCFF00' },
+    { key: 'protein', label: 'Protein', color: '#7C3AED' },
+    { key: 'fat', label: 'Fat', color: '#F59E0B' },
+    { key: 'carbs', label: 'Carbs', color: '#3B82F6' },
+  ];
+  const RANGES = [7, 14, 30];
+
+  document.getElementById('app').innerHTML = `
+    <div class="px-3 pt-6" style="padding-bottom:var(--page-pb)">
+      <button onclick="navigate('#nutrition')" class="text-sm font-bold text-ink/40 uppercase tracking-widest mb-4 flex items-center gap-1 active:text-ink transition-colors duration-200">
+        <span class="text-lg leading-none">&larr;</span> Back
+      </button>
+      <h1 class="text-2xl font-black uppercase tracking-tight leading-none mb-5">Trends</h1>
+
+      <div id="trend-metric-btns" class="flex gap-2 mb-3">
+        ${METRICS.map(m => `
+          <button onclick="switchTrendMetric('${m.key}')" data-metric="${m.key}"
+            class="flex-1 py-2 text-xs font-bold uppercase tracking-tight rounded-lg border-2 transition-colors duration-200
+            ${m.key === _trendMetric ? `border-[${m.color}] text-[${m.color}]` : 'border-ink/10 text-ink/40'}"
+            style="${m.key === _trendMetric ? `border-color:${m.color};color:${m.color}` : ''}">${m.label}</button>
+        `).join('')}
+      </div>
+
+      <div id="trend-range-btns" class="flex gap-2 mb-4">
+        ${RANGES.map(r => `
+          <button onclick="switchTrendRange(${r})" data-range="${r}"
+            class="flex-1 py-2 text-xs font-bold uppercase tracking-tight rounded-lg border-2 transition-colors duration-200
+            ${r === _trendRange ? 'border-ink text-ink' : 'border-ink/10 text-ink/40'}">${r}d</button>
+        `).join('')}
+      </div>
+
+      <div class="border-2 border-ink/10 rounded-xl p-3 mb-4">
+        <canvas id="trend-chart" height="260"></canvas>
+      </div>
+
+      <div id="trend-summary" class="border-2 border-ink/10 rounded-xl p-4">
+        <p class="text-sm text-ink/30 text-center">Loading...</p>
+      </div>
+    </div>
+  `;
+
+  loadTrendChart(_trendRange, _trendMetric);
+}
+
+async function loadTrendChart(days, metric) {
+  const COLORS = { calories: '#CCFF00', protein: '#7C3AED', fat: '#F59E0B', carbs: '#3B82F6' };
+  const color = COLORS[metric] || '#CCFF00';
+
+  const data = await api('GET', `/nutrition/log/history?days=${days}`);
+  const labels = data.days.map(d => {
+    const dt = new Date(d.date + 'T12:00:00');
+    return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  });
+  const values = data.days.map(d => d[metric]);
+  const targetVal = data.targets[metric] || 0;
+  const targetLine = data.days.map(() => targetVal);
+
+  const canvas = document.getElementById('trend-chart');
+  if (!canvas) return;
+
+  if (_trendChart) { _trendChart.destroy(); _trendChart = null; }
+
+  _trendChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: metric,
+          data: values,
+          borderColor: color,
+          backgroundColor: color + '20',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 3,
+          pointBackgroundColor: color,
+          borderWidth: 2,
+        },
+        {
+          label: 'Target',
+          data: targetLine,
+          borderColor: 'rgba(255,255,255,0.3)',
+          borderDash: [6, 4],
+          borderWidth: 1.5,
+          pointRadius: 0,
+          fill: false,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          ticks: { color: 'rgba(255,255,255,0.3)', font: { size: 10, weight: 'bold' }, maxRotation: 0 },
+        },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          ticks: { color: 'rgba(255,255,255,0.3)', font: { size: 10, weight: 'bold' } },
+          beginAtZero: false,
+        }
+      }
+    }
+  });
+
+  // Summary
+  const nonZero = values.filter(v => v > 0);
+  const avg = nonZero.length > 0 ? Math.round(nonZero.reduce((s, v) => s + v, 0) / nonZero.length) : 0;
+  const diff = avg - targetVal;
+  const sign = diff > 0 ? '+' : '';
+  const LABELS = { calories: 'cal', protein: 'g', fat: 'g', carbs: 'g' };
+  const unit = LABELS[metric] || '';
+  const summaryEl = document.getElementById('trend-summary');
+  if (summaryEl) {
+    summaryEl.innerHTML = `
+      <div class="flex items-center justify-between">
+        <div>
+          <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block">Average</span>
+          <span class="text-xl font-black">${avg} <span class="text-sm font-bold text-ink/40">${unit}</span></span>
+        </div>
+        <div class="text-right">
+          <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block">vs Target</span>
+          <span class="text-xl font-black ${diff > 0 ? 'text-ink' : diff < 0 ? 'text-ink/60' : ''}">${sign}${diff} <span class="text-sm font-bold text-ink/40">${unit}</span></span>
+        </div>
+      </div>
+    `;
+  }
+}
+
+function switchTrendMetric(metric) {
+  _trendMetric = metric;
+  const COLORS = { calories: '#CCFF00', protein: '#7C3AED', fat: '#F59E0B', carbs: '#3B82F6' };
+  document.querySelectorAll('#trend-metric-btns button').forEach(btn => {
+    const m = btn.dataset.metric;
+    const active = m === metric;
+    const c = COLORS[m];
+    btn.style.borderColor = active ? c : '';
+    btn.style.color = active ? c : '';
+    btn.className = btn.className.replace(/border-\[.*?\]|text-\[.*?\]|border-ink\/10|text-ink\/40/g, '');
+    btn.classList.add(active ? '' : 'border-ink/10', active ? '' : 'text-ink/40');
+    btn.classList.remove('');
+  });
+  loadTrendChart(_trendRange, _trendMetric);
+}
+
+function switchTrendRange(days) {
+  _trendRange = days;
+  document.querySelectorAll('#trend-range-btns button').forEach(btn => {
+    const r = parseInt(btn.dataset.range);
+    btn.className = `flex-1 py-2 text-xs font-bold uppercase tracking-tight rounded-lg border-2 transition-colors duration-200 ${r === days ? 'border-ink text-ink' : 'border-ink/10 text-ink/40'}`;
+  });
+  loadTrendChart(_trendRange, _trendMetric);
+}
+
 async function deleteLogEntry(id) {
   await api('DELETE', `/nutrition/log/${id}`);
   // If on nutrition main page, partial refresh to preserve date picker
@@ -3035,6 +3532,106 @@ async function deleteLogEntry(id) {
   } else {
     renderNutrition();
   }
+}
+
+function showEditLogEntryModal(entryId, name, currentServings, foodId, mealId) {
+  const label = foodId ? 'Grams' : 'Servings';
+  const modal = document.createElement('div');
+  modal.id = 'edit-log-modal';
+  modal.className = 'fixed inset-0 z-[80] flex items-center justify-center';
+  modal.innerHTML = `
+    <div class="absolute inset-0 bg-black/60" onclick="closeEditLogModal()"></div>
+    <div class="relative bg-[#1a1a1a] rounded-xl mx-4 p-5 max-w-sm w-full">
+      <h2 class="text-lg font-black uppercase tracking-tight mb-1">Edit Entry</h2>
+      <p class="text-sm text-ink/40 mb-4 truncate">${name}</p>
+      <div class="mb-4">
+        <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">${label}</label>
+        <input id="edit-log-servings" type="text" inputmode="decimal" value="${currentServings}"
+          class="w-full h-12 bg-transparent border-2 border-ink/15 rounded-lg text-center font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
+      </div>
+      <div class="flex gap-2">
+        <button onclick="closeEditLogModal()" class="flex-1 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">Cancel</button>
+        <button onclick="confirmEditLogEntry(${entryId})" class="flex-1 py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-acid/20 active:text-acid">Save</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  requestAnimationFrame(() => {
+    const input = document.getElementById('edit-log-servings');
+    if (input) { input.focus(); input.select(); }
+  });
+}
+
+function closeEditLogModal() {
+  document.getElementById('edit-log-modal')?.remove();
+}
+
+async function confirmEditLogEntry(entryId) {
+  const servings = parseNum(document.getElementById('edit-log-servings')?.value);
+  if (!servings || servings <= 0) return;
+  closeEditLogModal();
+  await api('PUT', `/nutrition/log/${entryId}`, { servings });
+  refreshNutritionContent();
+}
+
+async function showCopyDayModal() {
+  const modal = document.createElement('div');
+  modal.id = 'copy-day-modal';
+  modal.className = 'fixed inset-0 z-[80] flex items-center justify-center';
+  modal.innerHTML = `
+    <div class="absolute inset-0 bg-black/60" onclick="closeCopyDayModal()"></div>
+    <div class="relative bg-[#1a1a1a] rounded-xl mx-4 p-5 max-w-sm w-full">
+      <h2 class="text-lg font-black uppercase tracking-tight mb-1">Copy Day</h2>
+      <p class="text-sm text-ink/40 mb-4">Select a day to copy entries from</p>
+      <div id="copy-day-list" class="space-y-2 max-h-64 overflow-y-auto">
+        <p class="text-sm text-ink/30 py-4 text-center">Loading...</p>
+      </div>
+      <button onclick="closeCopyDayModal()" class="w-full mt-4 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">Cancel</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  // Fetch last 7 days of log data
+  const days = [];
+  for (let i = 1; i <= 7; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().split('T')[0];
+    try {
+      const data = await api('GET', `/nutrition/log?date=${dateStr}`);
+      if (data.entries && data.entries.length > 0) {
+        days.push({ date: dateStr, entries: data.entries.length, calories: Math.round(data.totals.calories) });
+      }
+    } catch (e) {}
+  }
+
+  const listEl = document.getElementById('copy-day-list');
+  if (!listEl) return;
+  if (days.length === 0) {
+    listEl.innerHTML = '<p class="text-sm text-ink/30 py-4 text-center">No recent days with entries.</p>';
+    return;
+  }
+  listEl.innerHTML = days.map(d => {
+    const label = new Date(d.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+    return `
+      <button onclick="confirmCopyDay('${d.date}')" class="w-full flex items-center justify-between p-3 border-2 border-ink/10 rounded-xl active:bg-ink/5 transition-colors duration-200">
+        <div>
+          <span class="font-bold text-sm block">${label}</span>
+          <span class="text-xs text-ink/40">${d.entries} entries</span>
+        </div>
+        <span class="text-sm font-bold text-ink/40">${d.calories} cal</span>
+      </button>`;
+  }).join('');
+}
+
+function closeCopyDayModal() {
+  document.getElementById('copy-day-modal')?.remove();
+}
+
+async function confirmCopyDay(sourceDate) {
+  closeCopyDayModal();
+  await api('POST', '/nutrition/log/copy-day', { sourceDate, targetDate: nutritionDate });
+  refreshNutritionContent();
 }
 
 // ─── View: Library (Foods + Meals tabs) ─────────────────────────────────────
@@ -3237,6 +3834,16 @@ async function renderFoodForm(id) {
     const foods = await api('GET', '/nutrition/foods');
     food = foods.find(f => f.id === parseInt(id)) || food;
   }
+  if (!id && window._scannedFoodData) {
+    const s = window._scannedFoodData;
+    food.name = s.name || '';
+    food.protein = s.protein || 0;
+    food.carbs = s.carbs || 0;
+    food.fat = s.fat || 0;
+    food.calories = Math.round((food.protein * 4) + (food.carbs * 4) + (food.fat * 9));
+    food.barcode = s.barcode || null;
+    window._scannedFoodData = null;
+  }
 
   const hasServing = food.serving_unit && food.serving_unit !== 'g';
 
@@ -3301,6 +3908,12 @@ async function renderFoodForm(id) {
             </div>
           </div>
         </div>
+
+        <div class="border-t border-ink/10 pt-4">
+          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Barcode (optional)</label>
+          <input id="food-barcode" type="text" inputmode="numeric" value="${food.barcode || ''}" placeholder="e.g. 5449000000996"
+            class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent font-bold focus:border-acid focus:outline-none transition-colors duration-200">
+        </div>
       </div>
 
       <button onclick="saveFood(${id || 'null'})" class="w-full py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-acid/20 active:text-acid">
@@ -3329,6 +3942,7 @@ async function saveFood(id) {
     fat,
     servingName: hasServing ? (document.getElementById('food-serving-name').value.trim() || null) : null,
     servingGrams: hasServing ? (parseNum(document.getElementById('food-serving-grams').value) || null) : null,
+    barcode: document.getElementById('food-barcode')?.value.trim() || null,
   };
   if (!data.name) return;
   if (id) {
@@ -3492,6 +4106,9 @@ async function showMealFoodPicker() {
         <input type="text" placeholder="Search..."
           oninput="filterPickerFoods(this.value)"
           class="flex-1 h-10 px-3 bg-transparent border-2 border-ink/15 rounded-lg text-sm font-bold focus:border-acid focus:outline-none transition-colors duration-200">
+        <button onclick="openBarcodeScannerForMeal()" class="h-10 w-10 flex items-center justify-center border-2 border-ink/15 rounded-lg active:bg-white/20 transition-colors duration-200 flex-shrink-0" title="Scan barcode">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="16" x2="17" y2="16"/></svg>
+        </button>
         <button onclick="showInlineFoodCreator()" class="h-10 px-3 border-2 border-ink/15 rounded-lg text-xs font-bold uppercase tracking-tight whitespace-nowrap active:bg-white/20 active:text-white transition-colors duration-200">+ Create</button>
       </div>
       <div id="picker-food-list">
@@ -3588,6 +4205,7 @@ function showInlineFoodCreator() {
         </div>
       </div>
     </div>
+    <input id="inline-food-barcode" type="hidden" value="">
     <div class="flex gap-2">
       <button onclick="closeFoodPickerModal();showMealFoodPicker()" class="flex-1 py-2.5 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">Cancel</button>
       <button onclick="saveInlineFood()" class="flex-1 py-2.5 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-acid/20 active:text-acid">Save & Add</button>
@@ -3605,8 +4223,9 @@ async function saveInlineFood() {
   const cal = Math.round(pro * 4 + carb * 4 + fat * 9);
   const servingName = document.getElementById('inline-food-serving-name')?.value.trim() || null;
   const servingGrams = parseNum(document.getElementById('inline-food-serving-grams')?.value) || null;
+  const barcode = document.getElementById('inline-food-barcode')?.value.trim() || null;
 
-  const food = await api('POST', '/nutrition/foods', { name, calories: cal, protein: pro, carbs: carb, fat: fat, servingName, servingGrams });
+  const food = await api('POST', '/nutrition/foods', { name, calories: cal, protein: pro, carbs: carb, fat: fat, servingName, servingGrams, barcode });
   _searchFoods = null;
 
   // Add to meal form with per-serving macros

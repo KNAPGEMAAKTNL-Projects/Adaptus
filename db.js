@@ -97,6 +97,13 @@ async function initDb() {
     // Column already exists
   }
 
+  // Migration: add barcode column to foods
+  try {
+    db.run(`ALTER TABLE foods ADD COLUMN barcode TEXT`);
+  } catch (e) {
+    // Column already exists
+  }
+
   // ─── Nutrition tables ───────────────────────────────────────────────────
   db.run(`
     CREATE TABLE IF NOT EXISTS foods (

@@ -16,13 +16,19 @@ router.get('/foods', (req, res) => {
   res.json(foods);
 });
 
+// GET /foods/barcode/:barcode — look up food by barcode
+router.get('/foods/barcode/:barcode', (req, res) => {
+  const food = get(`SELECT * FROM foods WHERE barcode = ?`, [req.params.barcode]);
+  res.json(food || null);
+});
+
 // POST /foods — create food (macros are per 100g)
 router.post('/foods', (req, res) => {
-  const { name, calories, protein, carbs, fat, servingName, servingGrams } = req.body;
+  const { name, calories, protein, carbs, fat, servingName, servingGrams, barcode } = req.body;
   if (!name) return res.status(400).json({ error: 'Name is required' });
   const result = run(
-    `INSERT INTO foods (name, calories, protein, carbs, fat, serving_size, serving_unit) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [name, calories || 0, protein || 0, carbs || 0, fat || 0, servingName ? (servingGrams || 100) : null, servingName || null]
+    `INSERT INTO foods (name, calories, protein, carbs, fat, serving_size, serving_unit, barcode) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [name, calories || 0, protein || 0, carbs || 0, fat || 0, servingName ? (servingGrams || 100) : null, servingName || null, barcode || null]
   );
   const food = get(`SELECT * FROM foods WHERE id = ?`, [result.lastInsertRowid]);
   res.json(food);
@@ -30,10 +36,10 @@ router.post('/foods', (req, res) => {
 
 // PUT /foods/:id — update food (macros are per 100g)
 router.put('/foods/:id', (req, res) => {
-  const { name, calories, protein, carbs, fat, servingName, servingGrams } = req.body;
+  const { name, calories, protein, carbs, fat, servingName, servingGrams, barcode } = req.body;
   run(
-    `UPDATE foods SET name = ?, calories = ?, protein = ?, carbs = ?, fat = ?, serving_size = ?, serving_unit = ? WHERE id = ?`,
-    [name, calories || 0, protein || 0, carbs || 0, fat || 0, servingName ? (servingGrams || 100) : null, servingName || null, req.params.id]
+    `UPDATE foods SET name = ?, calories = ?, protein = ?, carbs = ?, fat = ?, serving_size = ?, serving_unit = ?, barcode = ? WHERE id = ?`,
+    [name, calories || 0, protein || 0, carbs || 0, fat || 0, servingName ? (servingGrams || 100) : null, servingName || null, barcode || null, req.params.id]
   );
   const food = get(`SELECT * FROM foods WHERE id = ?`, [req.params.id]);
   res.json(food);
@@ -106,6 +112,40 @@ router.delete('/meals/:id', (req, res) => {
 
 // ─── Daily Log ──────────────────────────────────────────────────────────────
 
+// GET /log/history?days=N — aggregated daily totals for trend charts (must be before GET /log)
+router.get('/log/history', (req, res) => {
+  const days = parseInt(req.query.days) || 7;
+  const rows = all(`
+    SELECT date, SUM(calories) as calories, SUM(protein) as protein, SUM(carbs) as carbs, SUM(fat) as fat
+    FROM daily_log
+    WHERE date >= date('now', '-' || ? || ' days')
+    GROUP BY date
+    ORDER BY date ASC
+  `, [days]);
+
+  // Build a full date range, fill missing days with zeros
+  const result = [];
+  const rowMap = {};
+  for (const r of rows) rowMap[r.date] = r;
+  const today = new Date();
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const dateStr = d.toISOString().split('T')[0];
+    const entry = rowMap[dateStr];
+    result.push({
+      date: dateStr,
+      calories: entry ? Math.round(entry.calories) : 0,
+      protein: entry ? Math.round(entry.protein) : 0,
+      carbs: entry ? Math.round(entry.carbs) : 0,
+      fat: entry ? Math.round(entry.fat) : 0,
+    });
+  }
+
+  const targets = get(`SELECT * FROM nutrition_targets WHERE id = 1`);
+  res.json({ days: result, targets: targets || { calories: 2500, protein: 180, carbs: 250, fat: 80 } });
+});
+
 // GET /log?date=YYYY-MM-DD — day's entries + totals
 router.get('/log', (req, res) => {
   const date = req.query.date || new Date().toISOString().split('T')[0];
@@ -171,6 +211,63 @@ router.post('/log/food', (req, res) => {
   );
   const entry = get(`SELECT * FROM daily_log WHERE id = ?`, [result.lastInsertRowid]);
   res.json(entry);
+});
+
+// POST /log/copy-day — copy all entries from one date to another
+router.post('/log/copy-day', (req, res) => {
+  const { sourceDate, targetDate } = req.body;
+  if (!sourceDate || !targetDate) return res.status(400).json({ error: 'sourceDate and targetDate required' });
+  const entries = all(`SELECT * FROM daily_log WHERE date = ? ORDER BY logged_at ASC`, [sourceDate]);
+  if (entries.length === 0) return res.json({ copied: 0, entries: [] });
+  const copied = [];
+  for (const e of entries) {
+    const result = run(
+      `INSERT INTO daily_log (date, food_id, meal_id, name, servings, calories, protein, carbs, fat) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [targetDate, e.food_id, e.meal_id, e.name, e.servings, e.calories, e.protein, e.carbs, e.fat]
+    );
+    copied.push(get(`SELECT * FROM daily_log WHERE id = ?`, [result.lastInsertRowid]));
+  }
+  res.json({ copied: copied.length, entries: copied });
+});
+
+// PUT /log/:id — update servings and recalculate macros
+router.put('/log/:id', (req, res) => {
+  const { servings } = req.body;
+  if (servings == null || servings <= 0) return res.status(400).json({ error: 'Valid servings required' });
+  const entry = get(`SELECT * FROM daily_log WHERE id = ?`, [req.params.id]);
+  if (!entry) return res.status(404).json({ error: 'Entry not found' });
+
+  let cal, pro, carb, fat;
+  if (entry.food_id) {
+    const food = get(`SELECT * FROM foods WHERE id = ?`, [entry.food_id]);
+    if (!food) return res.status(404).json({ error: 'Food not found' });
+    const ratio = servings / 100;
+    cal = food.calories * ratio;
+    pro = food.protein * ratio;
+    carb = food.carbs * ratio;
+    fat = food.fat * ratio;
+  } else if (entry.meal_id) {
+    const foods = all(`
+      SELECT mf.servings, f.calories, f.protein, f.carbs, f.fat, f.serving_size
+      FROM meal_foods mf JOIN foods f ON f.id = mf.food_id
+      WHERE mf.meal_id = ?
+    `, [entry.meal_id]);
+    cal = 0; pro = 0; carb = 0; fat = 0;
+    for (const f of foods) {
+      const r = (f.serving_size || 100) / 100 * f.servings * servings;
+      cal += f.calories * r;
+      pro += f.protein * r;
+      carb += f.carbs * r;
+      fat += f.fat * r;
+    }
+  } else {
+    return res.status(400).json({ error: 'Cannot edit this entry' });
+  }
+
+  run(`UPDATE daily_log SET servings = ?, calories = ?, protein = ?, carbs = ?, fat = ? WHERE id = ?`,
+    [servings, cal, pro, carb, fat, req.params.id]);
+  const updated = get(`SELECT * FROM daily_log WHERE id = ?`, [req.params.id]);
+  res.json(updated);
 });
 
 // DELETE /log/:id — remove log entry
