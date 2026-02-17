@@ -1,4 +1,4 @@
-const APP_VERSION = 'v56';
+const APP_VERSION = 'v57';
 console.log('[Adaptus]', APP_VERSION);
 // ─── State ───────────────────────────────────────────────────────────────────
 const state = {
@@ -3185,8 +3185,8 @@ async function lookupBarcode(barcode) {
   } catch (e) {
     window._scannedFoodData = { name: '', protein: 0, carbs: 0, fat: 0, barcode, notFound: true, source: 'not_found' };
   }
-  // DEBUG — visible overlay (alert may be suppressed in PWA mode)
-  window._debugScanResult = JSON.stringify(window._scannedFoodData);
+  // Store in sessionStorage as backup (global may get cleared by navigation)
+  try { sessionStorage.setItem('_scannedFoodData', JSON.stringify(window._scannedFoodData)); } catch (e) {}
   closeBarcodeScanner();
   navigate('#nutrition/food/new');
 }
@@ -3856,11 +3856,23 @@ async function renderFoodForm(id) {
     const foods = await api('GET', '/nutrition/foods');
     food = foods.find(f => f.id === parseInt(id)) || food;
   }
-  // DEBUG: show scan data on screen
+  // Try sessionStorage if global was cleared
+  if (!id && !window._scannedFoodData) {
+    try {
+      const stored = sessionStorage.getItem('_scannedFoodData');
+      if (stored) {
+        window._scannedFoodData = JSON.parse(stored);
+        sessionStorage.removeItem('_scannedFoodData');
+      }
+    } catch (e) {}
+  }
+  // DEBUG: always show scan state on new food form
   let debugBanner = '';
-  if (window._debugScanResult) {
-    debugBanner = `<div class="bg-blue-500/20 border border-blue-500/40 rounded-lg px-3 py-2 mb-4 break-all"><p class="text-[10px] font-mono text-blue-300">DEBUG: ${window._debugScanResult}</p><p class="text-[10px] text-blue-300/60 mt-1">_scannedFoodData was: ${window._scannedFoodData ? 'SET' : 'NULL'}</p></div>`;
-    window._debugScanResult = null;
+  if (!id) {
+    const hasGlobal = !!window._scannedFoodData;
+    let storedRaw = 'none';
+    try { storedRaw = sessionStorage.getItem('_scannedFoodData') || 'none'; } catch(e) {}
+    debugBanner = `<div class="bg-red-500/20 border border-red-500/40 rounded-lg px-3 py-2 mb-4 break-all"><p class="text-xs font-bold text-red-400">DEBUG v${APP_VERSION}</p><p class="text-[10px] font-mono text-red-300 mt-1">global: ${hasGlobal ? JSON.stringify(window._scannedFoodData) : 'NULL'}</p><p class="text-[10px] font-mono text-red-300 mt-1">storage: ${storedRaw}</p></div>`;
   }
   let scanBanner = '';
   if (!id && window._scannedFoodData) {
