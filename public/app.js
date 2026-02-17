@@ -1648,7 +1648,7 @@ async function renderWorkout(templateId) {
       <div class="mb-4">
         <div class="flex items-center gap-2.5">
           <h1 class="text-2xl font-black uppercase tracking-tight leading-none">${name}</h1>
-          ${isCompleted ? '<span class="text-[10px] font-bold uppercase tracking-widest text-acid bg-ink px-2 py-1 rounded-full">Completed</span>' : ''}
+          ${isCompleted ? '<span class="text-xs font-bold text-canvas bg-acid rounded px-2 py-0.5">Done</span>' : ''}
           ${isSkipped ? '<span class="text-[10px] font-bold uppercase tracking-widest text-ink/60 bg-ink/10 px-2 py-1 rounded-full">Skipped</span>' : ''}
         </div>
         <p class="text-sm font-bold text-ink/40 uppercase tracking-widest mt-1">${workout.focus} &middot; Week ${state.progress.week}${isCompleted && state.currentSession.started_at && state.currentSession.completed_at ? ` &middot; ${formatDuration((parseUtc(state.currentSession.completed_at) - parseUtc(state.currentSession.started_at)) / 60000)}` : ''}</p>
