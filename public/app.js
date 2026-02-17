@@ -76,6 +76,7 @@ async function init() {
 
 // ─── Router ──────────────────────────────────────────────────────────────────
 let isTransitioning = false;
+let _skipNextHashChange = false;
 
 function navigate(hash) {
   // Close drawer immediately on any navigation
@@ -88,6 +89,7 @@ function navigate(hash) {
   closeBarcodeScanner();
 
   if (!hash || hash === '#') hash = '#home';
+  _skipNextHashChange = true;
   location.hash = hash;
   const parts = hash.replace('#', '').split('/');
   const view = parts[0];
@@ -145,7 +147,10 @@ async function transitionTo(renderFn) {
   isTransitioning = false;
 }
 
-window.addEventListener('hashchange', () => navigate(location.hash));
+window.addEventListener('hashchange', () => {
+  if (_skipNextHashChange) { _skipNextHashChange = false; return; }
+  navigate(location.hash);
+});
 
 function updateActiveTab(hash) {
   const h = (hash || location.hash || '#home').replace('#', '');
