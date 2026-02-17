@@ -6,6 +6,15 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+
+// Service worker must never be cached — browser needs to always check for updates
+app.get('/sw.js', (req, res) => {
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  res.sendFile(path.join(__dirname, 'public', 'sw.js'));
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/api/program', require('./routes/program'));
