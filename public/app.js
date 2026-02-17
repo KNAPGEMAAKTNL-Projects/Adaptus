@@ -37,6 +37,12 @@ const MILESTONES = [
   { id: 'sets-5000', category: 'sets', label: '5,000 Sets', threshold: 5000 },
 ];
 
+// ─── Helpers ────────────────────────────────────────────────────────────────
+function parseNum(val) {
+  if (typeof val !== 'string') val = String(val ?? '');
+  return parseFloat(val.replace(',', '.'));
+}
+
 // ─── API helpers ─────────────────────────────────────────────────────────────
 async function api(method, path, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
@@ -396,13 +402,13 @@ async function drawerShowProfile() {
           </div>
           <div>
             <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-1">Height (cm)</label>
-            <input id="drawer-height" type="number" inputmode="decimal" value="${profile.height_cm}"
+            <input id="drawer-height" type="text" inputmode="decimal" value="${profile.height_cm}"
               class="w-full h-12 px-3 border-2 border-white/20 rounded-lg bg-transparent text-center text-white font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
           </div>
         </div>
         <div>
           <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-1">Current Weight (kg)</label>
-          <input id="drawer-weight" type="number" inputmode="decimal" step="0.1" value="${profile.current_weight_kg || ''}" placeholder="e.g. 82.5"
+          <input id="drawer-weight" type="text" inputmode="decimal" value="${profile.current_weight_kg || ''}" placeholder="e.g. 82.5"
             class="w-full h-12 px-3 border-2 border-white/20 rounded-lg bg-transparent text-center text-white font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200 placeholder:text-white/20">
         </div>
       </div>
@@ -445,10 +451,10 @@ async function drawerSaveProfile() {
   const current = await api('GET', '/nutrition/profile');
   const gender = document.querySelector('.gender-btn.border-acid')?.dataset.val || current.gender || 'male';
   const age = parseInt(document.getElementById('drawer-age')?.value) || current.age || 28;
-  const height_cm = parseFloat(document.getElementById('drawer-height')?.value) || current.height_cm || 183;
+  const height_cm = parseNum(document.getElementById('drawer-height')?.value) || current.height_cm || 183;
 
   // Log weight if entered and not already logged today
-  const weightVal = parseFloat(document.getElementById('drawer-weight')?.value);
+  const weightVal = parseNum(document.getElementById('drawer-weight')?.value);
   if (weightVal && weightVal > 0) {
     const latest = await api('GET', '/weight/latest').catch(() => null);
     const today = new Date().toISOString().split('T')[0];
@@ -1116,7 +1122,7 @@ function showWeightLogModal() {
       <h2 class="text-lg font-black uppercase tracking-tight mb-4">Log Weight</h2>
       <div class="mb-4">
         <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Weight (kg)</label>
-        <input id="weight-log-input" type="number" inputmode="decimal" step="0.1"
+        <input id="weight-log-input" type="text" inputmode="decimal"
           class="w-full h-12 bg-transparent border-2 border-ink/15 rounded-lg text-center font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
       </div>
       <div class="flex gap-2">
@@ -1134,7 +1140,7 @@ function closeWeightModal() {
 }
 
 async function confirmWeightLog() {
-  const weight = parseFloat(document.getElementById('weight-log-input')?.value);
+  const weight = parseNum(document.getElementById('weight-log-input')?.value);
   if (!weight || weight <= 0) return;
   closeWeightModal();
   await api('POST', '/weight', { weightKg: weight });
@@ -1896,7 +1902,7 @@ async function renderExercise(index) {
         <div class="flex items-center gap-2 py-2.5 ${s < totalSets ? 'border-b border-ink/10' : ''}">
           <span class="w-10 text-xs font-bold text-ink/40 uppercase flex-shrink-0">Set ${s}</span>
           <div class="relative flex-shrink-0">
-            <input id="weight-${s}" type="number" inputmode="decimal" step="0.5"
+            <input id="weight-${s}" type="text" inputmode="decimal"
               value="${isSuggested ? '' : prefillWeight}" placeholder="${isSuggested ? prefillWeight : '0'}"
               data-suggested="${isSuggested ? prefillWeight : ''}"
               onfocus="clearSuggested(this)" onblur="restoreSuggested(this)"
@@ -2082,7 +2088,7 @@ function showPrCelebration(exerciseName, weight) {
 }
 
 async function logSetRow(exerciseId, exerciseName, setNumber, totalSets, targetRpe, restStr) {
-  const weight = parseFloat(getInputValueRow('weight', setNumber));
+  const weight = parseNum(getInputValueRow('weight', setNumber));
   const reps = parseInt(getInputValueRow('reps', setNumber));
   if (!weight || weight <= 0 || !reps || reps <= 0) return;
 
@@ -3046,9 +3052,9 @@ function showFoodServingsModal(foodId, foodName, cal, pro, carb, fat, servingNam
         <p id="food-grams-equiv" class="text-xs text-ink/30 mb-4">= ${servingGrams}g</p>
         <div class="mb-4">
           <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Servings</label>
-          <input id="food-servings-input" type="number" inputmode="decimal" step="0.5" value="1"
+          <input id="food-servings-input" type="text" inputmode="decimal" value="1"
             data-serving-grams="${servingGrams}"
-            oninput="document.getElementById('food-grams-equiv').textContent = '= ' + Math.round((parseFloat(this.value)||0) * ${servingGrams}) + 'g'"
+            oninput="document.getElementById('food-grams-equiv').textContent = '= ' + Math.round((parseNum(this.value)||0) * ${servingGrams}) + 'g'"
             class="w-full h-12 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
         </div>
         <div class="flex gap-2">
@@ -3065,7 +3071,7 @@ function showFoodServingsModal(foodId, foodName, cal, pro, carb, fat, servingNam
         <p class="text-xs text-ink/40 mb-4">${Math.round(cal)} cal per 100g</p>
         <div class="mb-4">
           <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Grams</label>
-          <input id="food-servings-input" type="number" inputmode="decimal" step="10" value="100"
+          <input id="food-servings-input" type="text" inputmode="decimal" value="100"
             class="w-full h-12 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
         </div>
         <div class="flex gap-2">
@@ -3085,7 +3091,7 @@ function closeFoodServingsModal() {
 }
 
 async function confirmLogFood(foodId, hasServing, servingGrams) {
-  const inputVal = parseFloat(document.getElementById('food-servings-input')?.value) || 1;
+  const inputVal = parseNum(document.getElementById('food-servings-input')?.value) || 1;
   const grams = hasServing ? inputVal * servingGrams : inputVal;
   closeFoodServingsModal();
   _searchFoods = null;
@@ -3128,22 +3134,22 @@ async function renderFoodForm(id) {
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Calories</label>
-            <input id="food-calories" type="number" inputmode="decimal" value="${food.calories}" placeholder="0"
+            <input id="food-calories" type="text" inputmode="decimal" value="${food.calories}" placeholder="0"
               class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold focus:border-acid focus:outline-none transition-colors duration-200">
           </div>
           <div>
             <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Protein (g)</label>
-            <input id="food-protein" type="number" inputmode="decimal" value="${food.protein}" placeholder="0"
+            <input id="food-protein" type="text" inputmode="decimal" value="${food.protein}" placeholder="0"
               class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold focus:border-acid focus:outline-none transition-colors duration-200">
           </div>
           <div>
             <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Carbs (g)</label>
-            <input id="food-carbs" type="number" inputmode="decimal" value="${food.carbs}" placeholder="0"
+            <input id="food-carbs" type="text" inputmode="decimal" value="${food.carbs}" placeholder="0"
               class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold focus:border-acid focus:outline-none transition-colors duration-200">
           </div>
           <div>
             <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Fat (g)</label>
-            <input id="food-fat" type="number" inputmode="decimal" value="${food.fat}" placeholder="0"
+            <input id="food-fat" type="text" inputmode="decimal" value="${food.fat}" placeholder="0"
               class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold focus:border-acid focus:outline-none transition-colors duration-200">
           </div>
         </div>
@@ -3164,7 +3170,7 @@ async function renderFoodForm(id) {
             </div>
             <div>
               <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Grams per Serving</label>
-              <input id="food-serving-grams" type="number" inputmode="decimal" value="${hasServing ? food.serving_size : ''}" placeholder="e.g. 30"
+              <input id="food-serving-grams" type="text" inputmode="decimal" value="${hasServing ? food.serving_size : ''}" placeholder="e.g. 30"
                 class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold focus:border-acid focus:outline-none transition-colors duration-200">
             </div>
           </div>
@@ -3188,12 +3194,12 @@ async function saveFood(id) {
   const hasServing = document.getElementById('food-has-serving')?.checked;
   const data = {
     name: document.getElementById('food-name').value.trim(),
-    calories: parseFloat(document.getElementById('food-calories').value) || 0,
-    protein: parseFloat(document.getElementById('food-protein').value) || 0,
-    carbs: parseFloat(document.getElementById('food-carbs').value) || 0,
-    fat: parseFloat(document.getElementById('food-fat').value) || 0,
+    calories: parseNum(document.getElementById('food-calories').value) || 0,
+    protein: parseNum(document.getElementById('food-protein').value) || 0,
+    carbs: parseNum(document.getElementById('food-carbs').value) || 0,
+    fat: parseNum(document.getElementById('food-fat').value) || 0,
     servingName: hasServing ? (document.getElementById('food-serving-name').value.trim() || null) : null,
-    servingGrams: hasServing ? (parseFloat(document.getElementById('food-serving-grams').value) || null) : null,
+    servingGrams: hasServing ? (parseNum(document.getElementById('food-serving-grams').value) || null) : null,
   };
   if (!data.name) return;
   if (id) {
@@ -3419,22 +3425,22 @@ function showInlineFoodCreator() {
       <div class="grid grid-cols-2 gap-2">
         <div>
           <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Calories</label>
-          <input id="inline-food-cal" type="number" inputmode="decimal" placeholder="0"
+          <input id="inline-food-cal" type="text" inputmode="decimal" placeholder="0"
             class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
         </div>
         <div>
           <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Protein (g)</label>
-          <input id="inline-food-pro" type="number" inputmode="decimal" placeholder="0"
+          <input id="inline-food-pro" type="text" inputmode="decimal" placeholder="0"
             class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
         </div>
         <div>
           <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Carbs (g)</label>
-          <input id="inline-food-carb" type="number" inputmode="decimal" placeholder="0"
+          <input id="inline-food-carb" type="text" inputmode="decimal" placeholder="0"
             class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
         </div>
         <div>
           <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Fat (g)</label>
-          <input id="inline-food-fat" type="number" inputmode="decimal" placeholder="0"
+          <input id="inline-food-fat" type="text" inputmode="decimal" placeholder="0"
             class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
         </div>
       </div>
@@ -3446,7 +3452,7 @@ function showInlineFoodCreator() {
               class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
           </div>
           <div>
-            <input id="inline-food-serving-grams" type="number" inputmode="decimal" placeholder="grams"
+            <input id="inline-food-serving-grams" type="text" inputmode="decimal" placeholder="grams"
               class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
           </div>
         </div>
@@ -3463,12 +3469,12 @@ function showInlineFoodCreator() {
 async function saveInlineFood() {
   const name = document.getElementById('inline-food-name')?.value.trim();
   if (!name) return;
-  const cal = parseFloat(document.getElementById('inline-food-cal')?.value) || 0;
-  const pro = parseFloat(document.getElementById('inline-food-pro')?.value) || 0;
-  const carb = parseFloat(document.getElementById('inline-food-carb')?.value) || 0;
-  const fat = parseFloat(document.getElementById('inline-food-fat')?.value) || 0;
+  const cal = parseNum(document.getElementById('inline-food-cal')?.value) || 0;
+  const pro = parseNum(document.getElementById('inline-food-pro')?.value) || 0;
+  const carb = parseNum(document.getElementById('inline-food-carb')?.value) || 0;
+  const fat = parseNum(document.getElementById('inline-food-fat')?.value) || 0;
   const servingName = document.getElementById('inline-food-serving-name')?.value.trim() || null;
-  const servingGrams = parseFloat(document.getElementById('inline-food-serving-grams')?.value) || null;
+  const servingGrams = parseNum(document.getElementById('inline-food-serving-grams')?.value) || null;
 
   const food = await api('POST', '/nutrition/foods', { name, calories: cal, protein: pro, carbs: carb, fat: fat, servingName, servingGrams });
   _searchFoods = null;
