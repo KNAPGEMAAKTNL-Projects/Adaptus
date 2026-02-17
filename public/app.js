@@ -1,4 +1,4 @@
-const APP_VERSION = 'v55';
+const APP_VERSION = 'v56';
 console.log('[Adaptus]', APP_VERSION);
 // ─── State ───────────────────────────────────────────────────────────────────
 const state = {
@@ -3055,6 +3055,7 @@ function openBarcodeScanner() {
     <div class="flex-1 flex flex-col items-center justify-center px-4">
       <div id="barcode-reader" class="w-full max-w-sm rounded-xl overflow-hidden"></div>
       <p id="barcode-status" class="text-sm text-ink/40 mt-4 text-center">Point camera at a barcode</p>
+      <div id="barcode-confirm"></div>
     </div>
   `;
   document.body.appendChild(modal);
@@ -3080,27 +3081,48 @@ function startBarcodeCamera(onScanCallback) {
   const formats = [
     Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
     Html5QrcodeSupportedFormats.UPC_A, Html5QrcodeSupportedFormats.UPC_E,
-    Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39
   ];
-  _barcodeScanner = new Html5Qrcode('barcode-reader', {
-    formatsToSupport: formats,
-    experimentalFeatures: { useBarCodeDetectorIfSupported: true },
-  });
+  _barcodeScanner = new Html5Qrcode('barcode-reader', { formatsToSupport: formats });
 
   let _scanHandled = false;
   const scanConfig = {
-    fps: 15,
+    fps: 10,
     qrbox: { width: 280, height: 160 },
     aspectRatio: 1.777,
   };
-  const onSuccess = (decodedText) => {
+  const onSuccess = (decodedText, decodedResult) => {
     if (_scanHandled) return;
     _scanHandled = true;
+    const fmt = decodedResult?.result?.format?.formatName || 'unknown';
     const s = document.getElementById('barcode-status');
-    if (s) s.textContent = `Found: ${decodedText}`;
-    try { _barcodeScanner.stop().catch(() => {}); } catch (e) {}
-    _barcodeScanner = null;
-    onScanCallback(decodedText);
+    if (s) s.textContent = `Scanned: ${decodedText} (${fmt})`;
+    // Show confirmation before proceeding
+    const confirmDiv = document.getElementById('barcode-confirm');
+    if (confirmDiv) {
+      confirmDiv.innerHTML = `
+        <div class="text-center mt-4">
+          <p class="text-2xl font-black tabular-nums text-acid mb-1">${decodedText}</p>
+          <p class="text-xs text-ink/40 mb-4">Format: ${fmt}</p>
+          <div class="flex gap-2 justify-center">
+            <button id="barcode-rescan-btn" class="px-4 py-2.5 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm transition-colors duration-200 active:bg-white/20">Rescan</button>
+            <button id="barcode-use-btn" class="px-4 py-2.5 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-sm transition-colors duration-200 active:bg-acid/20 active:text-acid">Use This</button>
+          </div>
+        </div>`;
+      document.getElementById('barcode-rescan-btn').onclick = () => {
+        _scanHandled = false;
+        confirmDiv.innerHTML = '';
+        startBarcodeCamera(onScanCallback);
+      };
+      document.getElementById('barcode-use-btn').onclick = () => {
+        try { _barcodeScanner?.stop().catch(() => {}); } catch (e) {}
+        _barcodeScanner = null;
+        onScanCallback(decodedText);
+      };
+    } else {
+      try { _barcodeScanner.stop().catch(() => {}); } catch (e) {}
+      _barcodeScanner = null;
+      onScanCallback(decodedText);
+    }
   };
 
   const cameraConfig = {
@@ -3187,6 +3209,7 @@ function openBarcodeScannerForMeal() {
     <div class="flex-1 flex flex-col items-center justify-center px-4">
       <div id="barcode-reader" class="w-full max-w-sm rounded-xl overflow-hidden"></div>
       <p id="barcode-status" class="text-sm text-ink/40 mt-4 text-center">Point camera at a barcode</p>
+      <div id="barcode-confirm"></div>
     </div>
   `;
   document.body.appendChild(modal);
