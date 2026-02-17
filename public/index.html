@@ -99,7 +99,7 @@
 
   <script>
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js');
+      navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
     }
   </script>
   <script async src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>

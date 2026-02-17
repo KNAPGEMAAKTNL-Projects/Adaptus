@@ -7,12 +7,16 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// Service worker must never be cached — browser needs to always check for updates
-app.get('/sw.js', (req, res) => {
-  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-  res.set('Pragma', 'no-cache');
-  res.set('Expires', '0');
-  res.sendFile(path.join(__dirname, 'public', 'sw.js'));
+// Prevent Cloudflare edge + browser from caching app files
+// The service worker handles its own caching with versioned cache names
+app.use((req, res, next) => {
+  const url = req.path.toLowerCase();
+  if (url === '/sw.js' || url === '/' || url === '/index.html' || url === '/app.js' || url === '/styles.css' || url === '/manifest.json') {
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+  }
+  next();
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
