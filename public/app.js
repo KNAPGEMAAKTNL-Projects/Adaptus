@@ -84,6 +84,8 @@ function navigate(hash) {
 
   // Hide nutrition search bar when leaving nutrition main page
   hideNutritionSearchBar();
+  // Close barcode scanner if open
+  closeBarcodeScanner();
 
   if (!hash || hash === '#') hash = '#home';
   location.hash = hash;
@@ -3075,7 +3077,8 @@ function openBarcodeScanner() {
 
 function closeBarcodeScanner() {
   if (_barcodeScanner) {
-    _barcodeScanner.stop().then(() => { _barcodeScanner = null; }).catch(() => { _barcodeScanner = null; });
+    try { _barcodeScanner.stop().catch(() => {}); } catch (e) {}
+    _barcodeScanner = null;
   }
   document.getElementById('barcode-scanner-modal')?.remove();
 }
