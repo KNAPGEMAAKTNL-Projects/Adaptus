@@ -1,4 +1,4 @@
-const APP_VERSION = 'v57';
+const APP_VERSION = 'v58';
 console.log('[Adaptus]', APP_VERSION);
 // ─── State ───────────────────────────────────────────────────────────────────
 const state = {
@@ -107,6 +107,7 @@ function navigate(hash) {
       if (parts[1] === 'add') return renderNutritionAdd('meals');
       if (parts[1] === 'foods') return renderNutritionAdd('foods');
       if (parts[1] === 'meals') return renderNutritionAdd('meals');
+      if (parts[1] === 'food' && parts[2] === 'scan') return renderFoodForm(null, parts[3]);
       if (parts[1] === 'food') return renderFoodForm(parts[2] === 'new' ? null : parts[2]);
       if (parts[1] === 'meal') return renderMealForm(parts[2] === 'new' ? null : parts[2]);
       if (parts[1] === 'settings') { openDrawer(drawerShowNutritionGoals); return; }
@@ -3151,44 +3152,10 @@ function showScanToast(message, type = 'success') {
   setTimeout(() => toast.remove(), 3000);
 }
 
-async function lookupBarcode(barcode) {
-  const statusEl = document.getElementById('barcode-status');
-  if (statusEl) statusEl.textContent = 'Checking local database...';
-  try {
-    const localFood = await api('GET', `/nutrition/foods/barcode/${encodeURIComponent(barcode)}`);
-    if (localFood) {
-      closeBarcodeScanner();
-      showScanToast('Found in your library', 'success');
-      showFoodServingsModal(localFood.id, localFood.name, localFood.calories, localFood.protein, localFood.carbs, localFood.fat,
-        localFood.serving_unit !== 'g' ? localFood.serving_unit : null, localFood.serving_unit !== 'g' ? localFood.serving_size : null);
-      return;
-    }
-  } catch (e) {}
-
-  // Not found locally — try Open Food Facts
-  if (statusEl) statusEl.textContent = 'Looking up product online...';
-  try {
-    const resp = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}`);
-    const data = await resp.json();
-    if (data.status === 1 && data.product) {
-      const p = data.product;
-      const n = p.nutriments || {};
-      const name = p.product_name || p.product_name_en || p.product_name_nl || p.product_name_de || p.product_name_fr || '';
-      const protein = Math.round((n.proteins_100g || 0) * 10) / 10;
-      const carbs = Math.round((n['carbohydrates_100g'] || 0) * 10) / 10;
-      const fat = Math.round((n.fat_100g || 0) * 10) / 10;
-      const hasNutrition = protein > 0 || carbs > 0 || fat > 0;
-      window._scannedFoodData = { name, protein, carbs, fat, barcode, notFound: !name && !hasNutrition, source: 'api' };
-    } else {
-      window._scannedFoodData = { name: '', protein: 0, carbs: 0, fat: 0, barcode, notFound: true, source: 'not_found' };
-    }
-  } catch (e) {
-    window._scannedFoodData = { name: '', protein: 0, carbs: 0, fat: 0, barcode, notFound: true, source: 'not_found' };
-  }
-  // Store in sessionStorage as backup (global may get cleared by navigation)
-  try { sessionStorage.setItem('_scannedFoodData', JSON.stringify(window._scannedFoodData)); } catch (e) {}
+function lookupBarcode(barcode) {
+  // Simply navigate — renderFoodForm will do the lookup with the barcode in the URL
   closeBarcodeScanner();
-  navigate('#nutrition/food/new');
+  navigate(`#nutrition/food/scan/${encodeURIComponent(barcode)}`);
 }
 
 
@@ -3719,6 +3686,9 @@ function buildFoodsTab(foods) {
       <input type="text" placeholder="Search foods..."
         oninput="filterFoodItems(this.value)"
         class="flex-1 h-10 px-3 bg-white/5 border border-white/10 rounded-lg text-sm font-bold focus:border-white/30 focus:outline-none transition-colors duration-200 placeholder:text-ink/30">
+      <button onclick="openBarcodeScanner()" class="h-10 w-10 flex items-center justify-center bg-white/5 border border-white/10 rounded-lg active:bg-white/20 transition-colors duration-200 flex-shrink-0" title="Scan barcode">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="16" x2="17" y2="16"/></svg>
+      </button>
       <button onclick="navigate('#nutrition/food/new')" class="h-10 px-3 bg-white/5 border border-white/10 rounded-lg text-xs font-bold uppercase tracking-tight whitespace-nowrap active:bg-white/20 active:text-white transition-colors duration-200">+ New</button>
     </div>
     <div class="food-list">${foodsHtml}</div>
@@ -3850,51 +3820,63 @@ function calcInlineFoodCalories() {
 }
 
 // ─── View: Food Form ────────────────────────────────────────────────────────
-async function renderFoodForm(id) {
+async function renderFoodForm(id, scannedBarcode) {
   let food = { name: '', calories: '', protein: '', carbs: '', fat: '', serving_size: null, serving_unit: null };
   if (id) {
     const foods = await api('GET', '/nutrition/foods');
     food = foods.find(f => f.id === parseInt(id)) || food;
   }
-  // Try sessionStorage if global was cleared
-  if (!id && !window._scannedFoodData) {
+  // If we arrived via barcode scan, do the lookups right here
+  let scanBanner = '';
+  if (!id && scannedBarcode) {
+    const barcode = decodeURIComponent(scannedBarcode);
+    food.barcode = barcode;
+    // Check local DB first
     try {
-      const stored = sessionStorage.getItem('_scannedFoodData');
-      if (stored) {
-        window._scannedFoodData = JSON.parse(stored);
-        sessionStorage.removeItem('_scannedFoodData');
+      const localFood = await api('GET', `/nutrition/foods/barcode/${encodeURIComponent(barcode)}`);
+      if (localFood) {
+        // Found locally — redirect to servings modal instead of showing form
+        showScanToast('Found in your library', 'success');
+        showFoodServingsModal(localFood.id, localFood.name, localFood.calories, localFood.protein, localFood.carbs, localFood.fat,
+          localFood.serving_unit !== 'g' ? localFood.serving_unit : null, localFood.serving_unit !== 'g' ? localFood.serving_size : null);
+        return;
       }
     } catch (e) {}
-  }
-  // DEBUG: always show scan state on new food form
-  let debugBanner = '';
-  if (!id) {
-    const hasGlobal = !!window._scannedFoodData;
-    let storedRaw = 'none';
-    try { storedRaw = sessionStorage.getItem('_scannedFoodData') || 'none'; } catch(e) {}
-    debugBanner = `<div class="bg-red-500/20 border border-red-500/40 rounded-lg px-3 py-2 mb-4 break-all"><p class="text-xs font-bold text-red-400">DEBUG v${APP_VERSION}</p><p class="text-[10px] font-mono text-red-300 mt-1">global: ${hasGlobal ? JSON.stringify(window._scannedFoodData) : 'NULL'}</p><p class="text-[10px] font-mono text-red-300 mt-1">storage: ${storedRaw}</p></div>`;
-  }
-  let scanBanner = '';
-  if (!id && window._scannedFoodData) {
-    const s = window._scannedFoodData;
-    food.name = s.name || '';
-    food.protein = s.protein || 0;
-    food.carbs = s.carbs || 0;
-    food.fat = s.fat || 0;
-    food.calories = Math.round((food.protein * 4) + (food.carbs * 4) + (food.fat * 9));
-    food.barcode = s.barcode || null;
-    if (s.notFound) {
+    // Check Open Food Facts
+    try {
+      const resp = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}`);
+      const data = await resp.json();
+      if (data.status === 1 && data.product) {
+        const p = data.product;
+        const n = p.nutriments || {};
+        food.name = p.product_name || p.product_name_en || p.product_name_nl || p.product_name_de || p.product_name_fr || '';
+        food.protein = Math.round((n.proteins_100g || 0) * 10) / 10;
+        food.carbs = Math.round((n['carbohydrates_100g'] || 0) * 10) / 10;
+        food.fat = Math.round((n.fat_100g || 0) * 10) / 10;
+        food.calories = Math.round((food.protein * 4) + (food.carbs * 4) + (food.fat * 9));
+        if (!food.name && food.protein === 0 && food.carbs === 0 && food.fat === 0) {
+          scanBanner = `<div class="bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2.5 mb-5 flex items-start gap-2.5">
+            <span class="text-amber-400 text-base leading-none mt-0.5">!</span>
+            <div><p class="text-xs font-bold text-amber-400">Not found online</p><p class="text-[11px] text-ink/40 mt-0.5">Barcode saved — fill in the details manually</p></div>
+          </div>`;
+        } else {
+          scanBanner = `<div class="bg-purple-500/10 border border-purple-500/20 rounded-lg px-3 py-2.5 mb-5 flex items-start gap-2.5">
+            <span class="text-purple-400 text-base leading-none mt-0.5">&#x2713;</span>
+            <div><p class="text-xs font-bold text-purple-400">Imported from Open Food Facts</p><p class="text-[11px] text-ink/40 mt-0.5">Verify the details and save to your library</p></div>
+          </div>`;
+        }
+      } else {
+        scanBanner = `<div class="bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2.5 mb-5 flex items-start gap-2.5">
+          <span class="text-amber-400 text-base leading-none mt-0.5">!</span>
+          <div><p class="text-xs font-bold text-amber-400">Not found online</p><p class="text-[11px] text-ink/40 mt-0.5">Barcode saved — fill in the details manually</p></div>
+        </div>`;
+      }
+    } catch (e) {
       scanBanner = `<div class="bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2.5 mb-5 flex items-start gap-2.5">
         <span class="text-amber-400 text-base leading-none mt-0.5">!</span>
         <div><p class="text-xs font-bold text-amber-400">Not found online</p><p class="text-[11px] text-ink/40 mt-0.5">Barcode saved — fill in the details manually</p></div>
       </div>`;
-    } else {
-      scanBanner = `<div class="bg-purple-500/10 border border-purple-500/20 rounded-lg px-3 py-2.5 mb-5 flex items-start gap-2.5">
-        <span class="text-purple-400 text-base leading-none mt-0.5">&#x2713;</span>
-        <div><p class="text-xs font-bold text-purple-400">Imported from Open Food Facts</p><p class="text-[11px] text-ink/40 mt-0.5">Verify the details and save to your library</p></div>
-      </div>`;
     }
-    window._scannedFoodData = null;
   }
 
   const hasServing = food.serving_unit && food.serving_unit !== 'g';
@@ -3907,7 +3889,6 @@ async function renderFoodForm(id) {
 
       <h1 class="text-2xl font-black uppercase tracking-tight leading-none mb-5">${id ? 'Edit Food' : 'New Food'}</h1>
 
-      ${debugBanner}
       ${scanBanner}
 
       <div class="space-y-4 mb-6">
@@ -4270,8 +4251,12 @@ function showInlineFoodCreator() {
 }
 
 async function saveInlineFood() {
-  const name = document.getElementById('inline-food-name')?.value.trim();
-  if (!name) return;
+  const nameEl = document.getElementById('inline-food-name');
+  const name = nameEl?.value.trim();
+  if (!name) {
+    if (nameEl) { nameEl.style.borderColor = '#ef4444'; nameEl.placeholder = 'Name is required'; nameEl.focus(); }
+    return;
+  }
   const pro = parseNum(document.getElementById('inline-food-pro')?.value) || 0;
   const carb = parseNum(document.getElementById('inline-food-carb')?.value) || 0;
   const fat = parseNum(document.getElementById('inline-food-fat')?.value) || 0;
