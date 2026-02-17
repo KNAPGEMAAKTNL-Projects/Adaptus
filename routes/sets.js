@@ -3,11 +3,11 @@ const { get, all, run } = require('../db');
 const router = express.Router();
 
 router.post('/', (req, res) => {
-  const { workoutSessionId, exerciseId, exerciseName, setNumber, weightKg, reps, isLastSet, targetRpe, substitutionUsed } = req.body;
+  const { workoutSessionId, exerciseId, exerciseName, setNumber, weightKg, reps, isLastSet, targetRpe, substitutionUsed, assistanceKg } = req.body;
   const result = run(
-    `INSERT INTO set_logs (workout_session_id, exercise_id, exercise_name, set_number, weight_kg, reps, is_last_set, target_rpe, substitution_used)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [workoutSessionId, exerciseId, exerciseName, setNumber, weightKg, reps, isLastSet ? 1 : 0, targetRpe, substitutionUsed || null]
+    `INSERT INTO set_logs (workout_session_id, exercise_id, exercise_name, set_number, weight_kg, reps, is_last_set, target_rpe, substitution_used, assistance_kg)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [workoutSessionId, exerciseId, exerciseName, setNumber, weightKg, reps, isLastSet ? 1 : 0, targetRpe, substitutionUsed || null, assistanceKg || null]
   );
   const set = get('SELECT * FROM set_logs WHERE id = ?', [result.lastInsertRowid]);
   res.status(201).json(set);
@@ -81,7 +81,7 @@ router.get('/exercise-history/:exerciseName', (req, res) => {
 
   const result = sessions.map(s => {
     const sets = all(
-      `SELECT set_number, weight_kg, reps, logged_at FROM set_logs
+      `SELECT set_number, weight_kg, reps, assistance_kg, logged_at FROM set_logs
        WHERE workout_session_id = ? AND exercise_name = ?
        ORDER BY set_number ASC`,
       [s.workout_session_id, exerciseName]
@@ -103,6 +103,16 @@ router.get('/exercise-history/:exerciseName', (req, res) => {
   });
 
   res.json(result);
+});
+
+router.put('/:id', (req, res) => {
+  const { weightKg, reps, assistanceKg } = req.body;
+  run(
+    `UPDATE set_logs SET weight_kg = ?, reps = ?, assistance_kg = ? WHERE id = ?`,
+    [weightKg, reps, assistanceKg || null, parseInt(req.params.id)]
+  );
+  const set = get('SELECT * FROM set_logs WHERE id = ?', [parseInt(req.params.id)]);
+  res.json(set);
 });
 
 router.delete('/:id', (req, res) => {

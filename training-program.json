@@ -50,6 +50,7 @@
             {
               "id": "upper-strength-focus-wide-grip-pull-up-1",
               "name": "Wide-Grip Pull-Up",
+              "isAssisted": true,
               "lastSetIntensityTechnique": "N/A",
               "warmupSets": "1-2",
               "workingSets": "2",
@@ -653,6 +654,7 @@
             {
               "id": "upper-strength-focus-wide-grip-pull-up-2",
               "name": "Wide-Grip Pull-Up",
+              "isAssisted": true,
               "lastSetIntensityTechnique": "Failure",
               "warmupSets": "1-2",
               "workingSets": "3",
@@ -1256,6 +1258,7 @@
             {
               "id": "upper-strength-focus-wide-grip-pull-up-3",
               "name": "Wide-Grip Pull-Up",
+              "isAssisted": true,
               "lastSetIntensityTechnique": "Failure",
               "warmupSets": "1-2",
               "workingSets": "3",
@@ -1859,6 +1862,7 @@
             {
               "id": "upper-strength-focus-wide-grip-pull-up-4",
               "name": "Wide-Grip Pull-Up",
+              "isAssisted": true,
               "lastSetIntensityTechnique": "Failure",
               "warmupSets": "1-2",
               "workingSets": "3",
@@ -2462,6 +2466,7 @@
             {
               "id": "upper-strength-focus-wide-grip-pull-up-5",
               "name": "Wide-Grip Pull-Up",
+              "isAssisted": true,
               "lastSetIntensityTechnique": "Failure",
               "warmupSets": "1-2",
               "workingSets": "3",
