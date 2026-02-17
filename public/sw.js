@@ -1,4 +1,4 @@
-const CACHE_NAME = 'adaptus-v42';
+const CACHE_NAME = 'adaptus-v48';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
