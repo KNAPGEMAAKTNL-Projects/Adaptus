@@ -3093,6 +3093,19 @@ function startBarcodeCamera(onScanCallback) {
   });
 }
 
+function showScanToast(message, type = 'success') {
+  const existing = document.getElementById('scan-toast');
+  if (existing) existing.remove();
+  const toast = document.createElement('div');
+  toast.id = 'scan-toast';
+  toast.className = `fixed left-1/2 -translate-x-1/2 z-[90] px-4 py-2 rounded-lg text-xs font-bold transition-opacity duration-500 ${type === 'success' ? 'bg-acid/20 text-acid' : type === 'info' ? 'bg-purple-500/20 text-purple-400' : 'bg-amber-500/20 text-amber-400'}`;
+  toast.style.top = 'calc(env(safe-area-inset-top) + 1rem)';
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; }, 2500);
+  setTimeout(() => toast.remove(), 3000);
+}
+
 async function lookupBarcode(barcode) {
   const statusEl = document.getElementById('barcode-status');
   if (statusEl) statusEl.textContent = 'Checking local database...';
@@ -3101,6 +3114,7 @@ async function lookupBarcode(barcode) {
     const localFood = await api('GET', `/nutrition/foods/barcode/${encodeURIComponent(barcode)}`);
     if (localFood) {
       closeBarcodeScanner();
+      showScanToast('Found in your library', 'success');
       showFoodServingsModal(localFood.id, localFood.name, localFood.calories, localFood.protein, localFood.carbs, localFood.fat,
         localFood.serving_unit !== 'g' ? localFood.serving_unit : null, localFood.serving_unit !== 'g' ? localFood.serving_size : null);
       return;
@@ -3115,43 +3129,26 @@ async function lookupBarcode(barcode) {
     if (data.status === 1 && data.product) {
       const p = data.product;
       const n = p.nutriments || {};
-      window._scannedFoodData = {
-        name: p.product_name || 'Unknown Product',
-        protein: Math.round((n.proteins_100g || 0) * 10) / 10,
-        carbs: Math.round((n['carbohydrates_100g'] || 0) * 10) / 10,
-        fat: Math.round((n.fat_100g || 0) * 10) / 10,
-        barcode,
-      };
+      const name = p.product_name || p.product_name_en || p.product_name_nl || p.product_name_de || p.product_name_fr || '';
+      const protein = Math.round((n.proteins_100g || 0) * 10) / 10;
+      const carbs = Math.round((n['carbohydrates_100g'] || 0) * 10) / 10;
+      const fat = Math.round((n.fat_100g || 0) * 10) / 10;
+      const hasNutrition = protein > 0 || carbs > 0 || fat > 0;
+      window._scannedFoodData = { name, protein, carbs, fat, barcode, notFound: !name && !hasNutrition, source: 'api' };
       closeBarcodeScanner();
       navigate('#nutrition/food/new');
     } else {
+      window._scannedFoodData = { name: '', protein: 0, carbs: 0, fat: 0, barcode, notFound: true, source: 'not_found' };
       closeBarcodeScanner();
-      showBarcodeNotFoundModal(barcode);
+      navigate('#nutrition/food/new');
     }
   } catch (e) {
+    window._scannedFoodData = { name: '', protein: 0, carbs: 0, fat: 0, barcode, notFound: true, source: 'not_found' };
     closeBarcodeScanner();
-    showBarcodeNotFoundModal(barcode);
+    navigate('#nutrition/food/new');
   }
 }
 
-function showBarcodeNotFoundModal(barcode) {
-  const modal = document.createElement('div');
-  modal.id = 'barcode-notfound-modal';
-  modal.className = 'fixed inset-0 z-[80] flex items-center justify-center';
-  modal.innerHTML = `
-    <div class="absolute inset-0 bg-black/60" onclick="document.getElementById('barcode-notfound-modal')?.remove()"></div>
-    <div class="relative bg-[#1a1a1a] rounded-xl mx-4 p-5 max-w-sm w-full text-center">
-      <h2 class="text-lg font-black uppercase tracking-tight mb-2">Not Found</h2>
-      <p class="text-sm text-ink/40 mb-1">Barcode: ${barcode}</p>
-      <p class="text-sm text-ink/40 mb-4">This product isn't in the Open Food Facts database.</p>
-      <div class="flex gap-2">
-        <button onclick="document.getElementById('barcode-notfound-modal')?.remove()" class="flex-1 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">Close</button>
-        <button onclick="document.getElementById('barcode-notfound-modal')?.remove();navigate('#nutrition/food/new')" class="flex-1 py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-acid/20 active:text-acid">Create Manually</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(modal);
-}
 
 function openBarcodeScannerForMeal() {
   // Close the food picker temporarily but keep meal state
@@ -3185,6 +3182,7 @@ async function lookupBarcodeForMeal(barcode) {
     const localFood = await api('GET', `/nutrition/foods/barcode/${encodeURIComponent(barcode)}`);
     if (localFood) {
       closeBarcodeScanner();
+      showScanToast('Found in your library — added to meal', 'success');
       // Add directly to meal
       if (!window._mealFormFoods) window._mealFormFoods = [];
       const ratio = (localFood.serving_size || 100) / 100;
@@ -3203,63 +3201,51 @@ async function lookupBarcodeForMeal(barcode) {
   try {
     const resp = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}`);
     const data = await resp.json();
-    if (data.status === 1 && data.product) {
+    const found = data.status === 1 && data.product;
+    let name = '', protein = 0, carbs = 0, fat = 0, notFound = true;
+    if (found) {
       const p = data.product;
       const n = p.nutriments || {};
-      window._scannedFoodDataForMeal = {
-        name: p.product_name || 'Unknown Product',
-        protein: Math.round((n.proteins_100g || 0) * 10) / 10,
-        carbs: Math.round((n['carbohydrates_100g'] || 0) * 10) / 10,
-        fat: Math.round((n.fat_100g || 0) * 10) / 10,
-        barcode,
-      };
-      closeBarcodeScanner();
-      // Re-open food picker and immediately show inline creator pre-filled
-      await showMealFoodPicker();
-      showInlineFoodCreator();
-      // Pre-fill fields
-      const s = window._scannedFoodDataForMeal;
-      if (s) {
-        const nameEl = document.getElementById('inline-food-name');
-        const proEl = document.getElementById('inline-food-pro');
-        const carbEl = document.getElementById('inline-food-carb');
-        const fatEl = document.getElementById('inline-food-fat');
-        const barcodeEl = document.getElementById('inline-food-barcode');
-        if (nameEl) nameEl.value = s.name;
-        if (proEl) proEl.value = s.protein;
-        if (carbEl) carbEl.value = s.carbs;
-        if (fatEl) fatEl.value = s.fat;
-        if (barcodeEl && s.barcode) barcodeEl.value = s.barcode;
-        calcInlineFoodCalories();
-        window._scannedFoodDataForMeal = null;
-      }
-    } else {
-      closeBarcodeScanner();
-      showBarcodeNotFoundForMeal(barcode);
+      name = p.product_name || p.product_name_en || p.product_name_nl || p.product_name_de || p.product_name_fr || '';
+      protein = Math.round((n.proteins_100g || 0) * 10) / 10;
+      carbs = Math.round((n['carbohydrates_100g'] || 0) * 10) / 10;
+      fat = Math.round((n.fat_100g || 0) * 10) / 10;
+      const hasNutrition = protein > 0 || carbs > 0 || fat > 0;
+      notFound = !name && !hasNutrition;
     }
-  } catch (e) {
+    window._scannedFoodDataForMeal = { name, protein, carbs, fat, barcode, notFound, source: notFound ? 'not_found' : 'api' };
     closeBarcodeScanner();
-    showBarcodeNotFoundForMeal(barcode);
+    await prefillMealInlineCreator();
+  } catch (e) {
+    window._scannedFoodDataForMeal = { name: '', protein: 0, carbs: 0, fat: 0, barcode, notFound: true, source: 'not_found' };
+    closeBarcodeScanner();
+    await prefillMealInlineCreator();
   }
 }
 
-function showBarcodeNotFoundForMeal(barcode) {
-  const modal = document.createElement('div');
-  modal.id = 'barcode-notfound-modal';
-  modal.className = 'fixed inset-0 z-[80] flex items-center justify-center';
-  modal.innerHTML = `
-    <div class="absolute inset-0 bg-black/60" onclick="document.getElementById('barcode-notfound-modal')?.remove();showMealFoodPicker()"></div>
-    <div class="relative bg-[#1a1a1a] rounded-xl mx-4 p-5 max-w-sm w-full text-center">
-      <h2 class="text-lg font-black uppercase tracking-tight mb-2">Not Found</h2>
-      <p class="text-sm text-ink/40 mb-1">Barcode: ${barcode}</p>
-      <p class="text-sm text-ink/40 mb-4">This product isn't in the Open Food Facts database.</p>
-      <div class="flex gap-2">
-        <button onclick="document.getElementById('barcode-notfound-modal')?.remove();showMealFoodPicker()" class="flex-1 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">Back</button>
-        <button onclick="document.getElementById('barcode-notfound-modal')?.remove();showMealFoodPicker().then(()=>showInlineFoodCreator())" class="flex-1 py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-acid/20 active:text-acid">Create Manually</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(modal);
+async function prefillMealInlineCreator() {
+  await showMealFoodPicker();
+  showInlineFoodCreator();
+  const s = window._scannedFoodDataForMeal;
+  if (s) {
+    const nameEl = document.getElementById('inline-food-name');
+    const proEl = document.getElementById('inline-food-pro');
+    const carbEl = document.getElementById('inline-food-carb');
+    const fatEl = document.getElementById('inline-food-fat');
+    const barcodeEl = document.getElementById('inline-food-barcode');
+    if (nameEl) nameEl.value = s.name || '';
+    if (proEl) proEl.value = s.protein || '';
+    if (carbEl) carbEl.value = s.carbs || '';
+    if (fatEl) fatEl.value = s.fat || '';
+    if (barcodeEl) barcodeEl.value = s.barcode || '';
+    calcInlineFoodCalories();
+    if (s.notFound) {
+      showScanToast('Not found online — barcode saved', 'warn');
+    } else {
+      showScanToast('Imported from Open Food Facts', 'info');
+    }
+    window._scannedFoodDataForMeal = null;
+  }
 }
 
 // ─── View: Nutrition (Main) ─────────────────────────────────────────────────
@@ -3827,6 +3813,7 @@ async function renderFoodForm(id) {
     const foods = await api('GET', '/nutrition/foods');
     food = foods.find(f => f.id === parseInt(id)) || food;
   }
+  let scanBanner = '';
   if (!id && window._scannedFoodData) {
     const s = window._scannedFoodData;
     food.name = s.name || '';
@@ -3835,6 +3822,17 @@ async function renderFoodForm(id) {
     food.fat = s.fat || 0;
     food.calories = Math.round((food.protein * 4) + (food.carbs * 4) + (food.fat * 9));
     food.barcode = s.barcode || null;
+    if (s.notFound) {
+      scanBanner = `<div class="bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2.5 mb-5 flex items-start gap-2.5">
+        <span class="text-amber-400 text-base leading-none mt-0.5">!</span>
+        <div><p class="text-xs font-bold text-amber-400">Not found online</p><p class="text-[11px] text-ink/40 mt-0.5">Barcode saved — fill in the details manually</p></div>
+      </div>`;
+    } else {
+      scanBanner = `<div class="bg-purple-500/10 border border-purple-500/20 rounded-lg px-3 py-2.5 mb-5 flex items-start gap-2.5">
+        <span class="text-purple-400 text-base leading-none mt-0.5">&#x2713;</span>
+        <div><p class="text-xs font-bold text-purple-400">Imported from Open Food Facts</p><p class="text-[11px] text-ink/40 mt-0.5">Verify the details and save to your library</p></div>
+      </div>`;
+    }
     window._scannedFoodData = null;
   }
 
@@ -3847,6 +3845,8 @@ async function renderFoodForm(id) {
       </button>
 
       <h1 class="text-2xl font-black uppercase tracking-tight leading-none mb-5">${id ? 'Edit Food' : 'New Food'}</h1>
+
+      ${scanBanner}
 
       <div class="space-y-4 mb-6">
         <div>
