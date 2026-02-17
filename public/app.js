@@ -1,4 +1,4 @@
-const APP_VERSION = 'v54';
+const APP_VERSION = 'v55';
 console.log('[Adaptus]', APP_VERSION);
 // ─── State ───────────────────────────────────────────────────────────────────
 const state = {
@@ -3072,7 +3072,8 @@ function closeBarcodeScanner() {
 
 function startBarcodeCamera(onScanCallback) {
   if (typeof Html5Qrcode === 'undefined') {
-    document.getElementById('barcode-status').textContent = 'Scanner library not loaded. Try again in a moment.';
+    const s = document.getElementById('barcode-status');
+    if (s) s.textContent = 'Scanner library not loaded. Try again in a moment.';
     return;
   }
 
@@ -3081,21 +3082,36 @@ function startBarcodeCamera(onScanCallback) {
     Html5QrcodeSupportedFormats.UPC_A, Html5QrcodeSupportedFormats.UPC_E,
     Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39
   ];
-  _barcodeScanner = new Html5Qrcode('barcode-reader', { formatsToSupport: formats });
+  _barcodeScanner = new Html5Qrcode('barcode-reader', {
+    formatsToSupport: formats,
+    experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+  });
 
-  const scanConfig = { fps: 10, qrbox: { width: 250, height: 150 } };
+  let _scanHandled = false;
+  const scanConfig = {
+    fps: 15,
+    qrbox: { width: 280, height: 160 },
+    aspectRatio: 1.777,
+  };
   const onSuccess = (decodedText) => {
-    document.getElementById('barcode-status').textContent = `Found: ${decodedText}`;
+    if (_scanHandled) return;
+    _scanHandled = true;
+    const s = document.getElementById('barcode-status');
+    if (s) s.textContent = `Found: ${decodedText}`;
     try { _barcodeScanner.stop().catch(() => {}); } catch (e) {}
     _barcodeScanner = null;
     onScanCallback(decodedText);
   };
 
-  // Try back camera first, fall back to any camera
-  _barcodeScanner.start({ facingMode: 'environment' }, scanConfig, onSuccess, () => {}).catch(() => {
-    _barcodeScanner.start({ facingMode: 'user' }, scanConfig, onSuccess, () => {}).catch(err => {
-      const statusEl = document.getElementById('barcode-status');
-      if (statusEl) statusEl.textContent = 'Camera unavailable. Check permissions in browser settings.';
+  const cameraConfig = {
+    facingMode: 'environment',
+    width: { ideal: 1280 },
+    height: { ideal: 720 },
+  };
+  _barcodeScanner.start(cameraConfig, scanConfig, onSuccess, () => {}).catch(() => {
+    _barcodeScanner.start({ facingMode: 'user' }, scanConfig, onSuccess, () => {}).catch(() => {
+      const s = document.getElementById('barcode-status');
+      if (s) s.textContent = 'Camera unavailable. Check permissions in browser settings.';
     });
   });
 }
@@ -3147,8 +3163,8 @@ async function lookupBarcode(barcode) {
   } catch (e) {
     window._scannedFoodData = { name: '', protein: 0, carbs: 0, fat: 0, barcode, notFound: true, source: 'not_found' };
   }
-  // DEBUG — visible on iPhone
-  alert('SCAN DATA: ' + JSON.stringify(window._scannedFoodData));
+  // DEBUG — visible overlay (alert may be suppressed in PWA mode)
+  window._debugScanResult = JSON.stringify(window._scannedFoodData);
   closeBarcodeScanner();
   navigate('#nutrition/food/new');
 }
@@ -3817,6 +3833,12 @@ async function renderFoodForm(id) {
     const foods = await api('GET', '/nutrition/foods');
     food = foods.find(f => f.id === parseInt(id)) || food;
   }
+  // DEBUG: show scan data on screen
+  let debugBanner = '';
+  if (window._debugScanResult) {
+    debugBanner = `<div class="bg-blue-500/20 border border-blue-500/40 rounded-lg px-3 py-2 mb-4 break-all"><p class="text-[10px] font-mono text-blue-300">DEBUG: ${window._debugScanResult}</p><p class="text-[10px] text-blue-300/60 mt-1">_scannedFoodData was: ${window._scannedFoodData ? 'SET' : 'NULL'}</p></div>`;
+    window._debugScanResult = null;
+  }
   let scanBanner = '';
   if (!id && window._scannedFoodData) {
     const s = window._scannedFoodData;
@@ -3850,6 +3872,7 @@ async function renderFoodForm(id) {
 
       <h1 class="text-2xl font-black uppercase tracking-tight leading-none mb-5">${id ? 'Edit Food' : 'New Food'}</h1>
 
+      ${debugBanner}
       ${scanBanner}
 
       <div class="space-y-4 mb-6">
