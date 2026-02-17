@@ -3052,28 +3052,7 @@ function openBarcodeScanner() {
   `;
   document.body.appendChild(modal);
 
-  if (typeof Html5Qrcode === 'undefined') {
-    document.getElementById('barcode-status').textContent = 'Scanner library not loaded';
-    return;
-  }
-
-  _barcodeScanner = new Html5Qrcode('barcode-reader');
-  _barcodeScanner.start(
-    { facingMode: 'environment' },
-    { fps: 10, qrbox: { width: 250, height: 150 }, formatsToSupport: [
-      Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
-      Html5QrcodeSupportedFormats.UPC_A, Html5QrcodeSupportedFormats.UPC_E,
-      Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39
-    ]},
-    (decodedText) => {
-      document.getElementById('barcode-status').textContent = `Found: ${decodedText}`;
-      _barcodeScanner.stop().then(() => { _barcodeScanner = null; }).catch(() => {});
-      lookupBarcode(decodedText);
-    },
-    () => {}
-  ).catch(err => {
-    document.getElementById('barcode-status').textContent = 'Camera access denied or unavailable';
-  });
+  startBarcodeCamera(lookupBarcode);
 }
 
 function closeBarcodeScanner() {
@@ -3082,6 +3061,36 @@ function closeBarcodeScanner() {
     _barcodeScanner = null;
   }
   document.getElementById('barcode-scanner-modal')?.remove();
+}
+
+function startBarcodeCamera(onScanCallback) {
+  if (typeof Html5Qrcode === 'undefined') {
+    document.getElementById('barcode-status').textContent = 'Scanner library not loaded. Try again in a moment.';
+    return;
+  }
+
+  const formats = [
+    Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
+    Html5QrcodeSupportedFormats.UPC_A, Html5QrcodeSupportedFormats.UPC_E,
+    Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39
+  ];
+  _barcodeScanner = new Html5Qrcode('barcode-reader', { formatsToSupport: formats });
+
+  const scanConfig = { fps: 10, qrbox: { width: 250, height: 150 } };
+  const onSuccess = (decodedText) => {
+    document.getElementById('barcode-status').textContent = `Found: ${decodedText}`;
+    try { _barcodeScanner.stop().catch(() => {}); } catch (e) {}
+    _barcodeScanner = null;
+    onScanCallback(decodedText);
+  };
+
+  // Try back camera first, fall back to any camera
+  _barcodeScanner.start({ facingMode: 'environment' }, scanConfig, onSuccess, () => {}).catch(() => {
+    _barcodeScanner.start({ facingMode: 'user' }, scanConfig, onSuccess, () => {}).catch(err => {
+      const statusEl = document.getElementById('barcode-status');
+      if (statusEl) statusEl.textContent = 'Camera unavailable. Check permissions in browser settings.';
+    });
+  });
 }
 
 async function lookupBarcode(barcode) {
@@ -3165,28 +3174,7 @@ function openBarcodeScannerForMeal() {
   `;
   document.body.appendChild(modal);
 
-  if (typeof Html5Qrcode === 'undefined') {
-    document.getElementById('barcode-status').textContent = 'Scanner library not loaded';
-    return;
-  }
-
-  _barcodeScanner = new Html5Qrcode('barcode-reader');
-  _barcodeScanner.start(
-    { facingMode: 'environment' },
-    { fps: 10, qrbox: { width: 250, height: 150 }, formatsToSupport: [
-      Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
-      Html5QrcodeSupportedFormats.UPC_A, Html5QrcodeSupportedFormats.UPC_E,
-      Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39
-    ]},
-    (decodedText) => {
-      document.getElementById('barcode-status').textContent = `Found: ${decodedText}`;
-      _barcodeScanner.stop().then(() => { _barcodeScanner = null; }).catch(() => {});
-      lookupBarcodeForMeal(decodedText);
-    },
-    () => {}
-  ).catch(() => {
-    document.getElementById('barcode-status').textContent = 'Camera access denied or unavailable';
-  });
+  startBarcodeCamera(lookupBarcodeForMeal);
 }
 
 async function lookupBarcodeForMeal(barcode) {
