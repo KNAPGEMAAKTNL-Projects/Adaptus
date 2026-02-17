@@ -3214,6 +3214,22 @@ async function confirmLogFood(foodId, hasServing, servingGrams) {
   }
 }
 
+function calcFoodCalories() {
+  const p = parseNum(document.getElementById('food-protein')?.value) || 0;
+  const c = parseNum(document.getElementById('food-carbs')?.value) || 0;
+  const f = parseNum(document.getElementById('food-fat')?.value) || 0;
+  const el = document.getElementById('food-calories');
+  if (el) el.textContent = Math.round(p * 4 + c * 4 + f * 9);
+}
+
+function calcInlineFoodCalories() {
+  const p = parseNum(document.getElementById('inline-food-pro')?.value) || 0;
+  const c = parseNum(document.getElementById('inline-food-carb')?.value) || 0;
+  const f = parseNum(document.getElementById('inline-food-fat')?.value) || 0;
+  const el = document.getElementById('inline-food-cal');
+  if (el) el.textContent = Math.round(p * 4 + c * 4 + f * 9);
+}
+
 // ─── View: Food Form ────────────────────────────────────────────────────────
 async function renderFoodForm(id) {
   let food = { name: '', calories: '', protein: '', carbs: '', fat: '', serving_size: null, serving_unit: null };
@@ -3240,25 +3256,26 @@ async function renderFoodForm(id) {
         </div>
 
         <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mt-2">Nutrition per 100g</p>
+        <div>
+          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Calories (auto)</label>
+          <div class="w-full h-12 px-3 border-2 border-ink/10 rounded-lg bg-ink/5 flex items-center justify-center font-bold text-ink/60">
+            <span id="food-calories">${Math.round((food.protein||0)*4 + (food.carbs||0)*4 + (food.fat||0)*9)}</span>
+          </div>
+        </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Calories</label>
-            <input id="food-calories" type="text" inputmode="decimal" value="${food.calories}" placeholder="0"
-              class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold focus:border-acid focus:outline-none transition-colors duration-200">
-          </div>
-          <div>
             <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Protein (g)</label>
-            <input id="food-protein" type="text" inputmode="decimal" value="${food.protein}" placeholder="0"
+            <input id="food-protein" type="text" inputmode="decimal" value="${food.protein}" placeholder="0" oninput="calcFoodCalories()"
               class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold focus:border-acid focus:outline-none transition-colors duration-200">
           </div>
           <div>
             <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Carbs (g)</label>
-            <input id="food-carbs" type="text" inputmode="decimal" value="${food.carbs}" placeholder="0"
+            <input id="food-carbs" type="text" inputmode="decimal" value="${food.carbs}" placeholder="0" oninput="calcFoodCalories()"
               class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold focus:border-acid focus:outline-none transition-colors duration-200">
           </div>
           <div>
             <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Fat (g)</label>
-            <input id="food-fat" type="text" inputmode="decimal" value="${food.fat}" placeholder="0"
+            <input id="food-fat" type="text" inputmode="decimal" value="${food.fat}" placeholder="0" oninput="calcFoodCalories()"
               class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold focus:border-acid focus:outline-none transition-colors duration-200">
           </div>
         </div>
@@ -3301,12 +3318,15 @@ async function renderFoodForm(id) {
 
 async function saveFood(id) {
   const hasServing = document.getElementById('food-has-serving')?.checked;
+  const protein = parseNum(document.getElementById('food-protein').value) || 0;
+  const carbs = parseNum(document.getElementById('food-carbs').value) || 0;
+  const fat = parseNum(document.getElementById('food-fat').value) || 0;
   const data = {
     name: document.getElementById('food-name').value.trim(),
-    calories: parseNum(document.getElementById('food-calories').value) || 0,
-    protein: parseNum(document.getElementById('food-protein').value) || 0,
-    carbs: parseNum(document.getElementById('food-carbs').value) || 0,
-    fat: parseNum(document.getElementById('food-fat').value) || 0,
+    calories: Math.round((protein * 4) + (carbs * 4) + (fat * 9)),
+    protein,
+    carbs,
+    fat,
     servingName: hasServing ? (document.getElementById('food-serving-name').value.trim() || null) : null,
     servingGrams: hasServing ? (parseNum(document.getElementById('food-serving-grams').value) || null) : null,
   };
@@ -3531,25 +3551,26 @@ function showInlineFoodCreator() {
           class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
       </div>
       <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Nutrition per 100g</p>
+      <div>
+        <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Calories (auto)</label>
+        <div class="w-full h-10 px-3 border-2 border-ink/10 rounded-lg bg-ink/5 flex items-center justify-center font-bold text-sm text-ink/60">
+          <span id="inline-food-cal">0</span>
+        </div>
+      </div>
       <div class="grid grid-cols-2 gap-2">
         <div>
-          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Calories</label>
-          <input id="inline-food-cal" type="text" inputmode="decimal" placeholder="0"
-            class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
-        </div>
-        <div>
           <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Protein (g)</label>
-          <input id="inline-food-pro" type="text" inputmode="decimal" placeholder="0"
+          <input id="inline-food-pro" type="text" inputmode="decimal" placeholder="0" oninput="calcInlineFoodCalories()"
             class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
         </div>
         <div>
           <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Carbs (g)</label>
-          <input id="inline-food-carb" type="text" inputmode="decimal" placeholder="0"
+          <input id="inline-food-carb" type="text" inputmode="decimal" placeholder="0" oninput="calcInlineFoodCalories()"
             class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
         </div>
         <div>
           <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Fat (g)</label>
-          <input id="inline-food-fat" type="text" inputmode="decimal" placeholder="0"
+          <input id="inline-food-fat" type="text" inputmode="decimal" placeholder="0" oninput="calcInlineFoodCalories()"
             class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
         </div>
       </div>
@@ -3578,10 +3599,10 @@ function showInlineFoodCreator() {
 async function saveInlineFood() {
   const name = document.getElementById('inline-food-name')?.value.trim();
   if (!name) return;
-  const cal = parseNum(document.getElementById('inline-food-cal')?.value) || 0;
   const pro = parseNum(document.getElementById('inline-food-pro')?.value) || 0;
   const carb = parseNum(document.getElementById('inline-food-carb')?.value) || 0;
   const fat = parseNum(document.getElementById('inline-food-fat')?.value) || 0;
+  const cal = Math.round(pro * 4 + carb * 4 + fat * 9);
   const servingName = document.getElementById('inline-food-serving-name')?.value.trim() || null;
   const servingGrams = parseNum(document.getElementById('inline-food-serving-grams')?.value) || null;
 
