@@ -1,4 +1,4 @@
-const APP_VERSION = 'v53';
+const APP_VERSION = 'v54';
 console.log('[Adaptus]', APP_VERSION);
 // ─── State ───────────────────────────────────────────────────────────────────
 const state = {
@@ -3114,13 +3114,10 @@ function showScanToast(message, type = 'success') {
 }
 
 async function lookupBarcode(barcode) {
-  console.log('[scan] lookupBarcode called:', barcode);
   const statusEl = document.getElementById('barcode-status');
   if (statusEl) statusEl.textContent = 'Checking local database...';
   try {
-    // Check local database first
     const localFood = await api('GET', `/nutrition/foods/barcode/${encodeURIComponent(barcode)}`);
-    console.log('[scan] local result:', localFood);
     if (localFood) {
       closeBarcodeScanner();
       showScanToast('Found in your library', 'success');
@@ -3128,14 +3125,13 @@ async function lookupBarcode(barcode) {
         localFood.serving_unit !== 'g' ? localFood.serving_unit : null, localFood.serving_unit !== 'g' ? localFood.serving_size : null);
       return;
     }
-  } catch (e) { console.log('[scan] local lookup error:', e.message); }
+  } catch (e) {}
 
   // Not found locally — try Open Food Facts
   if (statusEl) statusEl.textContent = 'Looking up product online...';
   try {
     const resp = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}`);
     const data = await resp.json();
-    console.log('[scan] OFF result:', data.status, data.product?.product_name);
     if (data.status === 1 && data.product) {
       const p = data.product;
       const n = p.nutriments || {};
@@ -3145,21 +3141,16 @@ async function lookupBarcode(barcode) {
       const fat = Math.round((n.fat_100g || 0) * 10) / 10;
       const hasNutrition = protein > 0 || carbs > 0 || fat > 0;
       window._scannedFoodData = { name, protein, carbs, fat, barcode, notFound: !name && !hasNutrition, source: 'api' };
-      console.log('[scan] setting _scannedFoodData:', JSON.stringify(window._scannedFoodData));
-      closeBarcodeScanner();
-      navigate('#nutrition/food/new');
     } else {
       window._scannedFoodData = { name: '', protein: 0, carbs: 0, fat: 0, barcode, notFound: true, source: 'not_found' };
-      console.log('[scan] product not found, setting notFound data');
-      closeBarcodeScanner();
-      navigate('#nutrition/food/new');
     }
   } catch (e) {
-    console.log('[scan] OFF fetch error:', e.message);
     window._scannedFoodData = { name: '', protein: 0, carbs: 0, fat: 0, barcode, notFound: true, source: 'not_found' };
-    closeBarcodeScanner();
-    navigate('#nutrition/food/new');
   }
+  // DEBUG — visible on iPhone
+  alert('SCAN DATA: ' + JSON.stringify(window._scannedFoodData));
+  closeBarcodeScanner();
+  navigate('#nutrition/food/new');
 }
 
 
@@ -3821,7 +3812,6 @@ function calcInlineFoodCalories() {
 
 // ─── View: Food Form ────────────────────────────────────────────────────────
 async function renderFoodForm(id) {
-  console.log('[scan] renderFoodForm called, id:', id, '_scannedFoodData:', window._scannedFoodData);
   let food = { name: '', calories: '', protein: '', carbs: '', fat: '', serving_size: null, serving_unit: null };
   if (id) {
     const foods = await api('GET', '/nutrition/foods');
