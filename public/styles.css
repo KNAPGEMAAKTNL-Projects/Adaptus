@@ -161,14 +161,17 @@ button, .no-select {
   transition: none;
 }
 
-/* Drag-to-move drop zones */
-.drop-zone {
-  transition: border-color 150ms, background 150ms, transform 150ms;
+/* Drag-to-move: highlight time groups as drop targets */
+[data-time-group].drop-target {
+  border: 2px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 8px;
+  margin: -8px -8px 16px;
+  transition: border-color 150ms, background 150ms;
 }
-.drop-zone.hover {
+[data-time-group].drop-hover {
   border-color: #CCFF00;
-  background: rgba(204, 255, 0, 0.08);
-  transform: scale(1.03);
+  background: rgba(204, 255, 0, 0.06);
 }
 
 /* Library tabs */

@@ -1,4 +1,4 @@
-const APP_VERSION = 'v81';
+const APP_VERSION = 'v82';
 console.log('[Adaptus]', APP_VERSION);
 
 // Auto-select input contents on focus for all numeric/decimal inputs
@@ -191,60 +191,36 @@ function startDrag(el, x, y) {
   const offsetX = x - rect.left;
   const offsetY = y - rect.top;
 
-  // Build drop zone overlay
-  const overlay = document.createElement('div');
-  overlay.id = 'drag-overlay';
-  overlay.innerHTML = buildDropZones(currentGroup);
-  document.body.appendChild(overlay);
+  // Highlight other time groups as drop targets
+  document.querySelectorAll('[data-time-group]').forEach(g => {
+    if (g.dataset.timeGroup !== currentGroup) g.classList.add('drop-target');
+  });
 
-  _dragState = { el, clone, overlay, entryId, currentGroup, offsetX, offsetY, targetGroup: null };
+  _dragState = { el, clone, entryId, currentGroup, offsetX, offsetY, targetGroup: null };
 
   document.addEventListener('touchmove', onDragMove, { passive: false });
   document.addEventListener('touchend', onDragEnd, { passive: true });
-}
-
-function buildDropZones(currentGroup) {
-  const zones = [
-    { key: 'morning', label: 'Morning', icon: '&#x2600;' },
-    { key: 'afternoon', label: 'Afternoon', icon: '&#x26C5;' },
-    { key: 'evening', label: 'Evening', icon: '&#x263E;' },
-  ];
-  return `
-    <div class="fixed inset-0 z-[190] pointer-events-none">
-      <div class="fixed top-0 left-0 right-0 z-[191] flex gap-2 p-3 pointer-events-auto" style="padding-top: calc(env(safe-area-inset-top) + 0.75rem);">
-        ${zones.filter(z => z.key !== currentGroup).map(z => `
-          <div data-drop-group="${z.key}" class="drop-zone flex-1 flex flex-col items-center justify-center py-4 rounded-xl border-2 border-dashed border-ink/20 bg-[#111]/90 backdrop-blur transition-all duration-150">
-            <span class="text-lg">${z.icon}</span>
-            <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mt-1">${z.label}</span>
-          </div>
-        `).join('')}
-      </div>
-      <div class="fixed inset-0 bg-black/40 z-[189]"></div>
-    </div>
-  `;
 }
 
 function onDragMove(e) {
   if (!_dragState) return;
   e.preventDefault();
   const t = e.touches[0];
-  const { clone, offsetX, offsetY } = _dragState;
+  const { clone, offsetX, offsetY, currentGroup } = _dragState;
   clone.style.left = `${t.clientX - offsetX}px`;
   clone.style.top = `${t.clientY - offsetY}px`;
 
-  // Check which drop zone finger is over
+  // Check which time group section the finger is over
   let hit = null;
-  document.querySelectorAll('[data-drop-group]').forEach(zone => {
-    const r = zone.getBoundingClientRect();
-    if (t.clientX >= r.left && t.clientX <= r.right && t.clientY >= r.top && t.clientY <= r.bottom) {
-      hit = zone.dataset.dropGroup;
-      zone.style.borderColor = '#CCFF00';
-      zone.style.background = 'rgba(204,255,0,0.08)';
-      zone.querySelector('span:last-child').style.color = '#CCFF00';
+  document.querySelectorAll('[data-time-group]').forEach(g => {
+    const key = g.dataset.timeGroup;
+    if (key === currentGroup) return;
+    const r = g.getBoundingClientRect();
+    if (t.clientY >= r.top && t.clientY <= r.bottom && t.clientX >= r.left && t.clientX <= r.right) {
+      hit = key;
+      g.classList.add('drop-hover');
     } else {
-      zone.style.borderColor = '';
-      zone.style.background = '';
-      zone.querySelector('span:last-child').style.color = '';
+      g.classList.remove('drop-hover');
     }
   });
   _dragState.targetGroup = hit;
@@ -252,14 +228,18 @@ function onDragMove(e) {
 
 function onDragEnd() {
   if (!_dragState) return;
-  const { el, clone, overlay, entryId, targetGroup } = _dragState;
+  const { el, clone, entryId, targetGroup } = _dragState;
 
   document.removeEventListener('touchmove', onDragMove);
   document.removeEventListener('touchend', onDragEnd);
 
   clone.remove();
-  overlay.remove();
   el.style.opacity = '';
+
+  // Clean up highlights
+  document.querySelectorAll('[data-time-group]').forEach(g => {
+    g.classList.remove('drop-target', 'drop-hover');
+  });
 
   if (targetGroup) {
     moveLogEntry(entryId, targetGroup);
