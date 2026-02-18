@@ -125,6 +125,42 @@ button, .no-select {
   transform: translateY(0);
 }
 
+/* Swipe-to-reveal */
+.swipe-container {
+  position: relative;
+  overflow: hidden;
+}
+.swipe-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+.swipe-actions button {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.swipe-content {
+  position: relative;
+  z-index: 1;
+  background: #0A0A0A;
+  transition: transform 200ms ease-out;
+  will-change: transform;
+}
+.swipe-content.swiping {
+  transition: none;
+}
+
 /* Library tabs */
 .lib-tab {
   flex: 1;

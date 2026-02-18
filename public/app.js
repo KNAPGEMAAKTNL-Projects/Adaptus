@@ -1,4 +1,4 @@
-const APP_VERSION = 'v75';
+const APP_VERSION = 'v76';
 console.log('[Adaptus]', APP_VERSION);
 
 // Auto-select input contents on focus for all numeric/decimal inputs
@@ -46,6 +46,74 @@ const MILESTONES = [
   { id: 'sets-2500', category: 'sets', label: '2,500 Sets', threshold: 2500 },
   { id: 'sets-5000', category: 'sets', label: '5,000 Sets', threshold: 5000 },
 ];
+
+// ─── Swipe-to-Reveal ────────────────────────────────────────────────────────
+let _openSwipeEl = null;
+
+function initAllSwipeRows(container) {
+  if (!container) return;
+  container.querySelectorAll('.swipe-container').forEach(el => {
+    const content = el.querySelector('.swipe-content');
+    const actions = el.querySelector('.swipe-actions');
+    if (!content || !actions || content._swipeInit) return;
+    content._swipeInit = true;
+    const actionsW = actions.offsetWidth || 120;
+    let startX = 0, startY = 0, currentX = 0, dragging = false, dirLocked = false, isHorizontal = false;
+
+    content.addEventListener('touchstart', (e) => {
+      const t = e.touches[0];
+      startX = t.clientX; startY = t.clientY; currentX = 0; dragging = true; dirLocked = false; isHorizontal = false;
+      content.classList.add('swiping');
+    }, { passive: true });
+
+    content.addEventListener('touchmove', (e) => {
+      if (!dragging) return;
+      const t = e.touches[0];
+      const dx = t.clientX - startX;
+      const dy = t.clientY - startY;
+      if (!dirLocked) {
+        if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+          dirLocked = true;
+          isHorizontal = Math.abs(dx) > Math.abs(dy);
+        }
+        return;
+      }
+      if (!isHorizontal) return;
+      e.preventDefault();
+      currentX = Math.min(0, Math.max(-actionsW, dx));
+      content.style.transform = `translateX(${currentX}px)`;
+    }, { passive: false });
+
+    content.addEventListener('touchend', () => {
+      if (!dragging) return;
+      dragging = false;
+      content.classList.remove('swiping');
+      if (isHorizontal && currentX < -actionsW * 0.35) {
+        content.style.transform = `translateX(-${actionsW}px)`;
+        if (_openSwipeEl && _openSwipeEl !== content) {
+          _openSwipeEl.style.transform = '';
+        }
+        _openSwipeEl = content;
+      } else {
+        content.style.transform = '';
+        if (_openSwipeEl === content) _openSwipeEl = null;
+      }
+    }, { passive: true });
+  });
+}
+
+function closeOpenSwipe() {
+  if (_openSwipeEl) {
+    _openSwipeEl.style.transform = '';
+    _openSwipeEl = null;
+  }
+}
+
+document.addEventListener('touchstart', (e) => {
+  if (_openSwipeEl && !_openSwipeEl.closest('.swipe-container')?.contains(e.target)) {
+    closeOpenSwipe();
+  }
+}, { passive: true });
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 function parseNum(val) {
@@ -1981,19 +2049,22 @@ async function renderExercise(index) {
         : `${loggedSet.weight_kg}kg &times; ${loggedSet.reps}`;
       const isCompleted = state.currentSession && state.currentSession.completed_at;
       const displayWeight = loggedSet.assistance_kg || loggedSet.weight_kg;
-      const actionButton = isCompleted
-        ? `<button onclick="showEditSetModal(${loggedSet.id}, '${exercise.id}', ${s}, ${displayWeight}, ${loggedSet.reps}, ${!!exercise.isAssisted})" class="w-6 h-6 rounded border-2 border-ink/20 flex items-center justify-center flex-shrink-0 active:opacity-60 transition-all duration-200">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          </button>`
-        : `<button onclick="deleteSet(${loggedSet.id}, '${exercise.id}')" class="w-6 h-6 rounded border-2 border-acid bg-acid flex items-center justify-center flex-shrink-0 active:opacity-60 transition-all duration-200">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          </button>`;
       setRowsHtml.push(`
-        <div class="flex items-center gap-3 py-2.5 ${s < totalSets ? 'border-b border-ink/10' : ''}">
-          <span class="w-10 text-xs font-bold text-ink/40 uppercase">Set ${s}</span>
-          <span class="flex-1 font-bold text-sm">${loggedDisplay}</span>
-          <span class="text-[10px] font-bold text-ink/30 uppercase">${rpeLabel}</span>
-          ${actionButton}
+        <div class="swipe-container ${s < totalSets ? 'border-b border-ink/10' : ''}">
+          <div class="swipe-actions">
+            <button onclick="showEditSetModal(${loggedSet.id}, '${exercise.id}', ${s}, ${displayWeight}, ${loggedSet.reps}, ${!!exercise.isAssisted})" class="bg-white/15 text-white h-full"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+            ${!isCompleted ? `<button onclick="deleteSet(${loggedSet.id}, '${exercise.id}')" class="bg-red-500/80 text-white h-full"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>` : ''}
+          </div>
+          <div class="swipe-content">
+            <div class="flex items-center gap-3 py-2.5">
+              <span class="w-10 text-xs font-bold text-ink/40 uppercase">Set ${s}</span>
+              <span class="flex-1 font-bold text-sm">${loggedDisplay}</span>
+              <span class="text-[10px] font-bold text-ink/30 uppercase">${rpeLabel}</span>
+              <div class="w-6 h-6 rounded border-2 border-acid bg-acid flex items-center justify-center flex-shrink-0">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+            </div>
+          </div>
         </div>
       `);
     } else {
@@ -2152,6 +2223,7 @@ async function renderExercise(index) {
       </div>
     </div>
   `;
+  requestAnimationFrame(() => initAllSwipeRows(document.getElementById('app')));
 }
 
 function clearSuggested(input) {
@@ -2886,7 +2958,10 @@ async function refreshNutritionContent() {
   const macroEl = document.getElementById('nutrition-macro-bar');
   if (macroEl) macroEl.innerHTML = buildCompactMacroBar(logData.totals, targets);
   const logEl = document.getElementById('nutrition-log-section');
-  if (logEl) logEl.innerHTML = buildTimeGroupedLog(logData.entries);
+  if (logEl) {
+    logEl.innerHTML = buildTimeGroupedLog(logData.entries);
+    requestAnimationFrame(() => initAllSwipeRows(logEl));
+  }
   const label = document.getElementById('nutrition-date-label');
   if (label) label.textContent = getNutritionDateLabel();
 }
@@ -2953,12 +3028,19 @@ function buildTimeGroupedLog(entries) {
     html += `<div class="mb-4">
       <h4 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-2">${labels[key]}</h4>
       ${items.map(e => `
-        <div class="flex items-center justify-between py-2.5 border-b border-ink/5 last:border-0">
-          <button onclick="showEditLogEntryModal(${e.id}, '${e.name.replace(/'/g, "\\'")}', ${e.servings}, ${e.food_id || 'null'}, ${e.meal_id || 'null'})" class="flex-1 min-w-0 mr-3 text-left active:bg-ink/5 transition-colors duration-200 rounded-lg -ml-1 pl-1">
-            <span class="font-bold text-[14px] block truncate flex items-center gap-1">${e.meal_id ? getMealIcon(e.name) : ''}${e.name}</span>
-            <span class="text-[11px] text-ink/40">${Math.round(e.calories)} cal · <span class="text-[#F59E0B]">${Math.round(e.fat)}f</span> · <span class="text-[#3B82F6]">${Math.round(e.carbs)}c</span> · <span class="text-[#7C3AED]">${Math.round(e.protein)}p</span>${e.food_id ? ` · ${e.servings}g` : e.servings !== 1 ? ` · ${e.servings}x` : ''}</span>
-          </button>
-          <button onclick="deleteLogEntry(${e.id})" class="text-ink/20 hover:text-red-500 text-xs font-bold transition-colors duration-200 flex-shrink-0">&times;</button>
+        <div class="swipe-container border-b border-ink/5 last:border-0">
+          <div class="swipe-actions">
+            <button onclick="showEditLogEntryModal(${e.id}, '${e.name.replace(/'/g, "\\'")}', ${e.servings}, ${e.food_id || 'null'}, ${e.meal_id || 'null'})" class="bg-white/15 text-white"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+            <button onclick="deleteLogEntry(${e.id})" class="bg-red-500/80 text-white"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+          </div>
+          <div class="swipe-content">
+            <div class="flex items-center py-2.5">
+              <div class="flex-1 min-w-0 mr-3">
+                <span class="font-bold text-[14px] block truncate flex items-center gap-1">${e.meal_id ? getMealIcon(e.name) : ''}${e.name}</span>
+                <span class="text-[11px] text-ink/40">${Math.round(e.calories)} cal · <span class="text-[#F59E0B]">${Math.round(e.fat)}f</span> · <span class="text-[#3B82F6]">${Math.round(e.carbs)}c</span> · <span class="text-[#7C3AED]">${Math.round(e.protein)}p</span>${e.food_id ? ` · ${e.servings}g` : e.servings !== 1 ? ` · ${e.servings}x` : ''}</span>
+              </div>
+            </div>
+          </div>
         </div>
       `).join('')}
     </div>`;
@@ -3572,6 +3654,7 @@ async function renderNutrition() {
 
   initWeekPicker();
   showNutritionSearchBar();
+  requestAnimationFrame(() => initAllSwipeRows(document.getElementById('nutrition-log-section')));
 }
 
 function buildWeightTrend(tdeeData) {
@@ -3922,6 +4005,7 @@ async function renderNutritionAdd(initialTab) {
       </div>
     </div>
   `;
+  requestAnimationFrame(() => initAllSwipeRows(document.getElementById('library-content')));
 }
 
 function switchLibraryTab(tab) {
@@ -3930,6 +4014,7 @@ function switchLibraryTab(tab) {
   const content = document.getElementById('library-content');
   if (!content || !window._libraryData) return;
   content.innerHTML = tab === 'foods' ? buildFoodsTab(window._libraryData.foods) : buildMealsTab(window._libraryData.meals);
+  requestAnimationFrame(() => initAllSwipeRows(content));
   // Update hash without triggering navigation
   history.replaceState(null, '', tab === 'foods' ? '#nutrition/foods' : '#nutrition/add');
 }
@@ -3938,17 +4023,17 @@ function buildFoodsTab(foods) {
   const foodsHtml = foods.length > 0 ? foods.map(f => {
     const servingLabel = f.serving_unit ? `1 ${f.serving_unit} = ${f.serving_size}g` : 'per 100g';
     return `
-    <div class="food-item flex items-center justify-between py-3 border-b border-ink/5 last:border-0" data-name="${f.name.toLowerCase()}">
-      <button onclick="showFoodServingsModal(${f.id}, '${f.name.replace(/'/g, "\\'")}', ${f.calories}, ${f.protein}, ${f.carbs}, ${f.fat}, ${f.serving_size ? `'${f.serving_unit}'` : 'null'}, ${f.serving_size || 'null'})"
-        class="flex-1 min-w-0 mr-2 text-left active:bg-ink/5 transition-colors duration-200">
-        <span class="font-bold text-[14px] block truncate">${f.name}</span>
-        <span class="text-[11px] text-ink/40">${servingLabel} · ${Math.round(f.calories)} cal · <span class="text-[#F59E0B]">${Math.round(f.fat)}f</span> · <span class="text-[#3B82F6]">${Math.round(f.carbs)}c</span> · <span class="text-[#7C3AED]">${Math.round(f.protein)}p</span></span>
-      </button>
-      <div class="flex items-center gap-1 flex-shrink-0">
-        <button onclick="navigate('#nutrition/food/${f.id}')" class="w-8 h-8 flex items-center justify-center text-ink/30 active:text-ink transition-colors duration-200">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 1.5l2.5 2.5M1 13l1-4L10.5 0.5l2.5 2.5L4.5 12z"/></svg>
+    <div class="food-item swipe-container border-b border-ink/5 last:border-0" data-name="${f.name.toLowerCase()}">
+      <div class="swipe-actions">
+        <button onclick="navigate('#nutrition/food/${f.id}')" class="bg-white/15 text-white"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        <button onclick="deleteFood(${f.id})" class="bg-red-500/80 text-white"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+      </div>
+      <div class="swipe-content">
+        <button onclick="showFoodServingsModal(${f.id}, '${f.name.replace(/'/g, "\\'")}', ${f.calories}, ${f.protein}, ${f.carbs}, ${f.fat}, ${f.serving_size ? `'${f.serving_unit}'` : 'null'}, ${f.serving_size || 'null'})"
+          class="w-full py-3 text-left active:bg-ink/5 transition-colors duration-200">
+          <span class="font-bold text-[14px] block truncate">${f.name}</span>
+          <span class="text-[11px] text-ink/40">${servingLabel} · ${Math.round(f.calories)} cal · <span class="text-[#F59E0B]">${Math.round(f.fat)}f</span> · <span class="text-[#3B82F6]">${Math.round(f.carbs)}c</span> · <span class="text-[#7C3AED]">${Math.round(f.protein)}p</span></span>
         </button>
-        <button onclick="deleteFood(${f.id})" class="w-8 h-8 flex items-center justify-center text-ink/20 hover:text-red-500 transition-colors duration-200">&times;</button>
       </div>
     </div>`;
   }).join('') : '<p class="text-sm text-ink/30 py-4">No foods yet.</p>';
@@ -3969,15 +4054,14 @@ function buildFoodsTab(foods) {
 
 function buildMealsTab(meals) {
   const mealsHtml = meals.length > 0 ? meals.map(m => `
-    <div class="border-2 border-ink/10 rounded-xl p-4 mb-2">
+    <div class="swipe-container border-2 border-ink/10 rounded-xl mb-2 overflow-hidden">
+      <div class="swipe-actions">
+        <button onclick="navigate('#nutrition/meal/${m.id}')" class="bg-white/15 text-white"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        <button onclick="deleteMeal(${m.id})" class="bg-red-500/80 text-white"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+      </div>
+      <div class="swipe-content p-4">
       <div class="flex items-center justify-between mb-1">
         <h3 class="font-bold text-[15px] truncate flex-1 mr-2 flex items-center gap-1.5">${getMealIcon(m.name)}${m.name}</h3>
-        <div class="flex items-center gap-1 flex-shrink-0">
-          <button onclick="navigate('#nutrition/meal/${m.id}')" class="w-8 h-8 flex items-center justify-center text-ink/30 active:text-ink transition-colors duration-200">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 1.5l2.5 2.5M1 13l1-4L10.5 0.5l2.5 2.5L4.5 12z"/></svg>
-          </button>
-          <button onclick="deleteMeal(${m.id})" class="w-8 h-8 flex items-center justify-center text-ink/20 hover:text-red-500 transition-colors duration-200">&times;</button>
-        </div>
       </div>
       <button onclick="this.nextElementSibling.classList.toggle('hidden');this.querySelector('svg:last-child').style.transform=this.nextElementSibling.classList.contains('hidden')?'':'rotate(180deg)'" class="flex items-center gap-1 text-xs text-ink/40 mb-3 active:text-ink/60 transition-colors duration-200">
         <svg class="inline -mt-0.5" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#CCFF00" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12c2-2.96 0-7-1-8 0 3.038-1.773 4.741-3 6-1.226 1.26-2 3.24-2 5a6 6 0 1 0 12 0c0-1.532-1.056-3.94-2-5-1.786 3-2.791 3-4 2z"/></svg>
@@ -3998,6 +4082,7 @@ function buildMealsTab(meals) {
       <button onclick="quickLogMeal(${m.id})" class="w-full py-2 bg-white/10 text-white rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20">
         Log Meal
       </button>
+      </div>
     </div>
   `).join('') : '<p class="text-sm text-ink/30 py-4">No meals yet.</p>';
 
