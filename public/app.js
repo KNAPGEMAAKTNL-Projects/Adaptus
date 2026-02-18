@@ -1,5 +1,12 @@
-const APP_VERSION = 'v64';
+const APP_VERSION = 'v68';
 console.log('[Adaptus]', APP_VERSION);
+
+// Auto-select input contents on focus for all numeric/decimal inputs
+document.addEventListener('focusin', e => {
+  if (e.target.tagName === 'INPUT' && (e.target.inputMode === 'decimal' || e.target.inputMode === 'numeric' || e.target.type === 'number')) {
+    e.target.select();
+  }
+});
 // ─── State ───────────────────────────────────────────────────────────────────
 const state = {
   progress: { cycle: 1, week: 1 },
@@ -643,16 +650,16 @@ async function drawerShowNutritionGoals() {
           </div>
           <div class="border-t border-white/10 pt-2 mt-2"></div>
           <div class="flex justify-between text-sm">
-            <span class="text-white/40 font-bold">Protein (2.2g/kg)</span>
-            <span class="text-white font-bold tabular-nums">${tdeeData.protein_g}g</span>
-          </div>
-          <div class="flex justify-between text-sm">
             <span class="text-white/40 font-bold">Fat (25%)</span>
             <span class="text-white font-bold tabular-nums">${tdeeData.fat_g}g</span>
           </div>
           <div class="flex justify-between text-sm">
             <span class="text-white/40 font-bold">Carbs (fill)</span>
             <span class="text-white font-bold tabular-nums">${tdeeData.carbs_g}g</span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-white/40 font-bold">Protein (2.2g/kg)</span>
+            <span class="text-white font-bold tabular-nums">${tdeeData.protein_g}g</span>
           </div>
         </div>
       </div>
@@ -1150,11 +1157,11 @@ async function renderDashboard() {
           </div>
           <div>
             <div class="flex items-center gap-1 mb-0.5">
-              <span class="text-[10px] font-black text-electric">P</span>
-              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">protein</span>
+              <span class="text-[10px] font-black text-orange-500">F</span>
+              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">fat</span>
             </div>
-            <span class="text-lg font-black leading-none block">${Math.round(nTotals.protein)}<span class="text-xs text-ink/30">g</span></span>
-            <div class="h-[3px] bg-ink/10 rounded-full mt-1 overflow-hidden"><div class="h-full rounded-full" style="width:${miniPct(nTotals.protein, nTargets.protein)}%;background:#7C3AED"></div></div>
+            <span class="text-lg font-black leading-none block">${Math.round(nTotals.fat)}<span class="text-xs text-ink/30">g</span></span>
+            <div class="h-[3px] bg-ink/10 rounded-full mt-1 overflow-hidden"><div class="h-full rounded-full" style="width:${miniPct(nTotals.fat, nTargets.fat)}%;background:#F59E0B"></div></div>
           </div>
           <div>
             <div class="flex items-center gap-1 mb-0.5">
@@ -1166,11 +1173,11 @@ async function renderDashboard() {
           </div>
           <div>
             <div class="flex items-center gap-1 mb-0.5">
-              <span class="text-[10px] font-black text-orange-500">F</span>
-              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">fat</span>
+              <span class="text-[10px] font-black text-electric">P</span>
+              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">protein</span>
             </div>
-            <span class="text-lg font-black leading-none block">${Math.round(nTotals.fat)}<span class="text-xs text-ink/30">g</span></span>
-            <div class="h-[3px] bg-ink/10 rounded-full mt-1 overflow-hidden"><div class="h-full rounded-full" style="width:${miniPct(nTotals.fat, nTargets.fat)}%;background:#F59E0B"></div></div>
+            <span class="text-lg font-black leading-none block">${Math.round(nTotals.protein)}<span class="text-xs text-ink/30">g</span></span>
+            <div class="h-[3px] bg-ink/10 rounded-full mt-1 overflow-hidden"><div class="h-full rounded-full" style="width:${miniPct(nTotals.protein, nTargets.protein)}%;background:#7C3AED"></div></div>
           </div>
         </div>
       </button>
@@ -2879,13 +2886,6 @@ function buildCompactMacroBar(totals, targets) {
       </div>
       <div class="flex-1 min-w-0">
         <div class="flex items-center justify-between text-xs">
-          <span class="font-black text-[#7C3AED]">P</span>
-          <span class="font-bold tabular-nums">${Math.round(totals.protein)} <span class="text-ink/30">/ ${Math.round(targets.protein)}</span></span>
-        </div>
-        ${miniBar(totals.protein, targets.protein, '#7C3AED')}
-      </div>
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center justify-between text-xs">
           <span class="font-black text-[#F59E0B]">F</span>
           <span class="font-bold tabular-nums">${Math.round(totals.fat)} <span class="text-ink/30">/ ${Math.round(targets.fat)}</span></span>
         </div>
@@ -2897,6 +2897,13 @@ function buildCompactMacroBar(totals, targets) {
           <span class="font-bold tabular-nums">${Math.round(totals.carbs)} <span class="text-ink/30">/ ${Math.round(targets.carbs)}</span></span>
         </div>
         ${miniBar(totals.carbs, targets.carbs, '#3B82F6')}
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center justify-between text-xs">
+          <span class="font-black text-[#7C3AED]">P</span>
+          <span class="font-bold tabular-nums">${Math.round(totals.protein)} <span class="text-ink/30">/ ${Math.round(targets.protein)}</span></span>
+        </div>
+        ${miniBar(totals.protein, targets.protein, '#7C3AED')}
       </div>
     </button>
   `;
@@ -2927,7 +2934,7 @@ function buildTimeGroupedLog(entries) {
         <div class="flex items-center justify-between py-2.5 border-b border-ink/5 last:border-0">
           <button onclick="showEditLogEntryModal(${e.id}, '${e.name.replace(/'/g, "\\'")}', ${e.servings}, ${e.food_id || 'null'}, ${e.meal_id || 'null'})" class="flex-1 min-w-0 mr-3 text-left active:bg-ink/5 transition-colors duration-200 rounded-lg -ml-1 pl-1">
             <span class="font-bold text-[14px] block truncate">${e.name}</span>
-            <span class="text-[11px] text-ink/40">${Math.round(e.calories)} cal · ${Math.round(e.protein)}p · ${Math.round(e.carbs)}c · ${Math.round(e.fat)}f${e.food_id ? ` · ${e.servings}g` : e.servings !== 1 ? ` · ${e.servings}x` : ''}</span>
+            <span class="text-[11px] text-ink/40">${Math.round(e.calories)} cal · ${Math.round(e.fat)}f · ${Math.round(e.carbs)}c · ${Math.round(e.protein)}p${e.food_id ? ` · ${e.servings}g` : e.servings !== 1 ? ` · ${e.servings}x` : ''}</span>
           </button>
           <button onclick="deleteLogEntry(${e.id})" class="text-ink/20 hover:text-red-500 text-xs font-bold transition-colors duration-200 flex-shrink-0">&times;</button>
         </div>
@@ -3020,7 +3027,7 @@ function filterNutritionSearch(query) {
           <span class="font-bold text-[14px] block truncate">${f.name}</span>
           <span class="text-[11px] text-ink/40">${servingLabel} · ${Math.round(f.calories)} cal/100g</span>
         </div>
-        <span class="text-[11px] text-ink/40 flex-shrink-0">${Math.round(f.protein)}p · ${Math.round(f.carbs)}c · ${Math.round(f.fat)}f</span>
+        <span class="text-[11px] text-ink/40 flex-shrink-0">${Math.round(f.fat)}f · ${Math.round(f.carbs)}c · ${Math.round(f.protein)}p</span>
       </button>`;
   }).join('');
 }
@@ -3314,19 +3321,16 @@ function showScanFoodPopup({ barcode, name, protein, carbs, fat, notFound }) {
         </div>
         <div class="grid grid-cols-3 gap-2">
           <div>
-            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Protein</label>
-            <input id="scan-food-pro" type="text" inputmode="decimal" value="${protein || ''}" placeholder="0" oninput="calcScanFoodCal()"
-              class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
+            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Fat</label>
+            <input id="scan-food-fat" type="text" inputmode="decimal" value="${fat || ''}" placeholder="0" oninput="calcScanFoodCal()"              class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
           </div>
           <div>
             <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Carbs</label>
-            <input id="scan-food-carb" type="text" inputmode="decimal" value="${carbs || ''}" placeholder="0" oninput="calcScanFoodCal()"
-              class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
+            <input id="scan-food-carb" type="text" inputmode="decimal" value="${carbs || ''}" placeholder="0" oninput="calcScanFoodCal()"              class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
           </div>
           <div>
-            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Fat</label>
-            <input id="scan-food-fat" type="text" inputmode="decimal" value="${fat || ''}" placeholder="0" oninput="calcScanFoodCal()"
-              class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
+            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Protein</label>
+            <input id="scan-food-pro" type="text" inputmode="decimal" value="${protein || ''}" placeholder="0" oninput="calcScanFoodCal()"              class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
           </div>
         </div>
         <div class="border-t border-ink/10 pt-3">
@@ -3395,10 +3399,9 @@ async function lookupBarcodeForMeal(barcode) {
     if (localFood) {
       closeBarcodeScanner();
       showScanToast('Found in your library — added to meal', 'success');
-      // Add directly to meal
+      // Add directly to meal with per-100g macros and default 100g
       if (!window._mealFormFoods) window._mealFormFoods = [];
-      const ratio = (localFood.serving_size || 100) / 100;
-      window._mealFormFoods.push({ foodId: localFood.id, name: localFood.name, servings: 1, calories: localFood.calories * ratio, protein: localFood.protein * ratio, carbs: localFood.carbs * ratio, fat: localFood.fat * ratio });
+      window._mealFormFoods.push({ foodId: localFood.id, name: localFood.name, grams: 100, servingSize: localFood.serving_size || 100, calories: localFood.calories, protein: localFood.protein, carbs: localFood.carbs, fat: localFood.fat });
       reRenderMealForm();
       if (window._mealFormName) {
         const nameInput = document.getElementById('meal-name');
@@ -3559,9 +3562,9 @@ let _trendRange = 7;
 async function renderNutritionTrends() {
   const METRICS = [
     { key: 'calories', label: 'Cal', color: '#CCFF00' },
-    { key: 'protein', label: 'Protein', color: '#7C3AED' },
     { key: 'fat', label: 'Fat', color: '#F59E0B' },
     { key: 'carbs', label: 'Carbs', color: '#3B82F6' },
+    { key: 'protein', label: 'Protein', color: '#7C3AED' },
   ];
   const RANGES = [7, 14, 30];
 
@@ -3872,7 +3875,7 @@ function buildFoodsTab(foods) {
       <button onclick="showFoodServingsModal(${f.id}, '${f.name.replace(/'/g, "\\'")}', ${f.calories}, ${f.protein}, ${f.carbs}, ${f.fat}, ${f.serving_size ? `'${f.serving_unit}'` : 'null'}, ${f.serving_size || 'null'})"
         class="flex-1 min-w-0 mr-2 text-left active:bg-ink/5 transition-colors duration-200">
         <span class="font-bold text-[14px] block truncate">${f.name}</span>
-        <span class="text-[11px] text-ink/40">${servingLabel} · ${Math.round(f.calories)} cal/100g · ${Math.round(f.protein)}p · ${Math.round(f.carbs)}c · ${Math.round(f.fat)}f</span>
+        <span class="text-[11px] text-ink/40">${servingLabel} · ${Math.round(f.calories)} cal/100g · ${Math.round(f.fat)}f · ${Math.round(f.carbs)}c · ${Math.round(f.protein)}p</span>
       </button>
       <div class="flex items-center gap-1 flex-shrink-0">
         <button onclick="navigate('#nutrition/food/${f.id}')" class="w-8 h-8 flex items-center justify-center text-ink/30 active:text-ink transition-colors duration-200">
@@ -3909,7 +3912,7 @@ function buildMealsTab(meals) {
           <button onclick="deleteMeal(${m.id})" class="w-8 h-8 flex items-center justify-center text-ink/20 hover:text-red-500 transition-colors duration-200">&times;</button>
         </div>
       </div>
-      <p class="text-xs text-ink/40 mb-3">${Math.round(m.totalCalories)} cal · ${Math.round(m.totalProtein)}p · ${Math.round(m.totalCarbs)}c · ${Math.round(m.totalFat)}f</p>
+      <p class="text-xs text-ink/40 mb-3">${Math.round(m.totalCalories)} cal · ${Math.round(m.totalFat)}f · ${Math.round(m.totalCarbs)}c · ${Math.round(m.totalProtein)}p</p>
       <button onclick="quickLogMeal(${m.id})" class="w-full py-2 bg-white/10 text-white rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20">
         Log Meal
       </button>
@@ -4061,19 +4064,16 @@ async function renderFoodForm(id) {
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Protein (g)</label>
-            <input id="food-protein" type="text" inputmode="decimal" value="${food.protein}" placeholder="0" oninput="calcFoodCalories()"
-              class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold focus:border-acid focus:outline-none transition-colors duration-200">
+            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Fat (g)</label>
+            <input id="food-fat" type="text" inputmode="decimal" value="${food.fat}" placeholder="0" oninput="calcFoodCalories()"              class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold focus:border-acid focus:outline-none transition-colors duration-200">
           </div>
           <div>
             <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Carbs (g)</label>
-            <input id="food-carbs" type="text" inputmode="decimal" value="${food.carbs}" placeholder="0" oninput="calcFoodCalories()"
-              class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold focus:border-acid focus:outline-none transition-colors duration-200">
+            <input id="food-carbs" type="text" inputmode="decimal" value="${food.carbs}" placeholder="0" oninput="calcFoodCalories()"              class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold focus:border-acid focus:outline-none transition-colors duration-200">
           </div>
           <div>
-            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Fat (g)</label>
-            <input id="food-fat" type="text" inputmode="decimal" value="${food.fat}" placeholder="0" oninput="calcFoodCalories()"
-              class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold focus:border-acid focus:outline-none transition-colors duration-200">
+            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Protein (g)</label>
+            <input id="food-protein" type="text" inputmode="decimal" value="${food.protein}" placeholder="0" oninput="calcFoodCalories()"              class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold focus:border-acid focus:outline-none transition-colors duration-200">
           </div>
         </div>
 
@@ -4161,10 +4161,10 @@ async function renderMealForm(id) {
     const found = meals.find(m => m.id === parseInt(id));
     if (found) {
       meal.name = found.name;
-      // Convert per-100g macros to per-serving for meal form display
+      // Store macros per 100g and grams (convert servings multiplier back to grams)
       meal.foods = found.foods.map(f => {
-        const ratio = (f.serving_size || 100) / 100;
-        return { foodId: f.food_id, name: f.name, servings: f.servings, calories: f.calories * ratio, protein: f.protein * ratio, carbs: f.carbs * ratio, fat: f.fat * ratio };
+        const grams = f.servings * (f.serving_size || 100);
+        return { foodId: f.food_id, name: f.name, grams, servingSize: f.serving_size || 100, calories: f.calories, protein: f.protein, carbs: f.carbs, fat: f.fat };
       });
     }
   }
@@ -4178,22 +4178,22 @@ async function renderMealForm(id) {
 function renderMealFormInner(id, mealName, allFoods) {
   const foods = window._mealFormFoods || [];
 
-  const totalCal = foods.reduce((s, f) => s + (f.calories || 0) * f.servings, 0);
-  const totalPro = foods.reduce((s, f) => s + (f.protein || 0) * f.servings, 0);
-  const totalCarb = foods.reduce((s, f) => s + (f.carbs || 0) * f.servings, 0);
-  const totalFat = foods.reduce((s, f) => s + (f.fat || 0) * f.servings, 0);
+  const totalCal = foods.reduce((s, f) => s + (f.calories || 0) * (f.grams || 0) / 100, 0);
+  const totalPro = foods.reduce((s, f) => s + (f.protein || 0) * (f.grams || 0) / 100, 0);
+  const totalCarb = foods.reduce((s, f) => s + (f.carbs || 0) * (f.grams || 0) / 100, 0);
+  const totalFat = foods.reduce((s, f) => s + (f.fat || 0) * (f.grams || 0) / 100, 0);
 
   const foodListHtml = foods.length > 0 ? foods.map((f, i) => `
     <div class="flex items-center justify-between py-2 border-b border-ink/10 last:border-0">
       <div class="flex-1 min-w-0 mr-2">
         <span class="font-bold text-sm truncate block">${f.name}</span>
-        <span class="text-xs text-ink/40">${Math.round(f.calories * f.servings)} cal</span>
+        <span class="text-xs text-ink/40">${Math.round(f.calories * (f.grams || 0) / 100)} cal</span>
       </div>
-      <div class="flex items-center gap-2 flex-shrink-0">
-        <button onclick="adjustMealFoodServings(${i}, -0.5, ${id || 'null'}, '${(mealName || '').replace(/'/g, "\\'")}', ${JSON.stringify(allFoods).length > 5000 ? 'null' : 'null'})" class="w-8 h-8 border border-ink/15 font-bold text-sm active:bg-white/20 active:text-white transition-colors duration-200">&minus;</button>
-        <span class="text-sm font-bold w-8 text-center">${f.servings}</span>
-        <button onclick="adjustMealFoodServings(${i}, 0.5, ${id || 'null'}, '${(mealName || '').replace(/'/g, "\\'")}', null)" class="w-8 h-8 border border-ink/15 font-bold text-sm active:bg-white/20 active:text-white transition-colors duration-200">+</button>
-        <button onclick="removeMealFood(${i}, ${id || 'null'}, '${(mealName || '').replace(/'/g, "\\'")}', null)" class="text-ink/20 hover:text-red-500 text-xs font-bold transition-colors duration-200 ml-1">&times;</button>
+      <div class="flex items-center gap-1.5 flex-shrink-0">
+        <input type="text" inputmode="decimal" value="${f.grams}" onchange="updateMealFoodGrams(${i}, this.value)"
+          class="w-14 h-8 text-center border border-ink/15 rounded bg-transparent text-sm font-bold focus:border-acid focus:outline-none transition-colors duration-200">
+        <span class="text-xs text-ink/40">g</span>
+        <button onclick="removeMealFood(${i})" class="text-ink/20 hover:text-red-500 text-xs font-bold transition-colors duration-200 ml-1">&times;</button>
       </div>
     </div>
   `).join('') : '<p class="text-sm text-ink/30 py-2">No foods added yet.</p>';
@@ -4231,16 +4231,16 @@ function renderMealFormInner(id, mealName, allFoods) {
             <span class="text-[10px] font-bold uppercase text-ink/40">Cal</span>
           </div>
           <div>
-            <span class="text-lg font-black block">${Math.round(totalPro)}</span>
-            <span class="text-[10px] font-bold uppercase text-ink/40">Pro</span>
+            <span class="text-lg font-black block">${Math.round(totalFat)}</span>
+            <span class="text-[10px] font-bold uppercase text-ink/40">Fat</span>
           </div>
           <div>
             <span class="text-lg font-black block">${Math.round(totalCarb)}</span>
             <span class="text-[10px] font-bold uppercase text-ink/40">Carb</span>
           </div>
           <div>
-            <span class="text-lg font-black block">${Math.round(totalFat)}</span>
-            <span class="text-[10px] font-bold uppercase text-ink/40">Fat</span>
+            <span class="text-lg font-black block">${Math.round(totalPro)}</span>
+            <span class="text-[10px] font-bold uppercase text-ink/40">Pro</span>
           </div>
         </div>
       </div>
@@ -4258,10 +4258,10 @@ function renderMealFormInner(id, mealName, allFoods) {
   `;
 }
 
-function adjustMealFoodServings(index, delta) {
+function updateMealFoodGrams(index, value) {
   if (!window._mealFormFoods) return;
-  const f = window._mealFormFoods[index];
-  f.servings = Math.max(0.5, f.servings + delta);
+  const grams = parseFloat(value) || 0;
+  window._mealFormFoods[index].grams = Math.max(0, grams);
   reRenderMealForm();
 }
 
@@ -4331,9 +4331,8 @@ function closeFoodPickerModal() {
 
 function pickFoodForMeal(foodId, name, cal, pro, carb, fat, servingGrams) {
   if (!window._mealFormFoods) window._mealFormFoods = [];
-  // Convert per-100g macros to per-serving
-  const ratio = (servingGrams || 100) / 100;
-  window._mealFormFoods.push({ foodId, name, servings: 1, calories: cal * ratio, protein: pro * ratio, carbs: carb * ratio, fat: fat * ratio });
+  // Store macros per 100g and default to 100g
+  window._mealFormFoods.push({ foodId, name, grams: 100, servingSize: servingGrams || 100, calories: cal, protein: pro, carbs: carb, fat: fat });
   closeFoodPickerModal();
   reRenderMealForm();
   // Restore meal name
@@ -4366,19 +4365,16 @@ function showInlineFoodCreator() {
       </div>
       <div class="grid grid-cols-2 gap-2">
         <div>
-          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Protein (g)</label>
-          <input id="inline-food-pro" type="text" inputmode="decimal" placeholder="0" oninput="calcInlineFoodCalories()"
-            class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
+          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Fat (g)</label>
+          <input id="inline-food-fat" type="text" inputmode="decimal" placeholder="0" oninput="calcInlineFoodCalories()"            class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
         </div>
         <div>
           <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Carbs (g)</label>
-          <input id="inline-food-carb" type="text" inputmode="decimal" placeholder="0" oninput="calcInlineFoodCalories()"
-            class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
+          <input id="inline-food-carb" type="text" inputmode="decimal" placeholder="0" oninput="calcInlineFoodCalories()"            class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
         </div>
         <div>
-          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Fat (g)</label>
-          <input id="inline-food-fat" type="text" inputmode="decimal" placeholder="0" oninput="calcInlineFoodCalories()"
-            class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
+          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Protein (g)</label>
+          <input id="inline-food-pro" type="text" inputmode="decimal" placeholder="0" oninput="calcInlineFoodCalories()"            class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
         </div>
       </div>
       <div class="border-t border-ink/10 pt-3">
@@ -4423,10 +4419,9 @@ async function saveInlineFood() {
     const food = await api('POST', '/nutrition/foods', { name, calories: cal, protein: pro, carbs: carb, fat: fat, servingName, servingGrams, barcode });
     _searchFoods = null;
 
-    // Add to meal form with per-serving macros
+    // Add to meal form with per-100g macros and default 100g
     if (!window._mealFormFoods) window._mealFormFoods = [];
-    const ratio = (food.serving_size || 100) / 100;
-    window._mealFormFoods.push({ foodId: food.id, name: food.name, servings: 1, calories: food.calories * ratio, protein: food.protein * ratio, carbs: food.carbs * ratio, fat: food.fat * ratio });
+    window._mealFormFoods.push({ foodId: food.id, name: food.name, grams: 100, servingSize: food.serving_size || 100, calories: food.calories, protein: food.protein, carbs: food.carbs, fat: food.fat });
 
     closeFoodPickerModal();
     reRenderMealForm();
@@ -4442,7 +4437,7 @@ async function saveInlineFood() {
 async function saveMeal(id) {
   const name = document.getElementById('meal-name')?.value.trim();
   if (!name) return;
-  const foods = (window._mealFormFoods || []).map(f => ({ foodId: f.foodId, servings: f.servings }));
+  const foods = (window._mealFormFoods || []).map(f => ({ foodId: f.foodId, servings: f.grams / (f.servingSize || 100) }));
   if (id) {
     await api('PUT', `/nutrition/meals/${id}`, { name, foods });
   } else {
