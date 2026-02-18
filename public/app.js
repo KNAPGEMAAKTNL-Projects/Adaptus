@@ -1,4 +1,4 @@
-const APP_VERSION = 'v72';
+const APP_VERSION = 'v73';
 console.log('[Adaptus]', APP_VERSION);
 
 // Auto-select input contents on focus for all numeric/decimal inputs
@@ -3921,7 +3921,7 @@ function buildFoodsTab(foods) {
       <button onclick="showFoodServingsModal(${f.id}, '${f.name.replace(/'/g, "\\'")}', ${f.calories}, ${f.protein}, ${f.carbs}, ${f.fat}, ${f.serving_size ? `'${f.serving_unit}'` : 'null'}, ${f.serving_size || 'null'})"
         class="flex-1 min-w-0 mr-2 text-left active:bg-ink/5 transition-colors duration-200">
         <span class="font-bold text-[14px] block truncate">${f.name}</span>
-        <span class="text-[11px] text-ink/40">${servingLabel} · ${Math.round(f.calories)} cal/100g · ${Math.round(f.fat)}f · ${Math.round(f.carbs)}c · ${Math.round(f.protein)}p</span>
+        <span class="text-[11px] text-ink/40">${servingLabel} · ${Math.round(f.calories)} cal · <span class="text-[#F59E0B]">${Math.round(f.fat)}f</span> · <span class="text-[#3B82F6]">${Math.round(f.carbs)}c</span> · <span class="text-[#7C3AED]">${Math.round(f.protein)}p</span></span>
       </button>
       <div class="flex items-center gap-1 flex-shrink-0">
         <button onclick="navigate('#nutrition/food/${f.id}')" class="w-8 h-8 flex items-center justify-center text-ink/30 active:text-ink transition-colors duration-200">
