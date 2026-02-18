@@ -1,4 +1,4 @@
-const APP_VERSION = 'v73';
+const APP_VERSION = 'v74';
 console.log('[Adaptus]', APP_VERSION);
 
 // Auto-select input contents on focus for all numeric/decimal inputs
@@ -258,7 +258,7 @@ async function drawerShowOverview() {
         <div class="mb-4" onclick="drawerShowMilestones()">
           <span class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-2">Recent Milestones</span>
           <div class="flex flex-wrap gap-1.5">
-            ${recentMilestones.map(m => `<span class="text-xs font-bold bg-acid/20 text-acid rounded px-2 py-1">${m.label}</span>`).join('')}
+            ${recentMilestones.map(m => `<span class="text-xs font-bold bg-[#EC4899]/20 text-[#EC4899] rounded px-2 py-1">${m.label}</span>`).join('')}
           </div>
         </div>
       ` : ''}
@@ -275,17 +275,17 @@ async function drawerShowOverview() {
       <button onclick="drawerShowMilestones()" class="w-full border-2 border-white/10 rounded-xl p-4 mb-3 text-left active:bg-white/5 transition-colors duration-200">
         <div class="flex items-center justify-between mb-2">
           <span class="text-[10px] font-bold uppercase tracking-widest text-white/40">Milestones</span>
-          <span class="text-xs font-bold bg-acid text-canvas rounded px-2 py-0.5">${earnedCount}/${totalCount}</span>
+          <span class="text-xs font-bold bg-[#EC4899] text-canvas rounded px-2 py-0.5">${earnedCount}/${totalCount}</span>
         </div>
         <div class="h-1.5 bg-white/10 rounded-full overflow-hidden">
-          <div class="h-full bg-acid rounded-full" style="width: ${pct}%"></div>
+          <div class="h-full bg-[#EC4899] rounded-full" style="width: ${pct}%"></div>
         </div>
       </button>
 
       <button onclick="drawerShowPRWall()" class="w-full border-2 border-white/10 rounded-xl p-4 mb-5 text-left active:bg-white/5 transition-colors duration-200">
         <div class="flex items-center justify-between">
           <span class="text-[10px] font-bold uppercase tracking-widest text-white/40">PR Wall</span>
-          <span class="text-xs font-bold bg-acid text-canvas rounded px-2 py-0.5">${prCount} PRs</span>
+          <span class="text-xs font-bold bg-[#EC4899] text-canvas rounded px-2 py-0.5">${prCount} PRs</span>
         </div>
       </button>
 
@@ -315,7 +315,7 @@ async function drawerShowMilestones() {
   const milestonesHtml = MILESTONES.map(m => {
     const isEarned = earnedIds.has(m.id);
     return `
-      <div class="p-3 border-2 ${isEarned ? 'border-acid bg-acid/10' : 'border-white/10 opacity-30'} rounded-xl text-center">
+      <div class="p-3 border-2 ${isEarned ? 'border-[#EC4899] bg-[#EC4899]/10' : 'border-white/10 opacity-30'} rounded-xl text-center">
         <div class="text-xs font-bold uppercase tracking-tight leading-tight">${m.label}</div>
       </div>
     `;
@@ -358,9 +358,9 @@ async function drawerShowPRWall() {
   const exercises = await api('GET', '/stats/exercises').catch(() => []);
 
   const cardsHtml = exercises.map(ex => `
-    <div class="border-2 border-acid/20 rounded-xl p-4 text-center">
+    <div class="border-2 border-[#EC4899]/20 rounded-xl p-4 text-center">
       <div class="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-2 truncate">${ex.exercise_name}</div>
-      <div class="text-2xl font-black text-acid leading-none">${ex.best_weight}<span class="text-sm text-white/40">kg</span></div>
+      <div class="text-2xl font-black text-[#EC4899] leading-none">${ex.best_weight}<span class="text-sm text-white/40">kg</span></div>
       <div class="text-xs font-bold text-white/30 mt-1">E1RM ${ex.best_e1rm}kg</div>
     </div>
   `).join('');
@@ -903,12 +903,12 @@ function updateTimerDisplay() {
     display.className = 'text-2xl font-black tabular-nums text-canvas';
     progress.style.width = '100%';
     progress.classList.add('timer-done');
-    bar.className = 'bg-acid text-canvas';
+    bar.className = 'bg-[#06B6D4] text-canvas';
     label.className = 'text-xs font-bold uppercase tracking-widest text-canvas/60';
     if (dismiss) dismiss.className = 'text-xs font-bold uppercase tracking-widest text-canvas/40 hover:text-canvas transition-colors duration-200';
   } else {
     display.textContent = formatTime(state.restTimer.seconds);
-    display.className = 'text-2xl font-black tabular-nums text-acid';
+    display.className = 'text-2xl font-black tabular-nums text-[#06B6D4]';
     const pct = (state.restTimer.seconds / state.restTimer.total) * 100;
     progress.style.width = `${pct}%`;
     progress.classList.remove('timer-done');
@@ -1028,7 +1028,7 @@ async function renderDashboard() {
             <h2 class="text-xl font-black uppercase tracking-tight leading-tight truncate">${state.currentSession.workout_name.split('(')[0].trim()}</h2>
           </div>
           <div class="flex items-baseline gap-2 flex-shrink-0">
-            <span class="workout-elapsed text-sm font-bold tabular-nums text-acid">${getElapsedText()}</span>
+            <span class="workout-elapsed text-sm font-bold tabular-nums text-[#F97316]">${getElapsedText()}</span>
             <span class="text-[10px] text-white/40 font-bold uppercase tracking-widest whitespace-nowrap">C${state.progress.cycle} &middot; W${state.progress.week}${deload ? ' &middot; Deload' : ''}</span>
           </div>
         </div>
@@ -1109,7 +1109,7 @@ async function renderDashboard() {
           </div>
           <div>
             <div class="flex items-center gap-1 mb-0.5">
-              <span class="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
+              <span class="w-1.5 h-1.5 rounded-full bg-[#06B6D4] flex-shrink-0"></span>
               <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">volume</span>
             </div>
             <span class="text-lg font-black leading-none block">${formatVolume(weekSummary.totalVolume)}</span>
@@ -1123,7 +1123,7 @@ async function renderDashboard() {
           </div>
           <div>
             <div class="flex items-center gap-1 mb-0.5">
-              <span class="w-1.5 h-1.5 rounded-full bg-orange-500 flex-shrink-0"></span>
+              <span class="w-1.5 h-1.5 rounded-full bg-[#F97316] flex-shrink-0"></span>
               <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">time</span>
             </div>
             <span class="text-lg font-black leading-none block">${weekSummary.totalDuration ? formatDuration(weekSummary.totalDuration) : '—'}</span>
@@ -1134,7 +1134,7 @@ async function renderDashboard() {
           <div class="flex flex-wrap gap-1.5">
             <span class="text-xs font-bold text-canvas bg-electric rounded px-2 py-0.5">PR</span>
             ${weekSummary.prsThisWeek.map(pr => `
-              <span class="text-xs font-bold bg-acid/20 text-ink rounded px-2 py-1">${pr.exercise_name} ${pr.weight_kg}kg</span>
+              <span class="text-xs font-bold bg-[#EC4899]/20 text-[#EC4899] rounded px-2 py-1">${pr.exercise_name} ${pr.weight_kg}kg</span>
             `).join('')}
           </div>
         ` : ''}
@@ -1339,8 +1339,8 @@ function showMilestoneCelebration(milestone) {
   celebration.id = 'milestone-celebration';
   celebration.className = 'fixed inset-0 z-[90] flex items-center justify-center pointer-events-none';
   celebration.innerHTML = `
-    <div class="bg-[#1a1a1a] border-2 border-acid/30 text-white rounded-xl px-8 py-6 text-center animate-pr-pop backdrop-blur-xl pointer-events-auto" onclick="this.parentElement.remove()">
-      <div class="text-[10px] font-bold uppercase tracking-widest text-acid mb-3">Milestone Unlocked</div>
+    <div class="bg-[#1a1a1a] border-2 border-[#EC4899]/30 text-white rounded-xl px-8 py-6 text-center animate-pr-pop backdrop-blur-xl pointer-events-auto" onclick="this.parentElement.remove()">
+      <div class="text-[10px] font-bold uppercase tracking-widest text-[#EC4899] mb-3">Milestone Unlocked</div>
       <div class="text-2xl font-black uppercase tracking-tight">${milestone.label}</div>
     </div>
   `;
@@ -1414,14 +1414,14 @@ async function renderStats() {
           </div>
           <div>
             <div class="flex items-center gap-1.5 mb-1">
-              <span class="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0"></span>
+              <span class="w-2 h-2 rounded-full bg-[#06B6D4] flex-shrink-0"></span>
               <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">volume (kg)</span>
             </div>
             <span class="text-3xl font-black leading-none block">${formatVolume(summary.totalVolume)}</span>
           </div>
           <div>
             <div class="flex items-center gap-1.5 mb-1">
-              <span class="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0"></span>
+              <span class="w-2 h-2 rounded-full bg-[#F97316] flex-shrink-0"></span>
               <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">avg duration</span>
             </div>
             <span class="text-3xl font-black leading-none block">${summary.avgDuration ? formatDuration(summary.avgDuration) : '—'}</span>
@@ -1474,7 +1474,7 @@ async function renderWorkouts() {
       badge = '<span class="text-xs font-bold text-white/40 bg-white/10 rounded px-2 py-0.5">Skipped</span>';
       bgClass = 'bg-white/5';
     } else if (isActive) {
-      badge = `<span class="text-xs font-bold text-white bg-white/15 rounded px-2 py-0.5 flex items-center gap-1.5">In Progress <span class="workout-elapsed tabular-nums text-acid">${getElapsedText()}</span></span>`;
+      badge = `<span class="text-xs font-bold text-white bg-white/15 rounded px-2 py-0.5 flex items-center gap-1.5">In Progress <span class="workout-elapsed tabular-nums text-[#F97316]">${getElapsedText()}</span></span>`;
     }
     return `
       <button onclick="startWorkoutFlow('${wo.templateId}')" class="w-full ${bgClass} text-white rounded-xl px-4 py-3 text-left transition-colors duration-200 active:bg-white/20">
@@ -1738,7 +1738,7 @@ async function renderWorkout(templateId) {
         <button onclick="navigate('#workouts')" class="text-sm font-bold text-ink/40 uppercase tracking-widest flex items-center gap-1 active:text-ink transition-colors duration-200">
           <span class="text-lg leading-none">&larr;</span> Back
         </button>
-        ${isActive ? `<span class="workout-elapsed text-sm font-bold tabular-nums text-electric min-w-[3.5rem] text-right">${getElapsedText()}</span>` : ''}
+        ${isActive ? `<span class="workout-elapsed text-sm font-bold tabular-nums text-[#F97316] min-w-[3.5rem] text-right">${getElapsedText()}</span>` : ''}
       </div>
 
       <div class="mb-4">
@@ -2051,7 +2051,7 @@ async function renderExercise(index) {
         <button onclick="navigate('#workout/${workout.templateId}')" class="text-sm font-bold text-ink/40 uppercase tracking-widest flex items-center gap-1 active:text-ink transition-colors duration-200">
           <span class="text-lg leading-none">&larr;</span> ${workoutName}
         </button>
-        ${state.currentSession && !state.currentSession.completed_at ? `<span class="workout-elapsed text-sm font-bold tabular-nums text-electric min-w-[3.5rem] text-right">${getElapsedText()}</span>` : ''}
+        ${state.currentSession && !state.currentSession.completed_at ? `<span class="workout-elapsed text-sm font-bold tabular-nums text-[#F97316] min-w-[3.5rem] text-right">${getElapsedText()}</span>` : ''}
       </div>
 
       <!-- Exercise name -->
@@ -2094,7 +2094,7 @@ async function renderExercise(index) {
           </div>
           <div>
             <div class="flex items-center gap-1 mb-0.5">
-              <span class="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
+              <span class="w-1.5 h-1.5 rounded-full bg-[#06B6D4] flex-shrink-0"></span>
               <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">rest</span>
             </div>
             <span class="font-black text-lg leading-none">${exercise.rest}</span>
@@ -2198,10 +2198,10 @@ function showPrCelebration(exerciseName, weight) {
   celebration.id = 'pr-celebration';
   celebration.className = 'fixed inset-0 z-[90] flex items-center justify-center pointer-events-none';
   celebration.innerHTML = `
-    <div class="bg-[#1a1a1a] border-2 border-acid/30 text-white rounded-xl px-8 py-6 text-center animate-pr-pop backdrop-blur-xl pointer-events-auto" onclick="this.parentElement.remove()">
-      <div class="text-4xl font-black text-acid mb-2">NEW PR</div>
+    <div class="bg-[#1a1a1a] border-2 border-[#EC4899]/30 text-white rounded-xl px-8 py-6 text-center animate-pr-pop backdrop-blur-xl pointer-events-auto" onclick="this.parentElement.remove()">
+      <div class="text-4xl font-black text-[#EC4899] mb-2">NEW PR</div>
       <div class="text-lg font-bold">${exerciseName}</div>
-      <div class="text-3xl font-black text-acid mt-1">${weight}kg</div>
+      <div class="text-3xl font-black text-[#EC4899] mt-1">${weight}kg</div>
     </div>
   `;
   document.body.appendChild(celebration);
