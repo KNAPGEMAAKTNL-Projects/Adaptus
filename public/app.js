@@ -1,4 +1,4 @@
-const APP_VERSION = 'v70';
+const APP_VERSION = 'v71';
 console.log('[Adaptus]', APP_VERSION);
 
 // Auto-select input contents on focus for all numeric/decimal inputs
@@ -2736,6 +2736,7 @@ function drawWeightChart(history) {
 // ─── Nutrition State ─────────────────────────────────────────────────────────
 let nutritionDate = new Date().toISOString().split('T')[0];
 let _searchFoods = null;
+let _searchMeals = null;
 
 function getNutritionDateLabel() {
   return new Date(nutritionDate + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
@@ -2953,7 +2954,7 @@ function showNutritionSearchBar() {
     <div class="flex items-center gap-2 px-3 py-2 bg-[#1a1a1a] border-t border-white/10">
       <button onclick="openNutritionSearch()" class="flex-1 flex items-center gap-2 h-10 px-3 bg-ink/5 rounded-lg active:bg-ink/10 transition-colors duration-200">
         <svg class="text-ink/30 flex-shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <span class="text-sm text-ink/30 font-medium">Search food database</span>
+        <span class="text-sm text-ink/30 font-medium">Search foods & meals</span>
       </button>
       <button onclick="openBarcodeScanner()" class="w-10 h-10 flex items-center justify-center bg-ink/10 rounded-full active:bg-ink/15 transition-colors duration-200 flex-shrink-0" title="Scan barcode">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="16" x2="17" y2="16"/></svg>
@@ -2983,7 +2984,7 @@ async function openNutritionSearch() {
     <div class="bg-[#1a1a1a] rounded-t-2xl border-t border-white/10 max-h-[60vh] flex flex-col">
       <div class="flex items-center gap-2 px-3 py-3 border-b border-ink/5">
         <svg class="text-ink/30 flex-shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input id="nutrition-search-input" type="text" placeholder="Search foods..."
+        <input id="nutrition-search-input" type="text" placeholder="Search foods & meals..."
           oninput="filterNutritionSearch(this.value)"
           class="flex-1 text-sm font-bold bg-transparent focus:outline-none">
         <button onclick="closeNutritionSearch()" class="text-ink/30 text-xs font-bold uppercase active:text-ink transition-colors duration-200">Cancel</button>
@@ -3002,10 +3003,13 @@ async function openNutritionSearch() {
     document.getElementById('nutrition-search-input')?.focus();
   });
 
-  // Load foods
-  if (!_searchFoods) {
-    _searchFoods = await api('GET', '/nutrition/foods');
-  }
+  // Load foods and meals
+  const [foods, meals] = await Promise.all([
+    _searchFoods ? _searchFoods : api('GET', '/nutrition/foods'),
+    _searchMeals ? _searchMeals : api('GET', '/nutrition/meals'),
+  ]);
+  _searchFoods = foods;
+  _searchMeals = meals;
   filterNutritionSearch('');
 }
 
@@ -3013,23 +3017,52 @@ function filterNutritionSearch(query) {
   const results = document.getElementById('nutrition-search-results');
   if (!results || !_searchFoods) return;
   const q = query.toLowerCase().trim();
-  const filtered = q ? _searchFoods.filter(f => f.name.toLowerCase().includes(q)) : _searchFoods;
-  if (filtered.length === 0) {
-    results.innerHTML = '<p class="text-sm text-ink/30 py-4 text-center">No foods found.</p>';
+
+  // Filter meals
+  const filteredMeals = (_searchMeals || []).filter(m => !q || m.name.toLowerCase().includes(q));
+  // Filter foods
+  const filteredFoods = _searchFoods.filter(f => !q || f.name.toLowerCase().includes(q));
+
+  if (filteredMeals.length === 0 && filteredFoods.length === 0) {
+    results.innerHTML = '<p class="text-sm text-ink/30 py-4 text-center">No results found.</p>';
     return;
   }
-  results.innerHTML = filtered.map(f => {
-    const servingLabel = f.serving_unit ? `1 ${f.serving_unit} = ${f.serving_size}g` : 'per 100g';
-    return `
-      <button onclick="closeNutritionSearch();showFoodServingsModal(${f.id}, '${f.name.replace(/'/g, "\\'")}', ${f.calories}, ${f.protein}, ${f.carbs}, ${f.fat}, ${f.serving_size ? `'${f.serving_unit}'` : 'null'}, ${f.serving_size || 'null'})"
+
+  let html = '';
+
+  // Meals first
+  if (filteredMeals.length > 0) {
+    html += filteredMeals.map(m => `
+      <button onclick="closeNutritionSearch();quickLogMeal(${m.id})"
         class="flex items-center justify-between py-3 border-b border-ink/5 last:border-0 w-full text-left active:bg-ink/5 transition-colors duration-200">
         <div class="flex-1 min-w-0 mr-3">
-          <span class="font-bold text-[14px] block truncate">${f.name}</span>
-          <span class="text-[11px] text-ink/40">${servingLabel} · ${Math.round(f.calories)} cal/100g</span>
+          <span class="font-bold text-[14px] block truncate flex items-center gap-1.5">${getMealIcon(m.name)}<span class="truncate">${m.name}</span></span>
+          <span class="text-[11px] text-ink/40">${m.foods.length} foods · ${Math.round(m.totalCalories)} cal</span>
         </div>
-        <span class="text-[11px] text-ink/40 flex-shrink-0">${Math.round(f.fat)}f · ${Math.round(f.carbs)}c · ${Math.round(f.protein)}p</span>
-      </button>`;
-  }).join('');
+        <span class="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-400 flex-shrink-0">Meal</span>
+      </button>`).join('');
+  }
+
+  // Foods
+  if (filteredFoods.length > 0) {
+    if (filteredMeals.length > 0) {
+      html += '<div class="border-t border-ink/10 mt-1 pt-1"></div>';
+    }
+    html += filteredFoods.map(f => {
+      const servingLabel = f.serving_unit ? `1 ${f.serving_unit} = ${f.serving_size}g` : 'per 100g';
+      return `
+        <button onclick="closeNutritionSearch();showFoodServingsModal(${f.id}, '${f.name.replace(/'/g, "\\'")}', ${f.calories}, ${f.protein}, ${f.carbs}, ${f.fat}, ${f.serving_size ? `'${f.serving_unit}'` : 'null'}, ${f.serving_size || 'null'})"
+          class="flex items-center justify-between py-3 border-b border-ink/5 last:border-0 w-full text-left active:bg-ink/5 transition-colors duration-200">
+          <div class="flex-1 min-w-0 mr-3">
+            <span class="font-bold text-[14px] block truncate">${f.name}</span>
+            <span class="text-[11px] text-ink/40">${servingLabel} · ${Math.round(f.calories)} cal/100g</span>
+          </div>
+          <span class="text-[11px] text-ink/40 flex-shrink-0"><span class="text-[#F59E0B]">${Math.round(f.fat)}f</span> · <span class="text-[#3B82F6]">${Math.round(f.carbs)}c</span> · <span class="text-[#7C3AED]">${Math.round(f.protein)}p</span></span>
+        </button>`;
+    }).join('');
+  }
+
+  results.innerHTML = html;
 }
 
 function closeNutritionSearch() {
@@ -4492,12 +4525,14 @@ async function saveMeal(id) {
     await api('POST', '/nutrition/meals', { name, foods });
   }
   window._mealFormFoods = null;
+  _searchMeals = null;
   history.back();
 }
 
 async function deleteMeal(id) {
   await api('DELETE', `/nutrition/meals/${id}`);
   window._mealFormFoods = null;
+  _searchMeals = null;
   // If on the library page, re-render meals tab; otherwise go back
   if (location.hash === '#nutrition/meals' || location.hash === '#nutrition/add') renderNutritionAdd('meals');
   else history.back();
