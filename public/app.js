@@ -1,4 +1,4 @@
-const APP_VERSION = 'v77';
+const APP_VERSION = 'v78';
 console.log('[Adaptus]', APP_VERSION);
 
 // Auto-select input contents on focus for all numeric/decimal inputs
@@ -1537,12 +1537,43 @@ function filterExerciseList(query) {
 }
 
 // ─── View: Workouts ─────────────────────────────────────────────────────────
-async function renderWorkouts() {
+async function renderWorkouts(skipAutoNav) {
+  // Auto-navigate to first incomplete week on initial page visit
+  if (!skipAutoNav) {
+    const firstIncomplete = await api('GET', `/workouts/first-incomplete-week?cycle=${state.progress.cycle}`).catch(() => null);
+    if (firstIncomplete && firstIncomplete.week !== state.progress.week) {
+      state.progress = await api('PUT', '/progress', { cycle: state.progress.cycle, week: firstIncomplete.week });
+    }
+  }
+
   const week = await getWeekData();
   if (!week) return;
   const deload = isDeloadWeek(state.progress.week);
   const statusData = await api('GET', `/workouts/status?cycle=${state.progress.cycle}&week=${state.progress.week}`);
   const activeTemplateId = state.currentSession && !state.currentSession.completed_at && !state.currentSession.skipped_at ? state.currentSession.workout_template_id : null;
+
+  // Build completion details map
+  const completedDetails = {};
+  if (statusData.completedDetails) {
+    statusData.completedDetails.forEach(d => { completedDetails[d.templateId] = d; });
+  }
+
+  // Batch-fetch duration estimates for upcoming workouts
+  const estimates = {};
+  const upcomingWorkouts = week.workouts.filter(wo =>
+    !statusData.completed.includes(wo.templateId) &&
+    !statusData.skipped.includes(wo.templateId) &&
+    wo.templateId !== activeTemplateId
+  );
+  await Promise.all(upcomingWorkouts.map(async wo => {
+    const names = wo.exercises.map(e => encodeURIComponent(e.name)).join(',');
+    const sets = wo.exercises.map(e => e.workingSets).join(',');
+    try {
+      const est = await api('GET', `/stats/estimate-duration/${wo.templateId}?exercises=${names}&sets=${sets}`);
+      if (est && est.estimatedMinutes) estimates[wo.templateId] = est.estimatedMinutes;
+    } catch (e) {}
+  }));
+
   const workoutCards = week.workouts.map(wo => {
     const focus = wo.focus;
     const name = wo.name.split('(')[0].trim();
@@ -1551,14 +1582,24 @@ async function renderWorkouts() {
     const isActive = wo.templateId === activeTemplateId;
     let badge = `<span class="text-sm text-ink/40">${wo.exercises.length} exercises</span>`;
     let bgClass = 'bg-white/10';
+    let timeText = '';
     if (completed) {
       badge = '<span class="text-xs font-bold text-canvas bg-acid rounded px-2 py-0.5">Done</span>';
       bgClass = 'bg-white/8 border border-ink/10';
+      const detail = completedDetails[wo.templateId];
+      if (detail) {
+        const parts = [];
+        if (detail.completedAt) parts.push(new Date(detail.completedAt + 'Z').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+        if (detail.duration > 0) parts.push(`${detail.duration}m`);
+        if (parts.length) timeText = `<p class="text-xs text-ink/30 mt-0.5">${parts.join(' · ')}</p>`;
+      }
     } else if (skipped) {
       badge = '<span class="text-xs font-bold text-ink/40 bg-white/10 rounded px-2 py-0.5">Skipped</span>';
       bgClass = 'bg-white/5';
     } else if (isActive) {
       badge = `<span class="text-xs font-bold text-white bg-white/15 rounded px-2 py-0.5 flex items-center gap-1.5">In Progress <span class="workout-elapsed tabular-nums text-[#F97316]">${getElapsedText()}</span></span>`;
+    } else if (estimates[wo.templateId]) {
+      timeText = `<p class="text-xs text-ink/30 mt-0.5">~${estimates[wo.templateId]}m</p>`;
     }
     return `
       <button onclick="startWorkoutFlow('${wo.templateId}')" class="w-full ${bgClass} text-white rounded-xl px-4 py-3 text-left transition-colors duration-200 active:bg-white/20">
@@ -1566,6 +1607,7 @@ async function renderWorkouts() {
           <div>
             <h3 class="text-lg font-black uppercase tracking-tight">${name}</h3>
             <p class="text-sm text-white/50 font-bold uppercase tracking-widest">${focus}</p>
+            ${timeText}
           </div>
           <div class="text-right flex items-center gap-2">
             ${badge}
@@ -1648,7 +1690,7 @@ async function changeWeek(dir) {
 
   const progress = await api('PUT', '/progress', { cycle: newCycle, week: newWeek });
   state.progress = progress;
-  renderWorkouts();
+  renderWorkouts(true);
 }
 
 function showCycleModal(fromCycle, toCycle) {
@@ -1689,7 +1731,7 @@ function closeCycleModal() {
 async function confirmCycleChange(newCycle, newWeek) {
   closeCycleModal();
   state.progress = await api('PUT', '/progress', { cycle: newCycle, week: newWeek });
-  renderWorkouts();
+  renderWorkouts(true);
 }
 
 async function startWorkoutFlow(templateId, directStart = false) {
