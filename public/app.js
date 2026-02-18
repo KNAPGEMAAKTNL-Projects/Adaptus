@@ -1,4 +1,4 @@
-const APP_VERSION = 'v71';
+const APP_VERSION = 'v72';
 console.log('[Adaptus]', APP_VERSION);
 
 // Auto-select input contents on focus for all numeric/decimal inputs
@@ -2881,7 +2881,7 @@ function buildCompactMacroBar(totals, targets) {
       <div class="flex-1 min-w-0">
         <div class="flex items-center justify-between text-xs">
           <svg class="flex-shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#CCFF00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12c2-2.96 0-7-1-8 0 3.038-1.773 4.741-3 6-1.226 1.26-2 3.24-2 5a6 6 0 1 0 12 0c0-1.532-1.056-3.94-2-5-1.786 3-2.791 3-4 2z"/></svg>
-          <span class="font-bold tabular-nums">${Math.round(totals.calories)} <span class="text-ink/30">/ ${Math.round(targets.calories)}</span></span>
+          <span class="font-bold tabular-nums">${Math.round(totals.calories)}</span>
         </div>
         ${miniBar(totals.calories, targets.calories, '#CCFF00')}
       </div>
