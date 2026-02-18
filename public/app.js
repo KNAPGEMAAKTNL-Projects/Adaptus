@@ -1,4 +1,4 @@
-const APP_VERSION = 'v79';
+const APP_VERSION = 'v80';
 console.log('[Adaptus]', APP_VERSION);
 
 // Auto-select input contents on focus for all numeric/decimal inputs
@@ -153,8 +153,39 @@ async function api(method, path, body) {
   return res.json();
 }
 
+const _apiCache = {};
+function cachedApi(method, path, ttl = 30000) {
+  if (method !== 'GET') return api(method, path);
+  const cached = _apiCache[path];
+  if (cached && Date.now() - cached.time < ttl) return Promise.resolve(cached.data);
+  return api(method, path).then(data => {
+    _apiCache[path] = { data, time: Date.now() };
+    return data;
+  });
+}
+function invalidateCache(prefix) {
+  for (const key of Object.keys(_apiCache)) {
+    if (key.startsWith(prefix)) delete _apiCache[key];
+  }
+}
+
 // ─── Init ────────────────────────────────────────────────────────────────────
 async function init() {
+  // Show skeleton UI immediately while loading
+  document.getElementById('app').innerHTML = `
+    <div class="px-3 pt-6" style="padding-bottom:var(--page-pb)">
+      <div class="h-8 w-48 bg-white/10 rounded-lg mb-2 animate-pulse"></div>
+      <div class="h-4 w-32 bg-white/5 rounded mb-6 animate-pulse"></div>
+      <div class="h-24 bg-white/10 rounded-xl mb-3 animate-pulse"></div>
+      <div class="grid grid-cols-3 gap-3 mb-5">
+        <div class="h-16 bg-white/10 rounded-xl animate-pulse"></div>
+        <div class="h-16 bg-white/10 rounded-xl animate-pulse"></div>
+        <div class="h-16 bg-white/10 rounded-xl animate-pulse"></div>
+      </div>
+      <div class="h-20 bg-white/10 rounded-xl mb-3 animate-pulse"></div>
+      <div class="h-20 bg-white/10 rounded-xl animate-pulse"></div>
+    </div>
+  `;
   state.progress = await api('GET', '/progress');
   await getWeekData(state.progress.week);
   const active = await api('GET', '/workouts/active');
@@ -299,7 +330,7 @@ async function drawerShowOverview() {
   let profile, summary, streakData, recentPrs;
   try {
     [profile, summary, streakData, recentPrs] = await Promise.all([
-      api('GET', '/nutrition/profile').catch(() => null),
+      cachedApi('GET', '/nutrition/profile').catch(() => null),
       api('GET', '/stats/summary').catch(() => null),
       api('GET', '/stats/streak').catch(() => null),
       api('GET', '/stats/recent-prs').catch(() => []),
@@ -529,7 +560,7 @@ let _weightTrendChart = null;
 
 async function drawerShowProfile() {
   const [profile, weightHistory] = await Promise.all([
-    api('GET', '/nutrition/profile').catch(() => ({ gender: 'male', age: 28, height_cm: 183, current_weight_kg: null })),
+    cachedApi('GET', '/nutrition/profile').catch(() => ({ gender: 'male', age: 28, height_cm: 183, current_weight_kg: null })),
     api('GET', '/weight/history?limit=90').catch(() => []),
   ]);
   const recentHistory = weightHistory.slice(-10);
@@ -686,7 +717,7 @@ async function drawerDeleteWeight(id) {
 }
 
 async function drawerSaveProfile() {
-  const current = await api('GET', '/nutrition/profile');
+  const current = await cachedApi('GET', '/nutrition/profile');
   const gender = document.querySelector('.gender-btn.border-acid')?.dataset.val || current.gender || 'male';
   const age = parseInt(document.getElementById('drawer-age')?.value) || current.age || 28;
   const height_cm = parseNum(document.getElementById('drawer-height')?.value) || current.height_cm || 183;
@@ -706,6 +737,7 @@ async function drawerSaveProfile() {
     gender, age, height_cm,
     activity_level: current.activity_level || 'moderate',
   });
+  invalidateCache('/nutrition/profile');
   document.getElementById('drawer-content').innerHTML = `
     <div class="flex items-center justify-center h-40">
       <p class="text-lg font-bold uppercase tracking-tight text-acid">Profile saved!</p>
@@ -722,7 +754,7 @@ function formatPhaseDate(dateStr) {
 
 async function drawerShowNutritionGoals() {
   const [profile, phasesData, tdeeData] = await Promise.all([
-    api('GET', '/nutrition/profile').catch(() => ({ activity_level: 'moderate', phase: 'maintain' })),
+    cachedApi('GET', '/nutrition/profile').catch(() => ({ activity_level: 'moderate', phase: 'maintain' })),
     api('GET', '/nutrition/phases').catch(() => ({ phases: [], active_phase: 'maintain', stabilization: { in_stabilization: false } })),
     api('GET', '/nutrition/adaptive-tdee').catch(() => null),
   ]);
@@ -909,11 +941,12 @@ async function deletePhase(id) {
 }
 
 async function saveActivityLevel(val) {
-  const current = await api('GET', '/nutrition/profile');
+  const current = await cachedApi('GET', '/nutrition/profile');
   await api('PUT', '/nutrition/profile', {
     gender: current.gender, age: current.age, height_cm: current.height_cm,
     activity_level: val,
   });
+  invalidateCache('/nutrition/profile');
   drawerShowNutritionGoals();
 }
 
@@ -1132,7 +1165,7 @@ async function renderDashboard() {
     api('GET', `/workouts/status?cycle=${state.progress.cycle}&week=${state.progress.week}`),
     api('GET', '/weight/summary').catch(() => ({ current: null })),
     api('GET', `/nutrition/log?date=${today}`).catch(() => ({ totals: { calories: 0, protein: 0, carbs: 0, fat: 0 }, entries: [] })),
-    api('GET', '/nutrition/targets').catch(() => null),
+    cachedApi('GET', '/nutrition/targets').catch(() => null),
   ]);
 
   const deload = isDeloadWeek(state.progress.week);
@@ -3061,7 +3094,7 @@ function selectNutritionDate(dateStr) {
 async function refreshNutritionContent() {
   const [logData, targets] = await Promise.all([
     api('GET', `/nutrition/log?date=${nutritionDate}`),
-    api('GET', '/nutrition/targets'),
+    cachedApi('GET', '/nutrition/targets'),
   ]);
   const macroEl = document.getElementById('nutrition-macro-bar');
   if (macroEl) macroEl.innerHTML = buildCompactMacroBar(logData.totals, targets);
@@ -3280,7 +3313,7 @@ async function openNutritionSearch() {
 
   // Load foods and meals
   const [foods, meals] = await Promise.all([
-    _searchFoods ? _searchFoods : api('GET', '/nutrition/foods'),
+    _searchFoods ? _searchFoods : cachedApi('GET', '/nutrition/foods'),
     _searchMeals ? _searchMeals : api('GET', '/nutrition/meals'),
   ]);
   _searchFoods = foods;
@@ -3748,7 +3781,7 @@ async function prefillMealInlineCreator() {
 async function renderNutrition() {
   const [logData, targets, tdeeData] = await Promise.all([
     api('GET', `/nutrition/log?date=${nutritionDate}`),
-    api('GET', '/nutrition/targets'),
+    cachedApi('GET', '/nutrition/targets'),
     api('GET', '/nutrition/adaptive-tdee').catch(() => null),
   ]);
 
@@ -3756,7 +3789,7 @@ async function renderNutrition() {
   let activeTargets = targets;
   if (tdeeData && tdeeData.final_calories && Math.abs(tdeeData.final_calories - targets.calories) > 50) {
     activeTargets = { calories: tdeeData.final_calories, protein: tdeeData.protein_g, carbs: tdeeData.carbs_g, fat: tdeeData.fat_g };
-    api('PUT', '/nutrition/targets', activeTargets).catch(() => {});
+    api('PUT', '/nutrition/targets', activeTargets).then(() => invalidateCache('/nutrition/targets')).catch(() => {});
   }
 
   const curOffset = calculateWeekOffset(nutritionDate);
@@ -4128,7 +4161,7 @@ async function renderNutritionAdd(initialTab) {
   const tab = initialTab || 'meals';
   const [meals, foods] = await Promise.all([
     api('GET', '/nutrition/meals'),
-    api('GET', '/nutrition/foods'),
+    cachedApi('GET', '/nutrition/foods'),
   ]);
   window._libraryData = { meals, foods };
 
@@ -4362,7 +4395,7 @@ function updateServingsPreview(value, cal, pro, carb, fat) {
 async function renderFoodForm(id) {
   let food = { name: '', calories: '', protein: '', carbs: '', fat: '', serving_size: null, serving_unit: null };
   if (id) {
-    const foods = await api('GET', '/nutrition/foods');
+    const foods = await cachedApi('GET', '/nutrition/foods');
     food = foods.find(f => f.id === parseInt(id)) || food;
   }
 
@@ -4460,6 +4493,7 @@ async function saveFood(id) {
       await api('POST', '/nutrition/foods', data);
     }
     _searchFoods = null;
+    invalidateCache('/nutrition/foods');
     history.back();
   } catch (e) {
     showScanToast('Failed to save: ' + e.message, 'warn');
@@ -4469,6 +4503,7 @@ async function saveFood(id) {
 async function deleteFood(id) {
   await api('DELETE', `/nutrition/foods/${id}`);
   _searchFoods = null;
+  invalidateCache('/nutrition/foods');
   // If on the library page, re-render foods tab; otherwise go back
   if (location.hash === '#nutrition/foods' || location.hash === '#nutrition/add') renderNutritionAdd('foods');
   else history.back();
@@ -4476,7 +4511,7 @@ async function deleteFood(id) {
 
 // ─── View: Meal Form ────────────────────────────────────────────────────────
 async function renderMealForm(id) {
-  const allFoods = await api('GET', '/nutrition/foods');
+  const allFoods = await cachedApi('GET', '/nutrition/foods');
   let meal = { name: '', foods: [] };
   if (id) {
     const meals = await api('GET', '/nutrition/meals');
@@ -4613,7 +4648,7 @@ function reRenderMealForm() {
 }
 
 async function showMealFoodPicker() {
-  const allFoods = await api('GET', '/nutrition/foods');
+  const allFoods = await cachedApi('GET', '/nutrition/foods');
   const currentMealName = document.getElementById('meal-name')?.value || '';
 
   const modal = document.createElement('div');
