@@ -49,12 +49,12 @@ button, .no-select {
 }
 
 /* Timer complete pulse */
-@keyframes pulse-acid {
-  0%, 100% { background-color: #CCFF00; }
-  50% { background-color: #b8e600; }
+@keyframes pulse-cyan {
+  0%, 100% { background-color: #06B6D4; }
+  50% { background-color: #0891B2; }
 }
 .timer-done {
-  animation: pulse-acid 1s ease-in-out infinite;
+  animation: pulse-cyan 1s ease-in-out infinite;
 }
 
 /* PR celebration pop-in */
