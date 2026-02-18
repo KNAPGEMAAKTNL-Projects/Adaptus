@@ -1,4 +1,4 @@
-const APP_VERSION = 'v68';
+const APP_VERSION = 'v69';
 console.log('[Adaptus]', APP_VERSION);
 
 // Auto-select input contents on focus for all numeric/decimal inputs
@@ -4124,8 +4124,9 @@ async function saveFood(id) {
   const protein = parseNum(document.getElementById('food-protein').value) || 0;
   const carbs = parseNum(document.getElementById('food-carbs').value) || 0;
   const fat = parseNum(document.getElementById('food-fat').value) || 0;
+  const nameEl = document.getElementById('food-name');
   const data = {
-    name: document.getElementById('food-name').value.trim(),
+    name: nameEl.value.trim(),
     calories: Math.round((protein * 4) + (carbs * 4) + (fat * 9)),
     protein,
     carbs,
@@ -4134,14 +4135,21 @@ async function saveFood(id) {
     servingGrams: hasServing ? (parseNum(document.getElementById('food-serving-grams').value) || null) : null,
     barcode: document.getElementById('food-barcode')?.value.trim() || null,
   };
-  if (!data.name) return;
-  if (id) {
-    await api('PUT', `/nutrition/foods/${id}`, data);
-  } else {
-    await api('POST', '/nutrition/foods', data);
+  if (!data.name) {
+    if (nameEl) { nameEl.style.borderColor = '#ef4444'; nameEl.placeholder = 'Name is required'; nameEl.focus(); }
+    return;
   }
-  _searchFoods = null;
-  history.back();
+  try {
+    if (id) {
+      await api('PUT', `/nutrition/foods/${id}`, data);
+    } else {
+      await api('POST', '/nutrition/foods', data);
+    }
+    _searchFoods = null;
+    history.back();
+  } catch (e) {
+    showScanToast('Failed to save: ' + e.message, 'warn');
+  }
 }
 
 async function deleteFood(id) {
