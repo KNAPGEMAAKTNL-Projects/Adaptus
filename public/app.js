@@ -1,4 +1,4 @@
-const APP_VERSION = 'v63';
+const APP_VERSION = 'v64';
 console.log('[Adaptus]', APP_VERSION);
 // ─── State ───────────────────────────────────────────────────────────────────
 const state = {
@@ -3280,9 +3280,12 @@ async function lookupBarcode(barcode) {
 function showScanFoodPopup({ barcode, name, protein, carbs, fat, notFound }) {
   document.getElementById('scan-food-popup')?.remove();
   const cal = Math.round((protein || 0) * 4 + (carbs || 0) * 4 + (fat || 0) * 9);
+  const suspicious = !notFound && ((protein || 0) + (carbs || 0) + (fat || 0)) > 100;
   const banner = notFound
-    ? `<div class="bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mb-3 flex items-start gap-2"><span class="text-amber-400 text-sm leading-none mt-0.5">!</span><div><p class="text-[11px] font-bold text-amber-400">Not found online</p><p class="text-[10px] text-ink/40">Barcode saved — fill in details</p></div></div>`
-    : `<div class="bg-purple-500/10 border border-purple-500/20 rounded-lg px-3 py-2 mb-3 flex items-start gap-2"><span class="text-purple-400 text-sm leading-none mt-0.5">&#x2713;</span><div><p class="text-[11px] font-bold text-purple-400">Found on Open Food Facts</p><p class="text-[10px] text-ink/40">Verify and save</p></div></div>`;
+    ? `<div class="bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mb-3 flex items-start gap-2"><span class="text-amber-400 text-sm leading-none mt-0.5">!</span><div><p class="text-[11px] font-bold text-amber-400">Not found online</p><p class="text-[10px] text-ink/40">Barcode saved — fill in details manually</p></div></div>`
+    : suspicious
+      ? `<div class="bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 mb-3 flex items-start gap-2"><span class="text-red-400 text-sm leading-none mt-0.5">!</span><div><p class="text-[11px] font-bold text-red-400">Data looks wrong</p><p class="text-[10px] text-ink/40">Macros exceed 100g — please check the label and correct</p></div></div>`
+      : `<div class="bg-purple-500/10 border border-purple-500/20 rounded-lg px-3 py-2 mb-3 flex items-start gap-2"><span class="text-purple-400 text-sm leading-none mt-0.5">&#x2713;</span><div><p class="text-[11px] font-bold text-purple-400">Found on Open Food Facts</p><p class="text-[10px] text-ink/40">Verify and save</p></div></div>`;
 
   const modal = document.createElement('div');
   modal.id = 'scan-food-popup';
@@ -3294,6 +3297,7 @@ function showScanFoodPopup({ barcode, name, protein, carbs, fat, notFound }) {
         <h2 class="text-lg font-black uppercase tracking-tight">Scanned Food</h2>
         <button onclick="document.getElementById('scan-food-popup')?.remove()" class="text-ink/40 font-bold text-2xl leading-none">&times;</button>
       </div>
+      <div class="text-xs text-ink/40 font-bold tabular-nums mb-3 bg-ink/5 rounded-lg px-3 py-2">${barcode}</div>
       ${banner}
       <div class="space-y-3 mb-4">
         <div>
@@ -3325,7 +3329,11 @@ function showScanFoodPopup({ barcode, name, protein, carbs, fat, notFound }) {
               class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
           </div>
         </div>
-        <div class="text-[10px] text-ink/30 tabular-nums">Barcode: ${barcode}</div>
+        <div class="border-t border-ink/10 pt-3">
+          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Grams to log</label>
+          <input id="scan-food-grams" type="text" inputmode="decimal" value="100" placeholder="100"
+            class="w-full h-12 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
+        </div>
       </div>
       <input id="scan-food-barcode" type="hidden" value="${barcode}">
       <button onclick="saveScanFood()" class="w-full py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-center text-sm transition-colors duration-200 active:bg-acid/20 active:text-acid">Save & Log</button>
@@ -3356,12 +3364,20 @@ async function saveScanFood() {
   const cal = Math.round(pro * 4 + carb * 4 + fat * 9);
   const barcode = document.getElementById('scan-food-barcode')?.value || null;
 
+  const grams = parseNum(document.getElementById('scan-food-grams')?.value) || 100;
+
   // Create the food
   const food = await api('POST', '/nutrition/foods', { name, calories: cal, protein: pro, carbs: carb, fat: fat, barcode });
+  // Log it with specified grams
+  const ratio = grams / 100;
+  await api('POST', '/nutrition/log/food', {
+    date: nutritionDate,
+    food_id: food.id,
+    servings: grams,
+  });
   document.getElementById('scan-food-popup')?.remove();
-  showScanToast('Saved to library', 'success');
-  // Show servings modal to log it
-  showFoodServingsModal(food.id, food.name, food.calories, food.protein, food.carbs, food.fat, null, null);
+  showScanToast(`Logged ${grams}g`, 'success');
+  refreshNutritionContent();
 }
 
 
