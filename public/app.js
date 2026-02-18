@@ -3363,21 +3363,21 @@ async function saveScanFood() {
   const fat = parseNum(document.getElementById('scan-food-fat')?.value) || 0;
   const cal = Math.round(pro * 4 + carb * 4 + fat * 9);
   const barcode = document.getElementById('scan-food-barcode')?.value || null;
-
   const grams = parseNum(document.getElementById('scan-food-grams')?.value) || 100;
 
-  // Create the food
-  const food = await api('POST', '/nutrition/foods', { name, calories: cal, protein: pro, carbs: carb, fat: fat, barcode });
-  // Log it with specified grams
-  const ratio = grams / 100;
-  await api('POST', '/nutrition/log/food', {
-    date: nutritionDate,
-    food_id: food.id,
-    servings: grams,
-  });
-  document.getElementById('scan-food-popup')?.remove();
-  showScanToast(`Logged ${grams}g`, 'success');
-  refreshNutritionContent();
+  try {
+    const food = await api('POST', '/nutrition/foods', { name, calories: cal, protein: pro, carbs: carb, fat: fat, barcode });
+    await api('POST', '/nutrition/log/food', {
+      date: nutritionDate,
+      foodId: food.id,
+      grams: grams,
+    });
+    document.getElementById('scan-food-popup')?.remove();
+    showScanToast(`Logged ${grams}g`, 'success');
+    refreshNutritionContent();
+  } catch (e) {
+    showScanToast('Failed to save: ' + e.message, 'warn');
+  }
 }
 
 
@@ -4419,19 +4419,23 @@ async function saveInlineFood() {
   const servingGrams = parseNum(document.getElementById('inline-food-serving-grams')?.value) || null;
   const barcode = document.getElementById('inline-food-barcode')?.value.trim() || null;
 
-  const food = await api('POST', '/nutrition/foods', { name, calories: cal, protein: pro, carbs: carb, fat: fat, servingName, servingGrams, barcode });
-  _searchFoods = null;
+  try {
+    const food = await api('POST', '/nutrition/foods', { name, calories: cal, protein: pro, carbs: carb, fat: fat, servingName, servingGrams, barcode });
+    _searchFoods = null;
 
-  // Add to meal form with per-serving macros
-  if (!window._mealFormFoods) window._mealFormFoods = [];
-  const ratio = (food.serving_size || 100) / 100;
-  window._mealFormFoods.push({ foodId: food.id, name: food.name, servings: 1, calories: food.calories * ratio, protein: food.protein * ratio, carbs: food.carbs * ratio, fat: food.fat * ratio });
+    // Add to meal form with per-serving macros
+    if (!window._mealFormFoods) window._mealFormFoods = [];
+    const ratio = (food.serving_size || 100) / 100;
+    window._mealFormFoods.push({ foodId: food.id, name: food.name, servings: 1, calories: food.calories * ratio, protein: food.protein * ratio, carbs: food.carbs * ratio, fat: food.fat * ratio });
 
-  closeFoodPickerModal();
-  reRenderMealForm();
-  if (window._mealFormName) {
-    const nameInput = document.getElementById('meal-name');
-    if (nameInput) nameInput.value = window._mealFormName;
+    closeFoodPickerModal();
+    reRenderMealForm();
+    if (window._mealFormName) {
+      const nameInput = document.getElementById('meal-name');
+      if (nameInput) nameInput.value = window._mealFormName;
+    }
+  } catch (e) {
+    showScanToast('Failed to save: ' + e.message, 'warn');
   }
 }
 

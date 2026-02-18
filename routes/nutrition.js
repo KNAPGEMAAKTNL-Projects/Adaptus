@@ -28,7 +28,7 @@ router.post('/foods', (req, res) => {
   if (!name) return res.status(400).json({ error: 'Name is required' });
   const result = run(
     `INSERT INTO foods (name, calories, protein, carbs, fat, serving_size, serving_unit, barcode) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [name, calories || 0, protein || 0, carbs || 0, fat || 0, servingName ? (servingGrams || 100) : null, servingName || null, barcode || null]
+    [name, calories || 0, protein || 0, carbs || 0, fat || 0, servingName ? (servingGrams || 100) : 100, servingName || 'g', barcode || null]
   );
   const food = get(`SELECT * FROM foods WHERE id = ?`, [result.lastInsertRowid]);
   res.json(food);
@@ -39,7 +39,7 @@ router.put('/foods/:id', (req, res) => {
   const { name, calories, protein, carbs, fat, servingName, servingGrams, barcode } = req.body;
   run(
     `UPDATE foods SET name = ?, calories = ?, protein = ?, carbs = ?, fat = ?, serving_size = ?, serving_unit = ?, barcode = ? WHERE id = ?`,
-    [name, calories || 0, protein || 0, carbs || 0, fat || 0, servingName ? (servingGrams || 100) : null, servingName || null, barcode || null, req.params.id]
+    [name, calories || 0, protein || 0, carbs || 0, fat || 0, servingName ? (servingGrams || 100) : 100, servingName || 'g', barcode || null, req.params.id]
   );
   const food = get(`SELECT * FROM foods WHERE id = ?`, [req.params.id]);
   res.json(food);
