@@ -1,4 +1,4 @@
-const APP_VERSION = 'v74';
+const APP_VERSION = 'v75';
 console.log('[Adaptus]', APP_VERSION);
 
 // Auto-select input contents on focus for all numeric/decimal inputs
@@ -258,7 +258,7 @@ async function drawerShowOverview() {
         <div class="mb-4" onclick="drawerShowMilestones()">
           <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-2">Recent Milestones</span>
           <div class="flex flex-wrap gap-1.5">
-            ${recentMilestones.map(m => `<span class="text-xs font-bold bg-[#EC4899]/20 text-[#EC4899] rounded px-2 py-1">${m.label}</span>`).join('')}
+            ${recentMilestones.map(m => `<span class="text-xs font-bold bg-acid/20 text-acid rounded px-2 py-1">${m.label}</span>`).join('')}
           </div>
         </div>
       ` : ''}
@@ -267,7 +267,7 @@ async function drawerShowOverview() {
         <div class="mb-4" onclick="drawerShowPRWall()">
           <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-2">Recent PRs</span>
           <div class="flex flex-wrap gap-1.5">
-            ${recentPrs.map(pr => `<span class="text-xs font-bold bg-electric/20 text-electric rounded px-2 py-1">${pr.exercise_name} ${pr.weight_kg}kg</span>`).join('')}
+            ${recentPrs.map(pr => `<span class="text-xs font-bold bg-acid/20 text-acid rounded px-2 py-1">${pr.exercise_name} ${pr.weight_kg}kg</span>`).join('')}
           </div>
         </div>
       ` : ''}
@@ -275,17 +275,17 @@ async function drawerShowOverview() {
       <button onclick="drawerShowMilestones()" class="w-full border-2 border-white/10 rounded-xl p-4 mb-3 text-left active:bg-white/5 transition-colors duration-200">
         <div class="flex items-center justify-between mb-2">
           <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Milestones</span>
-          <span class="text-xs font-bold bg-[#EC4899] text-canvas rounded px-2 py-0.5">${earnedCount}/${totalCount}</span>
+          <span class="text-xs font-bold bg-acid text-canvas rounded px-2 py-0.5">${earnedCount}/${totalCount}</span>
         </div>
         <div class="h-1.5 bg-white/10 rounded-full overflow-hidden">
-          <div class="h-full bg-[#EC4899] rounded-full" style="width: ${pct}%"></div>
+          <div class="h-full bg-acid rounded-full" style="width: ${pct}%"></div>
         </div>
       </button>
 
       <button onclick="drawerShowPRWall()" class="w-full border-2 border-white/10 rounded-xl p-4 mb-5 text-left active:bg-white/5 transition-colors duration-200">
         <div class="flex items-center justify-between">
           <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">PR Wall</span>
-          <span class="text-xs font-bold bg-[#EC4899] text-canvas rounded px-2 py-0.5">${prCount} PRs</span>
+          <span class="text-xs font-bold bg-acid text-canvas rounded px-2 py-0.5">${prCount} PRs</span>
         </div>
       </button>
 
@@ -315,7 +315,7 @@ async function drawerShowMilestones() {
   const milestonesHtml = MILESTONES.map(m => {
     const isEarned = earnedIds.has(m.id);
     return `
-      <div class="p-3 border-2 ${isEarned ? 'border-[#EC4899] bg-[#EC4899]/10' : 'border-white/10 opacity-30'} rounded-xl text-center">
+      <div class="p-3 border-2 ${isEarned ? 'border-acid bg-acid/10' : 'border-white/10 opacity-30'} rounded-xl text-center">
         <div class="text-xs font-bold uppercase tracking-tight leading-tight">${m.label}</div>
       </div>
     `;
@@ -357,13 +357,22 @@ async function drawerShowPRWall() {
 
   const exercises = await api('GET', '/stats/exercises').catch(() => []);
 
-  const cardsHtml = exercises.map(ex => `
-    <div class="border-2 border-[#EC4899]/20 rounded-xl p-4 text-center">
+  const cardsHtml = exercises.map(ex => {
+    let dateLabel = '';
+    if (ex.last_logged) {
+      const d = parseUtc(ex.last_logged);
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      dateLabel = `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+    }
+    return `
+    <div class="border-2 border-acid/20 rounded-xl p-4 text-center">
       <div class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-2 truncate">${ex.exercise_name}</div>
-      <div class="text-2xl font-black text-[#EC4899] leading-none">${ex.best_weight}<span class="text-sm text-ink/40">kg</span></div>
+      <div class="text-2xl font-black text-acid leading-none">${ex.best_weight}<span class="text-sm text-ink/40">kg</span></div>
       <div class="text-xs font-bold text-white/30 mt-1">E1RM ${ex.best_e1rm}kg</div>
+      ${dateLabel ? `<div class="text-[10px] text-ink/25 mt-1">${dateLabel}</div>` : ''}
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   document.getElementById('drawer-content').innerHTML = `
     <div class="flex items-center justify-between px-5 pt-6 pb-4">
@@ -1134,7 +1143,7 @@ async function renderDashboard() {
           <div class="flex flex-wrap gap-1.5">
             <span class="text-xs font-bold text-canvas bg-electric rounded px-2 py-0.5">PR</span>
             ${weekSummary.prsThisWeek.map(pr => `
-              <span class="text-xs font-bold bg-[#EC4899]/20 text-[#EC4899] rounded px-2 py-1">${pr.exercise_name} ${pr.weight_kg}kg</span>
+              <span class="text-xs font-bold bg-acid/20 text-acid rounded px-2 py-1">${pr.exercise_name} ${pr.weight_kg}kg</span>
             `).join('')}
           </div>
         ` : ''}
@@ -1146,15 +1155,15 @@ async function renderDashboard() {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" class="text-ink/30"><path d="M11 9H9V2H7v7H5V2H3v7c0 2.12 1.66 3.84 3.75 3.97V22h2.5v-9.03C11.34 12.84 13 11.12 13 9V2h-2v7zm5-3v8h2.5v8H21V2c-2.76 0-5 2.24-5 4z"/></svg>
           <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Today's Nutrition</h3>
         </div>
-        <div class="grid grid-cols-4 gap-2">
-          <div>
-            <div class="flex items-center gap-1 mb-0.5">
-              <svg class="flex-shrink-0" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#CCFF00" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12c2-2.96 0-7-1-8 0 3.038-1.773 4.741-3 6-1.226 1.26-2 3.24-2 5a6 6 0 1 0 12 0c0-1.532-1.056-3.94-2-5-1.786 3-2.791 3-4 2z"/></svg>
-              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">kcal</span>
-            </div>
-            <span class="text-lg font-black leading-none block">${Math.round(nTotals.calories)} <span class="text-xs text-ink/30">/ ${Math.round(nTargets.calories)}</span></span>
-            <div class="h-[3px] bg-ink/10 rounded-full mt-1 overflow-hidden"><div class="h-full rounded-full" style="width:${miniPct(nTotals.calories, nTargets.calories)}%;background:#CCFF00"></div></div>
+        <div class="mb-3">
+          <div class="flex items-baseline gap-1.5 mb-1">
+            <svg class="flex-shrink-0 self-center" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#CCFF00" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12c2-2.96 0-7-1-8 0 3.038-1.773 4.741-3 6-1.226 1.26-2 3.24-2 5a6 6 0 1 0 12 0c0-1.532-1.056-3.94-2-5-1.786 3-2.791 3-4 2z"/></svg>
+            <span class="text-2xl font-black leading-none">${Math.round(nTotals.calories)}</span>
+            <span class="text-sm text-ink/30">/ ${Math.round(nTargets.calories)} kcal</span>
           </div>
+          <div class="h-[3px] bg-ink/10 rounded-full overflow-hidden"><div class="h-full rounded-full" style="width:${miniPct(nTotals.calories, nTargets.calories)}%;background:#CCFF00"></div></div>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
           <div>
             <div class="flex items-center gap-1 mb-0.5">
               <span class="text-[10px] font-black text-orange-500">F</span>
@@ -1339,8 +1348,8 @@ function showMilestoneCelebration(milestone) {
   celebration.id = 'milestone-celebration';
   celebration.className = 'fixed inset-0 z-[90] flex items-center justify-center pointer-events-none';
   celebration.innerHTML = `
-    <div class="bg-[#1a1a1a] border-2 border-[#EC4899]/30 text-white rounded-xl px-8 py-6 text-center animate-pr-pop backdrop-blur-xl pointer-events-auto" onclick="this.parentElement.remove()">
-      <div class="text-[10px] font-bold uppercase tracking-widest text-[#EC4899] mb-3">Milestone Unlocked</div>
+    <div class="bg-[#1a1a1a] border-2 border-acid/30 text-white rounded-xl px-8 py-6 text-center animate-pr-pop backdrop-blur-xl pointer-events-auto" onclick="this.parentElement.remove()">
+      <div class="text-[10px] font-bold uppercase tracking-widest text-acid mb-3">Milestone Unlocked</div>
       <div class="text-2xl font-black uppercase tracking-tight">${milestone.label}</div>
     </div>
   `;
@@ -1395,47 +1404,54 @@ async function renderStats() {
         <p class="text-sm font-bold text-ink/40 mt-1">${new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</p>
       </div>
 
-      <div class="border-2 border-ink/10 rounded-xl p-5 mb-5">
-        <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-4">All Time</h3>
-        <div class="grid grid-cols-2 gap-4">
+      <div class="border-2 border-ink/10 rounded-xl p-4 mb-5">
+        <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-3">All Time</h3>
+        <div class="grid grid-cols-4 gap-2">
           <div>
-            <div class="flex items-center gap-1.5 mb-1">
-              <span class="w-2 h-2 rounded-full bg-acid flex-shrink-0"></span>
-              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">workouts</span>
+            <div class="flex items-center gap-1 mb-0.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-acid flex-shrink-0"></span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">done</span>
             </div>
-            <span class="text-3xl font-black leading-none block">${summary.totalWorkouts}</span>
+            <span class="text-lg font-black leading-none block">${summary.totalWorkouts}</span>
           </div>
           <div>
-            <div class="flex items-center gap-1.5 mb-1">
-              <span class="w-2 h-2 rounded-full bg-electric flex-shrink-0"></span>
+            <div class="flex items-center gap-1 mb-0.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-electric flex-shrink-0"></span>
               <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">sets</span>
             </div>
-            <span class="text-3xl font-black leading-none block">${summary.totalSets}</span>
+            <span class="text-lg font-black leading-none block">${summary.totalSets}</span>
           </div>
           <div>
-            <div class="flex items-center gap-1.5 mb-1">
-              <span class="w-2 h-2 rounded-full bg-[#06B6D4] flex-shrink-0"></span>
-              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">volume (kg)</span>
+            <div class="flex items-center gap-1 mb-0.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#06B6D4] flex-shrink-0"></span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">volume</span>
             </div>
-            <span class="text-3xl font-black leading-none block">${formatVolume(summary.totalVolume)}</span>
+            <span class="text-lg font-black leading-none block">${formatVolume(summary.totalVolume)}</span>
           </div>
           <div>
-            <div class="flex items-center gap-1.5 mb-1">
-              <span class="w-2 h-2 rounded-full bg-[#F97316] flex-shrink-0"></span>
-              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">avg duration</span>
+            <div class="flex items-center gap-1 mb-0.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#F97316] flex-shrink-0"></span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">time</span>
             </div>
-            <span class="text-3xl font-black leading-none block">${summary.avgDuration ? formatDuration(summary.avgDuration) : '—'}</span>
+            <span class="text-lg font-black leading-none block">${summary.avgDuration ? formatDuration(summary.avgDuration) : '—'}</span>
           </div>
         </div>
       </div>
 
-      ${weightHistory.length >= 2 ? `
-        <div class="border-2 border-ink/10 rounded-xl p-5 mb-5">
-          <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-3">Body Weight</h3>
+      <div class="border-2 border-ink/10 rounded-xl p-5 mb-5">
+        <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-3">Body Weight</h3>
+        ${weightHistory.length >= 2 ? `
           ${buildWeightTrend(tdeeData)}
           <canvas id="weight-chart" class="w-full mt-3" height="160"></canvas>
-        </div>
-      ` : ''}
+        ` : weightHistory.length === 1 ? `
+          <div class="flex flex-col items-center py-4">
+            <span class="text-2xl font-black">${weightHistory[0].weight_kg}<span class="text-sm text-ink/40 ml-0.5">kg</span></span>
+            <p class="text-xs text-ink/30 mt-2 text-center">Log another entry to start tracking trends</p>
+          </div>
+        ` : `
+          <p class="text-sm text-ink/30 py-4 text-center">Log your weight to start tracking</p>
+        `}
+      </div>
 
       ${exerciseBrowserHtml}
     </div>
@@ -1469,7 +1485,7 @@ async function renderWorkouts() {
     let bgClass = 'bg-white/10';
     if (completed) {
       badge = '<span class="text-xs font-bold text-canvas bg-acid rounded px-2 py-0.5">Done</span>';
-      bgClass = 'bg-white/8';
+      bgClass = 'bg-white/8 border border-ink/10';
     } else if (skipped) {
       badge = '<span class="text-xs font-bold text-ink/40 bg-white/10 rounded px-2 py-0.5">Skipped</span>';
       bgClass = 'bg-white/5';
@@ -1562,10 +1578,7 @@ async function changeWeek(dir) {
     }
   }
 
-  const [progress] = await Promise.all([
-    api('PUT', '/progress', { cycle: newCycle, week: newWeek }),
-    new Promise(r => setTimeout(r, 300)),
-  ]);
+  const progress = await api('PUT', '/progress', { cycle: newCycle, week: newWeek });
   state.progress = progress;
   renderWorkouts();
 }
@@ -2198,10 +2211,10 @@ function showPrCelebration(exerciseName, weight) {
   celebration.id = 'pr-celebration';
   celebration.className = 'fixed inset-0 z-[90] flex items-center justify-center pointer-events-none';
   celebration.innerHTML = `
-    <div class="bg-[#1a1a1a] border-2 border-[#EC4899]/30 text-white rounded-xl px-8 py-6 text-center animate-pr-pop backdrop-blur-xl pointer-events-auto" onclick="this.parentElement.remove()">
-      <div class="text-4xl font-black text-[#EC4899] mb-2">NEW PR</div>
+    <div class="bg-[#1a1a1a] border-2 border-acid/30 text-white rounded-xl px-8 py-6 text-center animate-pr-pop backdrop-blur-xl pointer-events-auto" onclick="this.parentElement.remove()">
+      <div class="text-4xl font-black text-acid mb-2">NEW PR</div>
       <div class="text-lg font-bold">${exerciseName}</div>
-      <div class="text-3xl font-black text-[#EC4899] mt-1">${weight}kg</div>
+      <div class="text-3xl font-black text-acid mt-1">${weight}kg</div>
     </div>
   `;
   document.body.appendChild(celebration);
@@ -2518,9 +2531,9 @@ async function renderExerciseStats(exerciseName) {
       ${prHtml}
       ${e1rmHtml}
 
-      ${history.length >= 2 ? `
-        <div class="border-2 border-ink/10 rounded-xl p-4 mb-5">
-          <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-3">Progress Over Time</h3>
+      <div class="border-2 border-ink/10 rounded-xl p-4 mb-5">
+        <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-3">Progress Over Time</h3>
+        ${history.length >= 2 ? `
           <canvas id="progress-chart" class="w-full" height="200"></canvas>
           <div class="flex items-center justify-center gap-4 mt-3">
             <div class="flex items-center gap-1.5">
@@ -2532,8 +2545,16 @@ async function renderExerciseStats(exerciseName) {
               <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Est. 1RM</span>
             </div>
           </div>
-        </div>
-      ` : ''}
+        ` : history.length === 1 ? `
+          <div class="flex flex-col items-center py-6">
+            <div class="w-3 h-3 rounded-full bg-acid mb-3"></div>
+            <span class="text-lg font-black">${history[0].maxWeight}<span class="text-sm text-ink/40">kg</span></span>
+            <p class="text-xs text-ink/30 mt-2 text-center">Complete more sessions to see a trend</p>
+          </div>
+        ` : `
+          <p class="text-sm text-ink/30 py-6 text-center">Complete a session to start tracking progress</p>
+        `}
+      </div>
 
       <div class="border-2 border-ink/10 rounded-xl p-4">
         <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-2">All Sessions</h3>
