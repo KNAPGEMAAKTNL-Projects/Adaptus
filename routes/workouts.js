@@ -1,6 +1,8 @@
 const express = require('express');
+const path = require('path');
 const { get, all, run } = require('../db');
 const router = express.Router();
+const program = require(path.join(__dirname, '..', 'training-program.json'));
 
 router.post('/', (req, res) => {
   const { cycle, weekNumber, workoutTemplateId, workoutName } = req.body;
@@ -28,7 +30,7 @@ router.get('/status', (req, res) => {
   const cycle = parseInt(req.query.cycle);
   const week = parseInt(req.query.week);
   const completed = all(
-    'SELECT workout_template_id FROM workout_sessions WHERE cycle = ? AND week_number = ? AND completed_at IS NOT NULL',
+    'SELECT workout_template_id, started_at, completed_at FROM workout_sessions WHERE cycle = ? AND week_number = ? AND completed_at IS NOT NULL',
     [cycle, week]
   );
   const skipped = all(
@@ -37,6 +39,11 @@ router.get('/status', (req, res) => {
   );
   res.json({
     completed: completed.map(s => s.workout_template_id),
+    completedDetails: completed.map(s => ({
+      templateId: s.workout_template_id,
+      duration: s.started_at && s.completed_at ? Math.round((new Date(s.completed_at + 'Z') - new Date(s.started_at + 'Z')) / 60000) : null,
+      completedAt: s.completed_at,
+    })),
     skipped: skipped.map(s => s.workout_template_id),
   });
 });
@@ -73,6 +80,25 @@ router.delete('/:id', (req, res) => {
   run('DELETE FROM set_logs WHERE workout_session_id = ?', [id]);
   run('DELETE FROM workout_sessions WHERE id = ?', [id]);
   res.json({ deleted: true });
+});
+
+router.get('/first-incomplete-week', (req, res) => {
+  const cycle = parseInt(req.query.cycle);
+  for (let w = 1; w <= 12; w++) {
+    const weekData = program.weeks.find(pw => pw.weekNumber === w);
+    if (!weekData) continue;
+    const totalWorkouts = weekData.workouts.length;
+    const done = get(
+      `SELECT COUNT(DISTINCT workout_template_id) as cnt FROM workout_sessions
+       WHERE cycle = ? AND week_number = ?
+       AND (completed_at IS NOT NULL OR skipped_at IS NOT NULL)`,
+      [cycle, w]
+    );
+    if (done.cnt < totalWorkouts) {
+      return res.json({ week: w });
+    }
+  }
+  res.json({ week: 12 });
 });
 
 router.get('/active', (req, res) => {
