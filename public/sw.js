@@ -1,4 +1,4 @@
-const CACHE_NAME = 'adaptus-v62';
+const CACHE_NAME = 'adaptus-v63';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -27,10 +27,11 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Network-first, bypassing browser HTTP cache to avoid stale responses
+// Network-first, bypass HTTP cache only for our own files (not CDN scripts)
 self.addEventListener('fetch', (event) => {
+  const sameOrigin = event.request.url.startsWith(self.location.origin);
   event.respondWith(
-    fetch(event.request, { cache: 'no-store' })
+    fetch(event.request, sameOrigin ? { cache: 'no-store' } : {})
       .then(response => {
         if (event.request.method === 'GET') {
           const clone = response.clone();
