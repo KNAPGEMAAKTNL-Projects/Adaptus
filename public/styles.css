@@ -161,6 +161,16 @@ button, .no-select {
   transition: none;
 }
 
+/* Drag-to-move drop zones */
+.drop-zone {
+  transition: border-color 150ms, background 150ms, transform 150ms;
+}
+.drop-zone.hover {
+  border-color: #CCFF00;
+  background: rgba(204, 255, 0, 0.08);
+  transform: scale(1.03);
+}
+
 /* Library tabs */
 .lib-tab {
   flex: 1;

@@ -1,4 +1,4 @@
-const APP_VERSION = 'v80';
+const APP_VERSION = 'v81';
 console.log('[Adaptus]', APP_VERSION);
 
 // Auto-select input contents on focus for all numeric/decimal inputs
@@ -82,13 +82,14 @@ function initAllSwipeRows(container) {
     let startX = 0, startY = 0, currentX = 0, dragging = false, dirLocked = false, isHorizontal = false;
 
     content.addEventListener('touchstart', (e) => {
+      if (_dragState) return;
       const t = e.touches[0];
       startX = t.clientX; startY = t.clientY; currentX = 0; dragging = true; dirLocked = false; isHorizontal = false;
       content.classList.add('swiping');
     }, { passive: true });
 
     content.addEventListener('touchmove', (e) => {
-      if (!dragging) return;
+      if (!dragging || _dragState) return;
       const t = e.touches[0];
       const dx = t.clientX - startX;
       const dy = t.clientY - startY;
@@ -135,6 +136,136 @@ document.addEventListener('touchstart', (e) => {
     closeOpenSwipe();
   }
 }, { passive: true });
+
+// ─── Drag-to-Move (Nutrition Log) ──────────────────────────────────────────
+let _dragState = null;
+
+function initDragToMove(container) {
+  if (!container) return;
+  container.querySelectorAll('.swipe-container[data-entry-id]').forEach(el => {
+    if (el._dragInit) return;
+    el._dragInit = true;
+    let timerId = null;
+    let sx = 0, sy = 0;
+
+    el.addEventListener('touchstart', (e) => {
+      if (_dragState || _openSwipeEl) return;
+      const t = e.touches[0];
+      sx = t.clientX; sy = t.clientY;
+      timerId = setTimeout(() => {
+        timerId = null;
+        startDrag(el, t.clientX, t.clientY);
+      }, 400);
+    }, { passive: true });
+
+    el.addEventListener('touchmove', (e) => {
+      if (timerId) {
+        const t = e.touches[0];
+        if (Math.abs(t.clientX - sx) > 10 || Math.abs(t.clientY - sy) > 10) {
+          clearTimeout(timerId);
+          timerId = null;
+        }
+      }
+    }, { passive: true });
+
+    el.addEventListener('touchend', () => {
+      if (timerId) { clearTimeout(timerId); timerId = null; }
+    }, { passive: true });
+  });
+}
+
+function startDrag(el, x, y) {
+  closeOpenSwipe();
+  if (navigator.vibrate) navigator.vibrate(50);
+
+  const rect = el.getBoundingClientRect();
+  const clone = el.cloneNode(true);
+  clone.id = 'drag-clone';
+  clone.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;z-index:200;opacity:0.85;pointer-events:none;transform:scale(1.03);box-shadow:0 8px 32px rgba(0,0,0,0.5);border-radius:8px;overflow:hidden;transition:none;`;
+  document.body.appendChild(clone);
+
+  el.style.opacity = '0.2';
+
+  const entryId = parseInt(el.dataset.entryId);
+  const currentGroup = el.dataset.entryGroup;
+  const offsetX = x - rect.left;
+  const offsetY = y - rect.top;
+
+  // Build drop zone overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'drag-overlay';
+  overlay.innerHTML = buildDropZones(currentGroup);
+  document.body.appendChild(overlay);
+
+  _dragState = { el, clone, overlay, entryId, currentGroup, offsetX, offsetY, targetGroup: null };
+
+  document.addEventListener('touchmove', onDragMove, { passive: false });
+  document.addEventListener('touchend', onDragEnd, { passive: true });
+}
+
+function buildDropZones(currentGroup) {
+  const zones = [
+    { key: 'morning', label: 'Morning', icon: '&#x2600;' },
+    { key: 'afternoon', label: 'Afternoon', icon: '&#x26C5;' },
+    { key: 'evening', label: 'Evening', icon: '&#x263E;' },
+  ];
+  return `
+    <div class="fixed inset-0 z-[190] pointer-events-none">
+      <div class="fixed top-0 left-0 right-0 z-[191] flex gap-2 p-3 pointer-events-auto" style="padding-top: calc(env(safe-area-inset-top) + 0.75rem);">
+        ${zones.filter(z => z.key !== currentGroup).map(z => `
+          <div data-drop-group="${z.key}" class="drop-zone flex-1 flex flex-col items-center justify-center py-4 rounded-xl border-2 border-dashed border-ink/20 bg-[#111]/90 backdrop-blur transition-all duration-150">
+            <span class="text-lg">${z.icon}</span>
+            <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mt-1">${z.label}</span>
+          </div>
+        `).join('')}
+      </div>
+      <div class="fixed inset-0 bg-black/40 z-[189]"></div>
+    </div>
+  `;
+}
+
+function onDragMove(e) {
+  if (!_dragState) return;
+  e.preventDefault();
+  const t = e.touches[0];
+  const { clone, offsetX, offsetY } = _dragState;
+  clone.style.left = `${t.clientX - offsetX}px`;
+  clone.style.top = `${t.clientY - offsetY}px`;
+
+  // Check which drop zone finger is over
+  let hit = null;
+  document.querySelectorAll('[data-drop-group]').forEach(zone => {
+    const r = zone.getBoundingClientRect();
+    if (t.clientX >= r.left && t.clientX <= r.right && t.clientY >= r.top && t.clientY <= r.bottom) {
+      hit = zone.dataset.dropGroup;
+      zone.style.borderColor = '#CCFF00';
+      zone.style.background = 'rgba(204,255,0,0.08)';
+      zone.querySelector('span:last-child').style.color = '#CCFF00';
+    } else {
+      zone.style.borderColor = '';
+      zone.style.background = '';
+      zone.querySelector('span:last-child').style.color = '';
+    }
+  });
+  _dragState.targetGroup = hit;
+}
+
+function onDragEnd() {
+  if (!_dragState) return;
+  const { el, clone, overlay, entryId, targetGroup } = _dragState;
+
+  document.removeEventListener('touchmove', onDragMove);
+  document.removeEventListener('touchend', onDragEnd);
+
+  clone.remove();
+  overlay.remove();
+  el.style.opacity = '';
+
+  if (targetGroup) {
+    moveLogEntry(entryId, targetGroup);
+  }
+  _dragState = null;
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 function parseNum(val) {
@@ -3101,7 +3232,7 @@ async function refreshNutritionContent() {
   const logEl = document.getElementById('nutrition-log-section');
   if (logEl) {
     logEl.innerHTML = buildTimeGroupedLog(logData.entries);
-    requestAnimationFrame(() => initAllSwipeRows(logEl));
+    requestAnimationFrame(() => { initAllSwipeRows(logEl); initDragToMove(logEl); });
   }
   const label = document.getElementById('nutrition-date-label');
   if (label) label.textContent = getNutritionDateLabel();
@@ -3165,14 +3296,12 @@ function buildTimeGroupedLog(entries) {
   let html = '';
   for (const key of allGroups) {
     const items = groups[key];
-    html += `<div class="mb-4">
+    html += `<div class="mb-4" data-time-group="${key}">
       <h4 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-2">${labels[key]}</h4>
       ${items.length === 0 ? '<p class="text-xs text-ink/20 py-2">No entries</p>' : items.map(e => {
-        const otherGroups = allGroups.filter(g => g !== key);
         return `
-        <div class="swipe-container border-b border-ink/5 last:border-0">
+        <div class="swipe-container border-b border-ink/5 last:border-0" data-entry-id="${e.id}" data-entry-group="${key}">
           <div class="swipe-actions">
-            <button onclick="showMoveEntryPicker(${e.id}, '${key}')" class="bg-electric/80 text-white"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
             <button onclick="showEditLogEntryModal(${e.id}, '${e.name.replace(/'/g, "\\'")}', ${e.servings}, ${e.food_id || 'null'}, ${e.meal_id || 'null'})" class="bg-white/15 text-white"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
             <button onclick="deleteLogEntry(${e.id})" class="bg-red-500/80 text-white"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
           </div>
@@ -3197,31 +3326,7 @@ function buildTimeGroupedLog(entries) {
   return html;
 }
 
-function showMoveEntryPicker(entryId, currentGroup) {
-  const labels = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' };
-  const others = ['morning', 'afternoon', 'evening'].filter(g => g !== currentGroup);
-  const modal = document.createElement('div');
-  modal.id = 'move-entry-modal';
-  modal.className = 'fixed inset-0 z-[80] flex items-end';
-  modal.innerHTML = `
-    <div class="absolute inset-0 bg-black/60" onclick="document.getElementById('move-entry-modal')?.remove()"></div>
-    <div class="relative w-full bg-[#1a1a1a] rounded-t-2xl p-5" style="padding-bottom: calc(2rem + env(safe-area-inset-bottom))">
-      <h2 class="text-lg font-black uppercase tracking-tight mb-4">Move to</h2>
-      <div class="flex gap-2">
-        ${others.map(g => `
-          <button onclick="moveLogEntry(${entryId}, '${g}')" class="flex-1 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">
-            ${labels[g]}
-          </button>
-        `).join('')}
-      </div>
-    </div>
-  `;
-  document.body.appendChild(modal);
-  closeOpenSwipe();
-}
-
 async function moveLogEntry(entryId, timeGroup) {
-  document.getElementById('move-entry-modal')?.remove();
   await api('PUT', `/nutrition/log/${entryId}/move`, { timeGroup });
   refreshNutritionContent();
 }
@@ -3832,7 +3937,7 @@ async function renderNutrition() {
 
   initWeekPicker();
   showNutritionSearchBar();
-  requestAnimationFrame(() => initAllSwipeRows(document.getElementById('nutrition-log-section')));
+  requestAnimationFrame(() => { const el = document.getElementById('nutrition-log-section'); initAllSwipeRows(el); initDragToMove(el); });
 }
 
 function buildWeightTrend(tdeeData) {
