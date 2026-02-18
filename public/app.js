@@ -1,4 +1,4 @@
-const APP_VERSION = 'v82';
+const APP_VERSION = 'v83';
 console.log('[Adaptus]', APP_VERSION);
 
 // Auto-select input contents on focus for all numeric/decimal inputs
@@ -3581,7 +3581,10 @@ function closeBarcodeScanner() {
   document.getElementById('barcode-scanner-modal')?.remove();
 }
 
-function startBarcodeCamera(onScanCallback) {
+let _scannerCameraIdx = 0;
+let _scannerCameras = [];
+
+function startBarcodeCamera(onScanCallback, cameraId) {
   const status = document.getElementById('barcode-status');
   const setStatus = (msg) => { if (status) status.innerHTML = msg; };
 
@@ -3590,7 +3593,6 @@ function startBarcodeCamera(onScanCallback) {
     return;
   }
 
-  // Check if camera API is available
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     setStatus('Camera not available on this device.<br><span class="text-xs text-ink/30">Requires HTTPS and a supported browser.</span>');
     return;
@@ -3598,10 +3600,8 @@ function startBarcodeCamera(onScanCallback) {
 
   setStatus('Requesting camera access...');
 
-  // Request camera permission directly first, then hand off to html5-qrcode
   navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
     .then(stream => {
-      // Permission granted — stop the test stream and let html5-qrcode take over
       stream.getTracks().forEach(t => t.stop());
       setStatus('Starting scanner...');
 
@@ -3621,6 +3621,8 @@ function startBarcodeCamera(onScanCallback) {
         if (_scanHandled) return;
         _scanHandled = true;
         const fmt = decodedResult?.result?.format?.formatName || 'unknown';
+        // Stop camera immediately on successful scan
+        try { _barcodeScanner?.stop().catch(() => {}); } catch (e) {}
         setStatus(`Scanned: ${decodedText} (${fmt})`);
         const confirmDiv = document.getElementById('barcode-confirm');
         if (confirmDiv) {
@@ -3636,35 +3638,76 @@ function startBarcodeCamera(onScanCallback) {
           document.getElementById('barcode-rescan-btn').onclick = () => {
             _scanHandled = false;
             confirmDiv.innerHTML = '';
+            document.getElementById('barcode-reader').innerHTML = '';
             startBarcodeCamera(onScanCallback);
           };
           document.getElementById('barcode-use-btn').onclick = () => {
-            try { _barcodeScanner?.stop().catch(() => {}); } catch (e) {}
             _barcodeScanner = null;
             onScanCallback(decodedText);
           };
         } else {
-          try { _barcodeScanner.stop().catch(() => {}); } catch (e) {}
           _barcodeScanner = null;
           onScanCallback(decodedText);
         }
       };
 
-      const cameraConfig = { facingMode: 'environment' };
-      _barcodeScanner.start(cameraConfig, scanConfig, onSuccess, () => {})
-        .then(() => setStatus('Point camera at a barcode'))
-        .catch(err => {
-          setStatus(`Scanner start error: ${err?.message || err}<br><span class="text-xs text-ink/30">Trying front camera...</span>`);
-          _barcodeScanner.start({ facingMode: 'user' }, scanConfig, onSuccess, () => {})
-            .then(() => setStatus('Point camera at a barcode'))
-            .catch(err2 => {
-              setStatus(`Camera error: ${err2?.message || err2}<br><span class="text-xs text-ink/30">Close and reopen the app, or check Settings &gt; Safari &gt; Camera</span>`);
-            });
-        });
+      // Enumerate cameras so user can switch between them
+      const startWithCamera = (camConfig) => {
+        _barcodeScanner.start(camConfig, scanConfig, onSuccess, () => {})
+          .then(() => {
+            setStatus('Point camera at a barcode');
+            // Show switch button if multiple cameras available
+            if (_scannerCameras.length > 1) {
+              showCameraSwitchBtn(onScanCallback);
+            } else {
+              Html5Qrcode.getCameras().then(cameras => {
+                _scannerCameras = cameras;
+                if (cameras.length > 1) showCameraSwitchBtn(onScanCallback);
+              }).catch(() => {});
+            }
+          })
+          .catch(err => {
+            setStatus(`Scanner start error: ${err?.message || err}<br><span class="text-xs text-ink/30">Trying front camera...</span>`);
+            _barcodeScanner.start({ facingMode: 'user' }, scanConfig, onSuccess, () => {})
+              .then(() => setStatus('Point camera at a barcode'))
+              .catch(err2 => {
+                setStatus(`Camera error: ${err2?.message || err2}<br><span class="text-xs text-ink/30">Close and reopen the app, or check Settings &gt; Safari &gt; Camera</span>`);
+              });
+          });
+      };
+
+      if (cameraId) {
+        startWithCamera(cameraId);
+      } else {
+        startWithCamera({ facingMode: 'environment' });
+      }
     })
     .catch(err => {
       setStatus(`Camera permission denied: ${err?.message || err}<br><span class="text-xs text-ink/30">Go to Settings &gt; Safari &gt; Camera &gt; Allow</span>`);
     });
+}
+
+function showCameraSwitchBtn(onScanCallback) {
+  const existing = document.getElementById('camera-switch-btn');
+  if (existing) return;
+  const container = document.getElementById('barcode-status')?.parentElement;
+  if (!container) return;
+  const btn = document.createElement('button');
+  btn.id = 'camera-switch-btn';
+  btn.className = 'mt-3 px-4 py-2 bg-white/10 rounded-lg font-bold text-xs uppercase tracking-widest flex items-center gap-2 mx-auto transition-colors duration-200 active:bg-white/20';
+  btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/><path d="M13 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5"/><polyline points="16 5 19 2 22 5"/><polyline points="8 19 5 22 2 19"/></svg> Switch Camera';
+  btn.onclick = async () => {
+    btn.remove();
+    if (_scannerCameras.length === 0) {
+      try { _scannerCameras = await Html5Qrcode.getCameras(); } catch (e) { return; }
+    }
+    if (_scannerCameras.length < 2) return;
+    _scannerCameraIdx = (_scannerCameraIdx + 1) % _scannerCameras.length;
+    try { await _barcodeScanner?.stop(); } catch (e) {}
+    document.getElementById('barcode-reader').innerHTML = '';
+    startBarcodeCamera(onScanCallback, _scannerCameras[_scannerCameraIdx].id);
+  };
+  container.appendChild(btn);
 }
 
 function showScanToast(message, type = 'success') {
@@ -3889,7 +3932,7 @@ async function renderNutrition() {
           <h1 class="text-2xl font-black uppercase tracking-tight leading-none">Nutrition</h1>
           <p id="nutrition-date-label" class="text-sm font-bold text-ink/40 mt-1">${getNutritionDateLabel()}</p>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 mr-11">
           <button onclick="showCopyDayModal()" class="w-9 h-9 flex items-center justify-center bg-ink/5 rounded-full active:bg-ink/10 transition-colors duration-200" title="Copy day">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           </button>
