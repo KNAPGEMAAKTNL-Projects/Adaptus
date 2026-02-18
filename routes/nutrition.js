@@ -270,6 +270,24 @@ router.put('/log/:id', (req, res) => {
   res.json(updated);
 });
 
+// PUT /log/:id/move — move entry to a different time group
+router.put('/log/:id/move', (req, res) => {
+  const { timeGroup } = req.body;
+  const entry = get(`SELECT * FROM daily_log WHERE id = ?`, [req.params.id]);
+  if (!entry) return res.status(404).json({ error: 'Entry not found' });
+
+  const hourMap = { morning: 8, afternoon: 13, evening: 19 };
+  const hour = hourMap[timeGroup];
+  if (hour === undefined) return res.status(400).json({ error: 'Invalid timeGroup' });
+
+  // Preserve the date, change the time
+  const date = entry.logged_at.split('T')[0] || entry.logged_at.split(' ')[0];
+  const newTimestamp = `${date} ${String(hour).padStart(2, '0')}:00:00`;
+  run(`UPDATE daily_log SET logged_at = ? WHERE id = ?`, [newTimestamp, req.params.id]);
+  const updated = get(`SELECT * FROM daily_log WHERE id = ?`, [req.params.id]);
+  res.json(updated);
+});
+
 // DELETE /log/:id — remove log entry
 router.delete('/log/:id', (req, res) => {
   run(`DELETE FROM daily_log WHERE id = ?`, [req.params.id]);

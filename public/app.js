@@ -1,4 +1,4 @@
-const APP_VERSION = 'v76';
+const APP_VERSION = 'v77';
 console.log('[Adaptus]', APP_VERSION);
 
 // Auto-select input contents on focus for all numeric/decimal inputs
@@ -3008,44 +3008,108 @@ function buildCompactMacroBar(totals, targets) {
 
 // ─── Time-Grouped Log ───────────────────────────────────────────────────────
 function buildTimeGroupedLog(entries) {
-  if (!entries || entries.length === 0) {
-    return '<p class="text-sm text-ink/30 py-8 text-center">No entries yet today.</p>';
+  const groups = { morning: [], afternoon: [], evening: [] };
+  if (entries && entries.length > 0) {
+    entries.forEach(e => {
+      const dt = parseUtc(e.logged_at);
+      const hour = dt.getHours();
+      if (hour < 12) groups.morning.push(e);
+      else if (hour < 18) groups.afternoon.push(e);
+      else groups.evening.push(e);
+    });
   }
 
-  const groups = { morning: [], afternoon: [], evening: [] };
-  entries.forEach(e => {
-    const dt = parseUtc(e.logged_at);
-    const hour = dt.getHours();
-    if (hour < 12) groups.morning.push(e);
-    else if (hour < 18) groups.afternoon.push(e);
-    else groups.evening.push(e);
-  });
-
   const labels = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' };
+  const allGroups = ['morning', 'afternoon', 'evening'];
   let html = '';
-  for (const [key, items] of Object.entries(groups)) {
-    if (items.length === 0) continue;
+  for (const key of allGroups) {
+    const items = groups[key];
     html += `<div class="mb-4">
       <h4 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-2">${labels[key]}</h4>
-      ${items.map(e => `
+      ${items.length === 0 ? '<p class="text-xs text-ink/20 py-2">No entries</p>' : items.map(e => {
+        const otherGroups = allGroups.filter(g => g !== key);
+        return `
         <div class="swipe-container border-b border-ink/5 last:border-0">
           <div class="swipe-actions">
+            <button onclick="showMoveEntryPicker(${e.id}, '${key}')" class="bg-electric/80 text-white"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
             <button onclick="showEditLogEntryModal(${e.id}, '${e.name.replace(/'/g, "\\'")}', ${e.servings}, ${e.food_id || 'null'}, ${e.meal_id || 'null'})" class="bg-white/15 text-white"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
             <button onclick="deleteLogEntry(${e.id})" class="bg-red-500/80 text-white"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
           </div>
           <div class="swipe-content">
-            <div class="flex items-center py-2.5">
-              <div class="flex-1 min-w-0 mr-3">
-                <span class="font-bold text-[14px] block truncate flex items-center gap-1">${e.meal_id ? getMealIcon(e.name) : ''}${e.name}</span>
-                <span class="text-[11px] text-ink/40">${Math.round(e.calories)} cal · <span class="text-[#F59E0B]">${Math.round(e.fat)}f</span> · <span class="text-[#3B82F6]">${Math.round(e.carbs)}c</span> · <span class="text-[#7C3AED]">${Math.round(e.protein)}p</span>${e.food_id ? ` · ${e.servings}g` : e.servings !== 1 ? ` · ${e.servings}x` : ''}</span>
-              </div>
+            <div class="py-2.5">
+              <div class="flex items-center">
+                <div class="flex-1 min-w-0 mr-3">
+                  <span class="font-bold text-[14px] block truncate flex items-center gap-1">${e.meal_id ? getMealIcon(e.name) : ''}${e.name}</span>
+                  <span class="text-[11px] text-ink/40">${Math.round(e.calories)} cal · <span class="text-[#F59E0B]">${Math.round(e.fat)}f</span> · <span class="text-[#3B82F6]">${Math.round(e.carbs)}c</span> · <span class="text-[#7C3AED]">${Math.round(e.protein)}p</span>${e.food_id ? ` · ${e.servings}g` : e.servings !== 1 ? ` · ${e.servings}x` : ''}</span>
+                </div>
+              </div>${e.meal_id ? `
+              <button class="text-[10px] text-ink/30 mt-1 flex items-center gap-1" onclick="toggleMealDetails(this, ${e.meal_id}, ${e.servings})">
+                Details <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="transition-transform duration-200"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <div class="meal-expand hidden"></div>` : ''}
             </div>
           </div>
         </div>
-      `).join('')}
+      `}).join('')}
     </div>`;
   }
   return html;
+}
+
+function showMoveEntryPicker(entryId, currentGroup) {
+  const labels = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' };
+  const others = ['morning', 'afternoon', 'evening'].filter(g => g !== currentGroup);
+  const modal = document.createElement('div');
+  modal.id = 'move-entry-modal';
+  modal.className = 'fixed inset-0 z-[80] flex items-end';
+  modal.innerHTML = `
+    <div class="absolute inset-0 bg-black/60" onclick="document.getElementById('move-entry-modal')?.remove()"></div>
+    <div class="relative w-full bg-[#1a1a1a] rounded-t-2xl p-5" style="padding-bottom: calc(2rem + env(safe-area-inset-bottom))">
+      <h2 class="text-lg font-black uppercase tracking-tight mb-4">Move to</h2>
+      <div class="flex gap-2">
+        ${others.map(g => `
+          <button onclick="moveLogEntry(${entryId}, '${g}')" class="flex-1 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">
+            ${labels[g]}
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  closeOpenSwipe();
+}
+
+async function moveLogEntry(entryId, timeGroup) {
+  document.getElementById('move-entry-modal')?.remove();
+  await api('PUT', `/nutrition/log/${entryId}/move`, { timeGroup });
+  refreshNutritionContent();
+}
+
+async function toggleMealDetails(btn, mealId, servings) {
+  const details = btn.nextElementSibling;
+  if (!details.classList.contains('hidden')) {
+    details.classList.add('hidden');
+    btn.querySelector('svg').style.transform = '';
+    return;
+  }
+  if (!details.innerHTML) {
+    if (!_searchMeals) _searchMeals = await api('GET', '/nutrition/meals');
+    const meal = _searchMeals.find(m => m.id === mealId);
+    if (meal && meal.foods) {
+      details.innerHTML = meal.foods.map(f => {
+        const grams = Math.round(f.servings * (f.serving_size || 100) * servings);
+        const cal = Math.round(f.calories * grams / 100);
+        return `<div class="flex items-center justify-between py-1 text-[11px]">
+          <span class="text-ink/40 truncate flex-1 mr-2">${f.name}</span>
+          <span class="text-ink/30 flex-shrink-0">${grams}g · ${cal} cal</span>
+        </div>`;
+      }).join('');
+    } else {
+      details.innerHTML = '<p class="text-[11px] text-ink/20 py-1">Details unavailable</p>';
+    }
+  }
+  details.classList.remove('hidden');
+  btn.querySelector('svg').style.transform = 'rotate(180deg)';
 }
 
 // ─── Bottom Search Bar + Inline Search ──────────────────────────────────────
@@ -3243,14 +3307,14 @@ async function lookupBarcodeForForm(barcode) {
     if (localFood) {
       showScanToast('Found in your library — fields filled', 'success');
       const nameEl = document.getElementById('food-name');
-      const proEl = document.getElementById('food-protein');
-      const carbEl = document.getElementById('food-carbs');
+      const proEl = document.getElementById('food-pro');
+      const carbEl = document.getElementById('food-carb');
       const fatEl = document.getElementById('food-fat');
       if (nameEl) nameEl.value = localFood.name;
       if (proEl) proEl.value = localFood.protein;
       if (carbEl) carbEl.value = localFood.carbs;
       if (fatEl) fatEl.value = localFood.fat;
-      calcFoodCalories();
+      calcFieldCalories('food');
       return;
     }
   } catch (e) {}
@@ -3268,14 +3332,14 @@ async function lookupBarcodeForForm(barcode) {
       if (name || pro > 0 || carb > 0 || fat > 0) {
         showScanToast('Imported from Open Food Facts', 'info');
         const nameEl = document.getElementById('food-name');
-        const proEl = document.getElementById('food-protein');
-        const carbEl = document.getElementById('food-carbs');
+        const proEl = document.getElementById('food-pro');
+        const carbEl = document.getElementById('food-carb');
         const fatEl = document.getElementById('food-fat');
         if (nameEl && name) nameEl.value = name;
         if (proEl) proEl.value = pro;
         if (carbEl) carbEl.value = carb;
         if (fatEl) fatEl.value = fat;
-        calcFoodCalories();
+        calcFieldCalories('food');
         return;
       }
     }
@@ -3448,27 +3512,7 @@ function showScanFoodPopup({ barcode, name, protein, carbs, fat, notFound }) {
           <input id="scan-food-name" type="text" value="${(name || '').replace(/"/g, '&quot;')}" placeholder="e.g. Chicken Breast"
             class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
         </div>
-        <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Per 100g</p>
-        <div>
-          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Calories (auto)</label>
-          <div class="w-full h-10 px-3 border-2 border-ink/10 rounded-lg bg-ink/5 flex items-center justify-center font-bold text-sm text-ink/60">
-            <span id="scan-food-cal">${cal}</span>
-          </div>
-        </div>
-        <div class="grid grid-cols-3 gap-2">
-          <div>
-            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Fat</label>
-            <input id="scan-food-fat" type="text" inputmode="decimal" value="${fat || ''}" placeholder="0" oninput="calcScanFoodCal()"              class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
-          </div>
-          <div>
-            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Carbs</label>
-            <input id="scan-food-carb" type="text" inputmode="decimal" value="${carbs || ''}" placeholder="0" oninput="calcScanFoodCal()"              class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
-          </div>
-          <div>
-            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Protein</label>
-            <input id="scan-food-pro" type="text" inputmode="decimal" value="${protein || ''}" placeholder="0" oninput="calcScanFoodCal()"              class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
-          </div>
-        </div>
+        ${buildFoodFields('scan-food', {protein, carbs, fat}, {compact: true})}
         <div class="border-t border-ink/10 pt-3">
           <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Grams to log</label>
           <input id="scan-food-grams" type="text" inputmode="decimal" value="100" placeholder="100"
@@ -3483,13 +3527,6 @@ function showScanFoodPopup({ barcode, name, protein, carbs, fat, notFound }) {
   if (notFound || !name) requestAnimationFrame(() => document.getElementById('scan-food-name')?.focus());
 }
 
-function calcScanFoodCal() {
-  const p = parseNum(document.getElementById('scan-food-pro')?.value) || 0;
-  const c = parseNum(document.getElementById('scan-food-carb')?.value) || 0;
-  const f = parseNum(document.getElementById('scan-food-fat')?.value) || 0;
-  const el = document.getElementById('scan-food-cal');
-  if (el) el.textContent = Math.round(p * 4 + c * 4 + f * 9);
-}
 
 async function saveScanFood() {
   const nameEl = document.getElementById('scan-food-name');
@@ -3589,7 +3626,7 @@ async function prefillMealInlineCreator() {
     if (carbEl) carbEl.value = s.carbs || '';
     if (fatEl) fatEl.value = s.fat || '';
     if (barcodeEl) barcodeEl.value = s.barcode || '';
-    calcInlineFoodCalories();
+    calcFieldCalories('inline-food');
     if (s.notFound) {
       showScanToast('Not found online — barcode saved', 'warn');
     } else {
@@ -4108,49 +4145,39 @@ async function quickLogMeal(mealId) {
 
 function showFoodServingsModal(foodId, foodName, cal, pro, carb, fat, servingName, servingGrams) {
   const hasServing = servingName && servingGrams;
+  const defaultGrams = servingGrams || 100;
   const modal = document.createElement('div');
   modal.id = 'servings-modal';
   modal.className = 'fixed inset-0 z-[80] flex items-center justify-center';
 
-  if (hasServing) {
-    const perServingCal = Math.round(cal * servingGrams / 100);
-    modal.innerHTML = `
-      <div class="absolute inset-0 bg-black/60" onclick="closeFoodServingsModal()"></div>
-      <div class="relative bg-[#1a1a1a] rounded-xl mx-4 p-5 max-w-sm w-full">
-        <h2 class="text-lg font-black uppercase tracking-tight mb-1">${foodName}</h2>
-        <p class="text-xs text-ink/40 mb-1">${perServingCal} cal per ${servingName} (${servingGrams}g)</p>
-        <p id="food-grams-equiv" class="text-xs text-ink/30 mb-4">= ${servingGrams}g</p>
-        <div class="mb-4">
-          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Servings</label>
-          <input id="food-servings-input" type="text" inputmode="decimal" value="1"
-            data-serving-grams="${servingGrams}"
-            oninput="document.getElementById('food-grams-equiv').textContent = '= ' + Math.round((parseNum(this.value)||0) * ${servingGrams}) + 'g'"
-            class="w-full h-12 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
-        </div>
-        <div class="flex gap-2">
-          <button onclick="closeFoodServingsModal()" class="flex-1 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">Cancel</button>
-          <button onclick="confirmLogFood(${foodId}, true, ${servingGrams})" class="flex-1 py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-acid/20 active:text-acid">Log</button>
-        </div>
+  const iCal = Math.round(cal * defaultGrams / 100);
+  const iFat = Math.round(fat * defaultGrams / 100 * 10) / 10;
+  const iCarb = Math.round(carb * defaultGrams / 100 * 10) / 10;
+  const iPro = Math.round(pro * defaultGrams / 100 * 10) / 10;
+
+  modal.innerHTML = `
+    <div class="absolute inset-0 bg-black/60" onclick="closeFoodServingsModal()"></div>
+    <div class="relative bg-[#1a1a1a] rounded-xl mx-4 p-5 max-w-sm w-full">
+      <h2 class="text-lg font-black uppercase tracking-tight mb-1">${foodName}</h2>
+      ${hasServing ? `<p class="text-xs text-ink/40 mb-4">1 ${servingName} = ${servingGrams}g</p>` : `<p class="text-xs text-ink/40 mb-4">${Math.round(cal)} cal per 100g</p>`}
+      <div class="mb-4">
+        <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Grams</label>
+        <input id="food-servings-input" type="text" inputmode="decimal" value="${defaultGrams}"
+          oninput="updateServingsPreview(this.value, ${cal}, ${pro}, ${carb}, ${fat})"
+          class="w-full h-12 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
       </div>
-    `;
-  } else {
-    modal.innerHTML = `
-      <div class="absolute inset-0 bg-black/60" onclick="closeFoodServingsModal()"></div>
-      <div class="relative bg-[#1a1a1a] rounded-xl mx-4 p-5 max-w-sm w-full">
-        <h2 class="text-lg font-black uppercase tracking-tight mb-1">${foodName}</h2>
-        <p class="text-xs text-ink/40 mb-4">${Math.round(cal)} cal per 100g</p>
-        <div class="mb-4">
-          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Grams</label>
-          <input id="food-servings-input" type="text" inputmode="decimal" value="100"
-            class="w-full h-12 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
-        </div>
-        <div class="flex gap-2">
-          <button onclick="closeFoodServingsModal()" class="flex-1 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">Cancel</button>
-          <button onclick="confirmLogFood(${foodId}, false, null)" class="flex-1 py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-acid/20 active:text-acid">Log</button>
-        </div>
+      <div class="grid grid-cols-4 gap-2 mb-4">
+        <div class="text-center"><p class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-0.5">Cal</p><p id="sp-cal" class="font-bold text-sm">${iCal}</p></div>
+        <div class="text-center"><p class="text-[10px] font-bold uppercase tracking-widest text-[#F59E0B] mb-0.5">Fat</p><p id="sp-fat" class="font-bold text-sm text-[#F59E0B]">${iFat}</p></div>
+        <div class="text-center"><p class="text-[10px] font-bold uppercase tracking-widest text-[#3B82F6] mb-0.5">Carbs</p><p id="sp-carb" class="font-bold text-sm text-[#3B82F6]">${iCarb}</p></div>
+        <div class="text-center"><p class="text-[10px] font-bold uppercase tracking-widest text-[#7C3AED] mb-0.5">Pro</p><p id="sp-pro" class="font-bold text-sm text-[#7C3AED]">${iPro}</p></div>
       </div>
-    `;
-  }
+      <div class="flex gap-2">
+        <button onclick="closeFoodServingsModal()" class="flex-1 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">Cancel</button>
+        <button onclick="confirmLogFood(${foodId}, false, null)" class="flex-1 py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-acid/20 active:text-acid">Log</button>
+      </div>
+    </div>
+  `;
 
   document.body.appendChild(modal);
   requestAnimationFrame(() => document.getElementById('food-servings-input')?.select());
@@ -4175,20 +4202,52 @@ async function confirmLogFood(foodId, hasServing, servingGrams) {
   }
 }
 
-function calcFoodCalories() {
-  const p = parseNum(document.getElementById('food-protein')?.value) || 0;
-  const c = parseNum(document.getElementById('food-carbs')?.value) || 0;
-  const f = parseNum(document.getElementById('food-fat')?.value) || 0;
-  const el = document.getElementById('food-calories');
+function calcFieldCalories(prefix) {
+  const p = parseNum(document.getElementById(`${prefix}-pro`)?.value) || 0;
+  const c = parseNum(document.getElementById(`${prefix}-carb`)?.value) || 0;
+  const f = parseNum(document.getElementById(`${prefix}-fat`)?.value) || 0;
+  const el = document.getElementById(`${prefix}-cal`);
   if (el) el.textContent = Math.round(p * 4 + c * 4 + f * 9);
 }
 
-function calcInlineFoodCalories() {
-  const p = parseNum(document.getElementById('inline-food-pro')?.value) || 0;
-  const c = parseNum(document.getElementById('inline-food-carb')?.value) || 0;
-  const f = parseNum(document.getElementById('inline-food-fat')?.value) || 0;
-  const el = document.getElementById('inline-food-cal');
-  if (el) el.textContent = Math.round(p * 4 + c * 4 + f * 9);
+function buildFoodFields(prefix, food, options = {}) {
+  const h = options.compact ? 'h-10' : 'h-12';
+  const ts = options.compact ? 'text-sm' : '';
+  const cal = Math.round((food.protein||0)*4 + (food.carbs||0)*4 + (food.fat||0)*9);
+  return `
+    <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-1">Per 100g</p>
+    <div class="grid grid-cols-4 gap-2">
+      <div>
+        <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Cal</label>
+        <div class="${h} px-1 border-2 border-ink/10 rounded-lg bg-ink/5 flex items-center justify-center font-bold ${ts} text-ink/60">
+          <span id="${prefix}-cal">${cal}</span>
+        </div>
+      </div>
+      <div>
+        <label class="text-[10px] font-bold uppercase tracking-widest text-[#F59E0B] block mb-1">Fat</label>
+        <input id="${prefix}-fat" type="text" inputmode="decimal" value="${food.fat || ''}" placeholder="0" oninput="calcFieldCalories('${prefix}')"
+          class="w-full ${h} px-1 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold ${ts} focus:border-[#F59E0B] focus:outline-none transition-colors duration-200">
+      </div>
+      <div>
+        <label class="text-[10px] font-bold uppercase tracking-widest text-[#3B82F6] block mb-1">Carbs</label>
+        <input id="${prefix}-carb" type="text" inputmode="decimal" value="${food.carbs || ''}" placeholder="0" oninput="calcFieldCalories('${prefix}')"
+          class="w-full ${h} px-1 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold ${ts} focus:border-[#3B82F6] focus:outline-none transition-colors duration-200">
+      </div>
+      <div>
+        <label class="text-[10px] font-bold uppercase tracking-widest text-[#7C3AED] block mb-1">Pro</label>
+        <input id="${prefix}-pro" type="text" inputmode="decimal" value="${food.protein || ''}" placeholder="0" oninput="calcFieldCalories('${prefix}')"
+          class="w-full ${h} px-1 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold ${ts} focus:border-[#7C3AED] focus:outline-none transition-colors duration-200">
+      </div>
+    </div>`;
+}
+
+function updateServingsPreview(value, cal, pro, carb, fat) {
+  const g = parseNum(value) || 0;
+  const e = (id) => document.getElementById(id);
+  if (e('sp-cal')) e('sp-cal').textContent = Math.round(cal * g / 100);
+  if (e('sp-fat')) e('sp-fat').textContent = Math.round(fat * g / 100 * 10) / 10;
+  if (e('sp-carb')) e('sp-carb').textContent = Math.round(carb * g / 100 * 10) / 10;
+  if (e('sp-pro')) e('sp-pro').textContent = Math.round(pro * g / 100 * 10) / 10;
 }
 
 // ─── View: Food Form ────────────────────────────────────────────────────────
@@ -4222,27 +4281,7 @@ async function renderFoodForm(id) {
             class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent font-bold focus:border-acid focus:outline-none transition-colors duration-200">
         </div>
 
-        <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mt-2">Nutrition per 100g</p>
-        <div>
-          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Calories (auto)</label>
-          <div class="w-full h-12 px-3 border-2 border-ink/10 rounded-lg bg-ink/5 flex items-center justify-center font-bold text-ink/60">
-            <span id="food-calories">${Math.round((food.protein||0)*4 + (food.carbs||0)*4 + (food.fat||0)*9)}</span>
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Fat (g)</label>
-            <input id="food-fat" type="text" inputmode="decimal" value="${food.fat}" placeholder="0" oninput="calcFoodCalories()"              class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold focus:border-acid focus:outline-none transition-colors duration-200">
-          </div>
-          <div>
-            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Carbs (g)</label>
-            <input id="food-carbs" type="text" inputmode="decimal" value="${food.carbs}" placeholder="0" oninput="calcFoodCalories()"              class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold focus:border-acid focus:outline-none transition-colors duration-200">
-          </div>
-          <div>
-            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Protein (g)</label>
-            <input id="food-protein" type="text" inputmode="decimal" value="${food.protein}" placeholder="0" oninput="calcFoodCalories()"              class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold focus:border-acid focus:outline-none transition-colors duration-200">
-          </div>
-        </div>
+        ${buildFoodFields('food', food)}
 
         <div class="border-t border-ink/10 pt-4">
           <div class="flex items-center justify-between mb-3">
@@ -4288,8 +4327,8 @@ async function renderFoodForm(id) {
 
 async function saveFood(id) {
   const hasServing = document.getElementById('food-has-serving')?.checked;
-  const protein = parseNum(document.getElementById('food-protein').value) || 0;
-  const carbs = parseNum(document.getElementById('food-carbs').value) || 0;
+  const protein = parseNum(document.getElementById('food-pro').value) || 0;
+  const carbs = parseNum(document.getElementById('food-carb').value) || 0;
   const fat = parseNum(document.getElementById('food-fat').value) || 0;
   const nameEl = document.getElementById('food-name');
   const data = {
@@ -4543,27 +4582,7 @@ function showInlineFoodCreator() {
         <input id="inline-food-name" type="text" placeholder="e.g. Chicken Breast"
           class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
       </div>
-      <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Nutrition per 100g</p>
-      <div>
-        <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Calories (auto)</label>
-        <div class="w-full h-10 px-3 border-2 border-ink/10 rounded-lg bg-ink/5 flex items-center justify-center font-bold text-sm text-ink/60">
-          <span id="inline-food-cal">0</span>
-        </div>
-      </div>
-      <div class="grid grid-cols-2 gap-2">
-        <div>
-          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Fat (g)</label>
-          <input id="inline-food-fat" type="text" inputmode="decimal" placeholder="0" oninput="calcInlineFoodCalories()"            class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
-        </div>
-        <div>
-          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Carbs (g)</label>
-          <input id="inline-food-carb" type="text" inputmode="decimal" placeholder="0" oninput="calcInlineFoodCalories()"            class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
-        </div>
-        <div>
-          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Protein (g)</label>
-          <input id="inline-food-pro" type="text" inputmode="decimal" placeholder="0" oninput="calcInlineFoodCalories()"            class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
-        </div>
-      </div>
+      ${buildFoodFields('inline-food', {protein: 0, carbs: 0, fat: 0}, {compact: true})}
       <div class="border-t border-ink/10 pt-3">
         <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-2">Custom Serving (optional)</p>
         <div class="grid grid-cols-2 gap-2">
