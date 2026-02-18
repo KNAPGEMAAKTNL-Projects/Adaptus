@@ -1,4 +1,4 @@
-const APP_VERSION = 'v69';
+const APP_VERSION = 'v70';
 console.log('[Adaptus]', APP_VERSION);
 
 // Auto-select input contents on focus for all numeric/decimal inputs
@@ -2933,8 +2933,8 @@ function buildTimeGroupedLog(entries) {
       ${items.map(e => `
         <div class="flex items-center justify-between py-2.5 border-b border-ink/5 last:border-0">
           <button onclick="showEditLogEntryModal(${e.id}, '${e.name.replace(/'/g, "\\'")}', ${e.servings}, ${e.food_id || 'null'}, ${e.meal_id || 'null'})" class="flex-1 min-w-0 mr-3 text-left active:bg-ink/5 transition-colors duration-200 rounded-lg -ml-1 pl-1">
-            <span class="font-bold text-[14px] block truncate">${e.name}</span>
-            <span class="text-[11px] text-ink/40">${Math.round(e.calories)} cal · ${Math.round(e.fat)}f · ${Math.round(e.carbs)}c · ${Math.round(e.protein)}p${e.food_id ? ` · ${e.servings}g` : e.servings !== 1 ? ` · ${e.servings}x` : ''}</span>
+            <span class="font-bold text-[14px] block truncate flex items-center gap-1">${e.meal_id ? getMealIcon(e.name) : ''}${e.name}</span>
+            <span class="text-[11px] text-ink/40">${Math.round(e.calories)} cal · <span class="text-[#F59E0B]">${Math.round(e.fat)}f</span> · <span class="text-[#3B82F6]">${Math.round(e.carbs)}c</span> · <span class="text-[#7C3AED]">${Math.round(e.protein)}p</span>${e.food_id ? ` · ${e.servings}g` : e.servings !== 1 ? ` · ${e.servings}x` : ''}</span>
           </button>
           <button onclick="deleteLogEntry(${e.id})" class="text-ink/20 hover:text-red-500 text-xs font-bold transition-colors duration-200 flex-shrink-0">&times;</button>
         </div>
@@ -3399,9 +3399,9 @@ async function lookupBarcodeForMeal(barcode) {
     if (localFood) {
       closeBarcodeScanner();
       showScanToast('Found in your library — added to meal', 'success');
-      // Add directly to meal with per-100g macros and default 100g
+      // Add directly to meal — default grams to custom serving size
       if (!window._mealFormFoods) window._mealFormFoods = [];
-      window._mealFormFoods.push({ foodId: localFood.id, name: localFood.name, grams: 100, servingSize: localFood.serving_size || 100, calories: localFood.calories, protein: localFood.protein, carbs: localFood.carbs, fat: localFood.fat });
+      window._mealFormFoods.push({ foodId: localFood.id, name: localFood.name, grams: localFood.serving_size || 100, servingSize: localFood.serving_size || 100, calories: localFood.calories, protein: localFood.protein, carbs: localFood.carbs, fat: localFood.fat });
       reRenderMealForm();
       if (window._mealFormName) {
         const nameInput = document.getElementById('meal-name');
@@ -3828,6 +3828,19 @@ async function confirmCopyDay(sourceDate) {
   refreshNutritionContent();
 }
 
+function getMealIcon(name) {
+  const n = (name || '').toLowerCase();
+  if (n.includes('breakfast') || n.includes('morning') || n.includes('ontbijt'))
+    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>`;
+  if (n.includes('lunch') || n.includes('middag'))
+    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CCFF00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>`;
+  if (n.includes('dinner') || n.includes('avondeten') || n.includes('diner'))
+    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+  if (n.includes('snack') || n.includes('tussendoor'))
+    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>`;
+  return '';
+}
+
 // ─── View: Library (Foods + Meals tabs) ─────────────────────────────────────
 async function renderNutritionAdd(initialTab) {
   const tab = initialTab || 'meals';
@@ -3904,7 +3917,7 @@ function buildMealsTab(meals) {
   const mealsHtml = meals.length > 0 ? meals.map(m => `
     <div class="border-2 border-ink/10 rounded-xl p-4 mb-2">
       <div class="flex items-center justify-between mb-1">
-        <h3 class="font-bold text-[15px] truncate flex-1 mr-2">${m.name}</h3>
+        <h3 class="font-bold text-[15px] truncate flex-1 mr-2 flex items-center gap-1.5">${getMealIcon(m.name)}${m.name}</h3>
         <div class="flex items-center gap-1 flex-shrink-0">
           <button onclick="navigate('#nutrition/meal/${m.id}')" class="w-8 h-8 flex items-center justify-center text-ink/30 active:text-ink transition-colors duration-200">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 1.5l2.5 2.5M1 13l1-4L10.5 0.5l2.5 2.5L4.5 12z"/></svg>
@@ -3912,7 +3925,22 @@ function buildMealsTab(meals) {
           <button onclick="deleteMeal(${m.id})" class="w-8 h-8 flex items-center justify-center text-ink/20 hover:text-red-500 transition-colors duration-200">&times;</button>
         </div>
       </div>
-      <p class="text-xs text-ink/40 mb-3">${Math.round(m.totalCalories)} cal · ${Math.round(m.totalFat)}f · ${Math.round(m.totalCarbs)}c · ${Math.round(m.totalProtein)}p</p>
+      <button onclick="this.nextElementSibling.classList.toggle('hidden');this.querySelector('svg:last-child').style.transform=this.nextElementSibling.classList.contains('hidden')?'':'rotate(180deg)'" class="flex items-center gap-1 text-xs text-ink/40 mb-3 active:text-ink/60 transition-colors duration-200">
+        <svg class="inline -mt-0.5" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#CCFF00" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12c2-2.96 0-7-1-8 0 3.038-1.773 4.741-3 6-1.226 1.26-2 3.24-2 5a6 6 0 1 0 12 0c0-1.532-1.056-3.94-2-5-1.786 3-2.791 3-4 2z"/></svg>
+        ${Math.round(m.totalCalories)} · <span class="text-[#F59E0B] font-bold">${Math.round(m.totalFat)}f</span> · <span class="text-[#3B82F6] font-bold">${Math.round(m.totalCarbs)}c</span> · <span class="text-[#7C3AED] font-bold">${Math.round(m.totalProtein)}p</span>
+        <span class="text-ink/20 ml-0.5">(${m.foods.length})</span>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="transition-transform duration-200"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div class="hidden mb-3 border-t border-ink/5 pt-2">
+        ${m.foods.map(f => {
+          const grams = Math.round(f.servings * (f.serving_size || 100));
+          const cal = Math.round(f.calories * (f.serving_size || 100) / 100 * f.servings);
+          return `<div class="flex items-center justify-between py-1.5 text-xs">
+            <span class="text-ink/50 truncate flex-1 mr-2">${f.name}</span>
+            <span class="text-ink/30 flex-shrink-0">${grams}g · ${cal} cal</span>
+          </div>`;
+        }).join('')}
+      </div>
       <button onclick="quickLogMeal(${m.id})" class="w-full py-2 bg-white/10 text-white rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20">
         Log Meal
       </button>
@@ -4235,20 +4263,32 @@ function renderMealFormInner(id, mealName, allFoods) {
         <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-2">Meal Totals</h3>
         <div class="grid grid-cols-4 gap-2 text-center">
           <div>
+            <div class="flex items-center justify-center gap-1 mb-0.5">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#CCFF00" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12c2-2.96 0-7-1-8 0 3.038-1.773 4.741-3 6-1.226 1.26-2 3.24-2 5a6 6 0 1 0 12 0c0-1.532-1.056-3.94-2-5-1.786 3-2.791 3-4 2z"/></svg>
+              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">kcal</span>
+            </div>
             <span class="text-lg font-black block">${Math.round(totalCal)}</span>
-            <span class="text-[10px] font-bold uppercase text-ink/40">Cal</span>
           </div>
           <div>
-            <span class="text-lg font-black block">${Math.round(totalFat)}</span>
-            <span class="text-[10px] font-bold uppercase text-ink/40">Fat</span>
+            <div class="flex items-center justify-center gap-1 mb-0.5">
+              <span class="text-[10px] font-black text-[#F59E0B]">F</span>
+              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">fat</span>
+            </div>
+            <span class="text-lg font-black block">${Math.round(totalFat)}<span class="text-xs text-ink/30">g</span></span>
           </div>
           <div>
-            <span class="text-lg font-black block">${Math.round(totalCarb)}</span>
-            <span class="text-[10px] font-bold uppercase text-ink/40">Carb</span>
+            <div class="flex items-center justify-center gap-1 mb-0.5">
+              <span class="text-[10px] font-black text-[#3B82F6]">C</span>
+              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">carbs</span>
+            </div>
+            <span class="text-lg font-black block">${Math.round(totalCarb)}<span class="text-xs text-ink/30">g</span></span>
           </div>
           <div>
-            <span class="text-lg font-black block">${Math.round(totalPro)}</span>
-            <span class="text-[10px] font-bold uppercase text-ink/40">Pro</span>
+            <div class="flex items-center justify-center gap-1 mb-0.5">
+              <span class="text-[10px] font-black text-[#7C3AED]">P</span>
+              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">protein</span>
+            </div>
+            <span class="text-lg font-black block">${Math.round(totalPro)}<span class="text-xs text-ink/30">g</span></span>
           </div>
         </div>
       </div>
@@ -4339,8 +4379,8 @@ function closeFoodPickerModal() {
 
 function pickFoodForMeal(foodId, name, cal, pro, carb, fat, servingGrams) {
   if (!window._mealFormFoods) window._mealFormFoods = [];
-  // Store macros per 100g and default to 100g
-  window._mealFormFoods.push({ foodId, name, grams: 100, servingSize: servingGrams || 100, calories: cal, protein: pro, carbs: carb, fat: fat });
+  // Store macros per 100g — default grams to custom serving size
+  window._mealFormFoods.push({ foodId, name, grams: servingGrams || 100, servingSize: servingGrams || 100, calories: cal, protein: pro, carbs: carb, fat: fat });
   closeFoodPickerModal();
   reRenderMealForm();
   // Restore meal name
@@ -4427,9 +4467,9 @@ async function saveInlineFood() {
     const food = await api('POST', '/nutrition/foods', { name, calories: cal, protein: pro, carbs: carb, fat: fat, servingName, servingGrams, barcode });
     _searchFoods = null;
 
-    // Add to meal form with per-100g macros and default 100g
+    // Add to meal form — default grams to custom serving size
     if (!window._mealFormFoods) window._mealFormFoods = [];
-    window._mealFormFoods.push({ foodId: food.id, name: food.name, grams: 100, servingSize: food.serving_size || 100, calories: food.calories, protein: food.protein, carbs: food.carbs, fat: food.fat });
+    window._mealFormFoods.push({ foodId: food.id, name: food.name, grams: food.serving_size || 100, servingSize: food.serving_size || 100, calories: food.calories, protein: food.protein, carbs: food.carbs, fat: food.fat });
 
     closeFoodPickerModal();
     reRenderMealForm();
