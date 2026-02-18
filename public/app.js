@@ -1,4 +1,4 @@
-const APP_VERSION = 'v59';
+const APP_VERSION = 'v63';
 console.log('[Adaptus]', APP_VERSION);
 // ─── State ───────────────────────────────────────────────────────────────────
 const state = {
@@ -3042,6 +3042,7 @@ function closeNutritionSearch() {
 let _barcodeScanner = null;
 
 function _openScannerModal(callback) {
+  const libLoaded = typeof Html5Qrcode !== 'undefined';
   const modal = document.createElement('div');
   modal.id = 'barcode-scanner-modal';
   modal.className = 'fixed inset-0 z-[80] bg-canvas flex flex-col';
@@ -3054,12 +3055,30 @@ function _openScannerModal(callback) {
     </div>
     <div class="flex-1 flex flex-col items-center justify-center px-4">
       <div id="barcode-reader" class="w-full max-w-sm rounded-xl overflow-hidden"></div>
-      <p id="barcode-status" class="text-sm text-ink/40 mt-4 text-center">Point camera at a barcode</p>
+      <p id="barcode-status" class="text-sm text-ink/40 mt-4 text-center">${libLoaded ? 'Point camera at a barcode' : 'Loading scanner library...'}</p>
       <div id="barcode-confirm"></div>
     </div>
   `;
   document.body.appendChild(modal);
-  startBarcodeCamera(callback);
+  if (libLoaded) {
+    startBarcodeCamera(callback);
+  } else {
+    // Library not yet loaded (async script) — wait for it
+    let attempts = 0;
+    const waitForLib = setInterval(() => {
+      attempts++;
+      if (typeof Html5Qrcode !== 'undefined') {
+        clearInterval(waitForLib);
+        const s = document.getElementById('barcode-status');
+        if (s) s.textContent = 'Point camera at a barcode';
+        startBarcodeCamera(callback);
+      } else if (attempts > 30) {
+        clearInterval(waitForLib);
+        const s = document.getElementById('barcode-status');
+        if (s) s.innerHTML = 'Scanner library failed to load.<br><button onclick="closeBarcodeScanner()" class="mt-3 px-4 py-2 bg-white/10 rounded-lg font-bold text-sm uppercase">Close</button>';
+      }
+    }, 500);
+  }
 }
 
 function openBarcodeScanner() {
@@ -3188,10 +3207,10 @@ function startBarcodeCamera(onScanCallback) {
     width: { ideal: 1280 },
     height: { ideal: 720 },
   };
-  _barcodeScanner.start(cameraConfig, scanConfig, onSuccess, () => {}).catch(() => {
-    _barcodeScanner.start({ facingMode: 'user' }, scanConfig, onSuccess, () => {}).catch(() => {
+  _barcodeScanner.start(cameraConfig, scanConfig, onSuccess, () => {}).catch(err => {
+    _barcodeScanner.start({ facingMode: 'user' }, scanConfig, onSuccess, () => {}).catch(err2 => {
       const s = document.getElementById('barcode-status');
-      if (s) s.textContent = 'Camera unavailable. Check permissions in browser settings.';
+      if (s) s.innerHTML = `Camera error: ${err2?.message || err?.message || 'unknown'}<br><span class="text-xs text-ink/30">Check camera permissions in Settings &gt; Safari</span>`;
     });
   });
 }
