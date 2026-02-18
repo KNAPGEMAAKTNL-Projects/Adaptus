@@ -1,4 +1,4 @@
-const APP_VERSION = 'v78';
+const APP_VERSION = 'v79';
 console.log('[Adaptus]', APP_VERSION);
 
 // Auto-select input contents on focus for all numeric/decimal inputs
@@ -23,29 +23,50 @@ const state = {
 };
 
 // ─── Milestones ─────────────────────────────────────────────────────────────
-const MILESTONES = [
-  { id: 'workouts-1', category: 'workouts', label: 'First Workout', threshold: 1 },
-  { id: 'workouts-10', category: 'workouts', label: '10 Workouts', threshold: 10 },
-  { id: 'workouts-25', category: 'workouts', label: '25 Workouts', threshold: 25 },
-  { id: 'workouts-50', category: 'workouts', label: '50 Workouts', threshold: 50 },
-  { id: 'workouts-100', category: 'workouts', label: '100 Workouts', threshold: 100 },
-  { id: 'workouts-200', category: 'workouts', label: '200 Workouts', threshold: 200 },
-  { id: 'workouts-500', category: 'workouts', label: '500 Workouts', threshold: 500 },
-  { id: 'volume-10k', category: 'volume', label: '10,000kg Lifted', threshold: 10000 },
-  { id: 'volume-50k', category: 'volume', label: '50,000kg Lifted', threshold: 50000 },
-  { id: 'volume-100k', category: 'volume', label: '100,000kg Lifted', threshold: 100000 },
-  { id: 'volume-250k', category: 'volume', label: '250,000kg Lifted', threshold: 250000 },
-  { id: 'volume-500k', category: 'volume', label: '500,000kg Lifted', threshold: 500000 },
-  { id: 'volume-1m', category: 'volume', label: '1,000,000kg Lifted', threshold: 1000000 },
-  { id: 'streak-4', category: 'streak', label: '4-Week Streak', threshold: 4 },
-  { id: 'streak-8', category: 'streak', label: '8-Week Streak', threshold: 8 },
-  { id: 'streak-12', category: 'streak', label: '12-Week Streak', threshold: 12 },
-  { id: 'sets-100', category: 'sets', label: '100 Sets', threshold: 100 },
-  { id: 'sets-500', category: 'sets', label: '500 Sets', threshold: 500 },
-  { id: 'sets-1000', category: 'sets', label: '1,000 Sets', threshold: 1000 },
-  { id: 'sets-2500', category: 'sets', label: '2,500 Sets', threshold: 2500 },
-  { id: 'sets-5000', category: 'sets', label: '5,000 Sets', threshold: 5000 },
-];
+const TIER_COLORS = {
+  titanium: ['#64748B', '#94A3B8', '#CBD5E1'],
+  bronze:   ['#92400E', '#B45309', '#D97706'],
+  silver:   ['#9CA3AF', '#D1D5DB', '#F3F4F6'],
+  gold:     ['#B45309', '#EAB308', '#FDE047'],
+  platinum: ['#A5B4FC', '#C7D2FE', '#E0E7FF'],
+  diamond:  ['#22D3EE', '#67E8F9', '#A5F3FC'],
+};
+const TIER_ORDER = ['titanium', 'bronze', 'silver', 'gold', 'platinum', 'diamond'];
+
+const MILESTONES = (() => {
+  const tiers = ['titanium','titanium','titanium','bronze','bronze','bronze','silver','silver','silver','gold','gold','gold','platinum','platinum','diamond'];
+  const levels = [0,1,2,0,1,2,0,1,2,0,1,2,0,1,0];
+  const fmt = n => { if (n >= 1e6) { const v = n/1e6; return (v%1===0?v:v.toFixed(2).replace(/0+$/,'').replace(/\.$/,''))+'M'; } if (n >= 1e3) { const v = n/1e3; return (v%1===0?v:v.toFixed(1).replace(/0+$/,'').replace(/\.$/,''))+'k'; } return ''+n; };
+  const make = (cat, thresholds, labelFn) => thresholds.map((t, i) => ({
+    id: `${cat}-${t}`, category: cat, label: labelFn(t, i), short: fmt(t), threshold: t, tier: tiers[i], tierLevel: levels[i],
+  }));
+  return [
+    ...make('workouts', [1,5,10,25,50,75,100,150,200,300,400,500,650,800,1000], (t,i) => i===0 ? 'First Workout' : `${fmt(t)} Workouts`),
+    ...make('volume', [1000,5000,10000,25000,50000,100000,250000,500000,750000,1000000,1500000,2000000,2750000,3750000,5000000], t => `${fmt(t)}kg Lifted`),
+    ...make('streak', [1,2,4,6,8,10,12,16,20,26,34,42,48,54,60], (t) => t===1 ? '1 Week Streak' : `${t} Week Streak`),
+    ...make('sets', [25,50,100,250,500,750,1000,1500,2000,3000,5000,7500,10000,12500,15000], t => `${fmt(t)} Sets`),
+  ];
+})();
+
+function getMilestoneColor(m) {
+  const colors = TIER_COLORS[m.tier];
+  if (m.tier === 'diamond') return colors[1];
+  if (m.tier === 'platinum') return colors[m.tierLevel === 0 ? 0 : 2];
+  return colors[m.tierLevel];
+}
+
+function tierRank(tier, level) { return TIER_ORDER.indexOf(tier) * 3 + level; }
+
+function getHighestTierPerCategory(earned) {
+  const highest = {};
+  for (const m of earned) {
+    const rank = tierRank(m.tier, m.tierLevel);
+    if (!highest[m.category] || rank > highest[m.category]._rank) {
+      highest[m.category] = { ...m, _rank: rank };
+    }
+  }
+  return highest;
+}
 
 // ─── Swipe-to-Reveal ────────────────────────────────────────────────────────
 let _openSwipeEl = null;
@@ -296,7 +317,6 @@ async function drawerShowOverview() {
   const totalCount = MILESTONES.length;
   const pct = totalCount > 0 ? Math.round((earnedCount / totalCount) * 100) : 0;
 
-  const recentMilestones = earned.slice(-3).reverse();
   const prCount = summary.prs ? summary.prs.length : 0;
 
   document.getElementById('drawer-content').innerHTML = `
@@ -322,14 +342,15 @@ async function drawerShowOverview() {
         </div>
       </div>
 
-      ${recentMilestones.length > 0 ? `
-        <div class="mb-4" onclick="drawerShowMilestones()">
-          <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-2">Recent Milestones</span>
-          <div class="flex flex-wrap gap-1.5">
-            ${recentMilestones.map(m => `<span class="text-xs font-bold bg-acid/20 text-acid rounded px-2 py-1">${m.label}</span>`).join('')}
-          </div>
-        </div>
-      ` : ''}
+      ${(() => {
+        const ht = getHighestTierPerCategory(earned);
+        const cats = { workouts: 'Workouts', volume: 'Volume', streak: 'Streak', sets: 'Sets' };
+        const badges = Object.entries(ht).map(([cat, m]) => {
+          const c = getMilestoneColor(m);
+          return `<span class="text-[10px] font-bold uppercase px-2 py-1 rounded-lg border" style="border-color:${c}40;background:${c}10;color:${c}">${cats[cat]} ${m.tier}</span>`;
+        }).join('');
+        return badges ? `<div class="mb-4" onclick="drawerShowMilestones()"><div class="flex flex-wrap gap-1.5">${badges}</div></div>` : '';
+      })()}
 
       ${recentPrs.length > 0 ? `
         <div class="mb-4" onclick="drawerShowPRWall()">
@@ -380,14 +401,59 @@ async function drawerShowMilestones() {
   earned.forEach(m => markMilestoneShown(m.id));
   const earnedIds = new Set(earned.map(m => m.id));
 
-  const milestonesHtml = MILESTONES.map(m => {
-    const isEarned = earnedIds.has(m.id);
-    return `
-      <div class="p-3 border-2 ${isEarned ? 'border-acid bg-acid/10' : 'border-white/10 opacity-30'} rounded-xl text-center">
-        <div class="text-xs font-bold uppercase tracking-tight leading-tight">${m.label}</div>
+  const categories = [
+    { key: 'workouts', label: 'Workouts', getValue: () => summary.totalWorkouts },
+    { key: 'volume', label: 'Volume', getValue: () => summary.totalVolume },
+    { key: 'streak', label: 'Streak', getValue: () => streakData.streak },
+    { key: 'sets', label: 'Sets', getValue: () => summary.totalSets },
+  ];
+
+  let categoriesHtml = '';
+  for (const cat of categories) {
+    const milestones = MILESTONES.filter(m => m.category === cat.key);
+    const earnedInCat = milestones.filter(m => earnedIds.has(m.id));
+    const nextMilestone = milestones.find(m => !earnedIds.has(m.id));
+    const lastEarned = earnedInCat[earnedInCat.length - 1];
+
+    let progressPct = 0;
+    let progressColor = TIER_COLORS.titanium[0];
+    let nextLabel = '';
+    if (nextMilestone) {
+      const prevThreshold = lastEarned ? lastEarned.threshold : 0;
+      const currentVal = cat.getValue();
+      const range = nextMilestone.threshold - prevThreshold;
+      progressPct = range > 0 ? Math.min(100, Math.round(((currentVal - prevThreshold) / range) * 100)) : 0;
+      progressColor = getMilestoneColor(nextMilestone);
+      nextLabel = nextMilestone.label;
+    } else {
+      progressPct = 100;
+      progressColor = getMilestoneColor(lastEarned || milestones[0]);
+    }
+
+    const headerColor = lastEarned ? getMilestoneColor(lastEarned) : '#fff';
+
+    categoriesHtml += `
+      <div class="mb-6">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-sm font-black uppercase tracking-tight" style="color:${headerColor}">${cat.label}</h3>
+          <span class="text-xs font-bold" style="color:${headerColor}">${earnedInCat.length}/${milestones.length}</span>
+        </div>
+        <div class="h-1.5 bg-white/10 rounded-full overflow-hidden mb-1.5">
+          <div class="h-full rounded-full transition-all duration-500" style="width:${progressPct}%;background:${progressColor}"></div>
+        </div>
+        ${nextLabel ? `<p class="text-[10px] text-ink/40 mb-3">Next: ${nextLabel}</p>` : `<p class="text-[10px] text-ink/40 mb-3">All complete!</p>`}
+        <div class="grid grid-cols-5 gap-1.5">
+          ${milestones.map(m => {
+            const isEarned = earnedIds.has(m.id);
+            const color = getMilestoneColor(m);
+            return `<div class="p-2 border-2 ${isEarned ? '' : 'opacity-20'} rounded-lg text-center" style="border-color:${color};${isEarned ? `background:${color}15` : ''}">
+              <div class="text-[9px] font-bold uppercase tracking-tight leading-tight" style="${isEarned ? `color:${color}` : ''}">${m.short}</div>
+            </div>`;
+          }).join('')}
+        </div>
       </div>
     `;
-  }).join('');
+  }
 
   document.getElementById('drawer-content').innerHTML = `
     <div class="flex items-center justify-between px-5 pt-6 pb-4">
@@ -401,9 +467,7 @@ async function drawerShowMilestones() {
     <div class="px-5 overflow-y-auto" style="max-height: calc(100vh - 80px - env(safe-area-inset-top) - env(safe-area-inset-bottom))">
       <h1 class="text-2xl font-black uppercase tracking-tight leading-none mb-2">Milestones</h1>
       <p class="text-sm font-bold text-ink/40 mb-5">${earned.length} of ${MILESTONES.length} unlocked</p>
-      <div class="grid grid-cols-3 gap-2 mb-5">
-        ${milestonesHtml}
-      </div>
+      ${categoriesHtml}
     </div>
   `;
 }
@@ -1410,14 +1474,16 @@ async function checkAndCelebrateMilestones() {
 }
 
 function showMilestoneCelebration(milestone) {
+  const color = getMilestoneColor(milestone);
   const el = document.getElementById('milestone-celebration');
   if (el) el.remove();
   const celebration = document.createElement('div');
   celebration.id = 'milestone-celebration';
   celebration.className = 'fixed inset-0 z-[90] flex items-center justify-center pointer-events-none';
   celebration.innerHTML = `
-    <div class="bg-[#1a1a1a] border-2 border-acid/30 text-white rounded-xl px-8 py-6 text-center animate-pr-pop backdrop-blur-xl pointer-events-auto" onclick="this.parentElement.remove()">
-      <div class="text-[10px] font-bold uppercase tracking-widest text-acid mb-3">Milestone Unlocked</div>
+    <div class="bg-[#1a1a1a] border-2 text-white rounded-xl px-8 py-6 text-center animate-pr-pop backdrop-blur-xl pointer-events-auto" style="border-color:${color}40" onclick="this.parentElement.remove()">
+      <div class="text-[10px] font-bold uppercase tracking-widest mb-1" style="color:${color}">${milestone.tier}</div>
+      <div class="text-[10px] font-bold uppercase tracking-widest mb-3" style="color:${color}">Milestone Unlocked</div>
       <div class="text-2xl font-black uppercase tracking-tight">${milestone.label}</div>
     </div>
   `;
