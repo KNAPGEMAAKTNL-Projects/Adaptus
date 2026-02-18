@@ -1,4 +1,4 @@
-const APP_VERSION = 'v74';
+const APP_VERSION = 'v77';
 console.log('[Adaptus]', APP_VERSION);
 
 // Auto-select input contents on focus for all numeric/decimal inputs
@@ -46,6 +46,74 @@ const MILESTONES = [
   { id: 'sets-2500', category: 'sets', label: '2,500 Sets', threshold: 2500 },
   { id: 'sets-5000', category: 'sets', label: '5,000 Sets', threshold: 5000 },
 ];
+
+// ─── Swipe-to-Reveal ────────────────────────────────────────────────────────
+let _openSwipeEl = null;
+
+function initAllSwipeRows(container) {
+  if (!container) return;
+  container.querySelectorAll('.swipe-container').forEach(el => {
+    const content = el.querySelector('.swipe-content');
+    const actions = el.querySelector('.swipe-actions');
+    if (!content || !actions || content._swipeInit) return;
+    content._swipeInit = true;
+    const actionsW = actions.offsetWidth || 120;
+    let startX = 0, startY = 0, currentX = 0, dragging = false, dirLocked = false, isHorizontal = false;
+
+    content.addEventListener('touchstart', (e) => {
+      const t = e.touches[0];
+      startX = t.clientX; startY = t.clientY; currentX = 0; dragging = true; dirLocked = false; isHorizontal = false;
+      content.classList.add('swiping');
+    }, { passive: true });
+
+    content.addEventListener('touchmove', (e) => {
+      if (!dragging) return;
+      const t = e.touches[0];
+      const dx = t.clientX - startX;
+      const dy = t.clientY - startY;
+      if (!dirLocked) {
+        if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+          dirLocked = true;
+          isHorizontal = Math.abs(dx) > Math.abs(dy);
+        }
+        return;
+      }
+      if (!isHorizontal) return;
+      e.preventDefault();
+      currentX = Math.min(0, Math.max(-actionsW, dx));
+      content.style.transform = `translateX(${currentX}px)`;
+    }, { passive: false });
+
+    content.addEventListener('touchend', () => {
+      if (!dragging) return;
+      dragging = false;
+      content.classList.remove('swiping');
+      if (isHorizontal && currentX < -actionsW * 0.35) {
+        content.style.transform = `translateX(-${actionsW}px)`;
+        if (_openSwipeEl && _openSwipeEl !== content) {
+          _openSwipeEl.style.transform = '';
+        }
+        _openSwipeEl = content;
+      } else {
+        content.style.transform = '';
+        if (_openSwipeEl === content) _openSwipeEl = null;
+      }
+    }, { passive: true });
+  });
+}
+
+function closeOpenSwipe() {
+  if (_openSwipeEl) {
+    _openSwipeEl.style.transform = '';
+    _openSwipeEl = null;
+  }
+}
+
+document.addEventListener('touchstart', (e) => {
+  if (_openSwipeEl && !_openSwipeEl.closest('.swipe-container')?.contains(e.target)) {
+    closeOpenSwipe();
+  }
+}, { passive: true });
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 function parseNum(val) {
@@ -258,7 +326,7 @@ async function drawerShowOverview() {
         <div class="mb-4" onclick="drawerShowMilestones()">
           <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-2">Recent Milestones</span>
           <div class="flex flex-wrap gap-1.5">
-            ${recentMilestones.map(m => `<span class="text-xs font-bold bg-[#EC4899]/20 text-[#EC4899] rounded px-2 py-1">${m.label}</span>`).join('')}
+            ${recentMilestones.map(m => `<span class="text-xs font-bold bg-acid/20 text-acid rounded px-2 py-1">${m.label}</span>`).join('')}
           </div>
         </div>
       ` : ''}
@@ -267,7 +335,7 @@ async function drawerShowOverview() {
         <div class="mb-4" onclick="drawerShowPRWall()">
           <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-2">Recent PRs</span>
           <div class="flex flex-wrap gap-1.5">
-            ${recentPrs.map(pr => `<span class="text-xs font-bold bg-electric/20 text-electric rounded px-2 py-1">${pr.exercise_name} ${pr.weight_kg}kg</span>`).join('')}
+            ${recentPrs.map(pr => `<span class="text-xs font-bold bg-acid/20 text-acid rounded px-2 py-1">${pr.exercise_name} ${pr.weight_kg}kg</span>`).join('')}
           </div>
         </div>
       ` : ''}
@@ -275,17 +343,17 @@ async function drawerShowOverview() {
       <button onclick="drawerShowMilestones()" class="w-full border-2 border-white/10 rounded-xl p-4 mb-3 text-left active:bg-white/5 transition-colors duration-200">
         <div class="flex items-center justify-between mb-2">
           <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Milestones</span>
-          <span class="text-xs font-bold bg-[#EC4899] text-canvas rounded px-2 py-0.5">${earnedCount}/${totalCount}</span>
+          <span class="text-xs font-bold bg-acid text-canvas rounded px-2 py-0.5">${earnedCount}/${totalCount}</span>
         </div>
         <div class="h-1.5 bg-white/10 rounded-full overflow-hidden">
-          <div class="h-full bg-[#EC4899] rounded-full" style="width: ${pct}%"></div>
+          <div class="h-full bg-acid rounded-full" style="width: ${pct}%"></div>
         </div>
       </button>
 
       <button onclick="drawerShowPRWall()" class="w-full border-2 border-white/10 rounded-xl p-4 mb-5 text-left active:bg-white/5 transition-colors duration-200">
         <div class="flex items-center justify-between">
           <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">PR Wall</span>
-          <span class="text-xs font-bold bg-[#EC4899] text-canvas rounded px-2 py-0.5">${prCount} PRs</span>
+          <span class="text-xs font-bold bg-acid text-canvas rounded px-2 py-0.5">${prCount} PRs</span>
         </div>
       </button>
 
@@ -315,7 +383,7 @@ async function drawerShowMilestones() {
   const milestonesHtml = MILESTONES.map(m => {
     const isEarned = earnedIds.has(m.id);
     return `
-      <div class="p-3 border-2 ${isEarned ? 'border-[#EC4899] bg-[#EC4899]/10' : 'border-white/10 opacity-30'} rounded-xl text-center">
+      <div class="p-3 border-2 ${isEarned ? 'border-acid bg-acid/10' : 'border-white/10 opacity-30'} rounded-xl text-center">
         <div class="text-xs font-bold uppercase tracking-tight leading-tight">${m.label}</div>
       </div>
     `;
@@ -357,13 +425,22 @@ async function drawerShowPRWall() {
 
   const exercises = await api('GET', '/stats/exercises').catch(() => []);
 
-  const cardsHtml = exercises.map(ex => `
-    <div class="border-2 border-[#EC4899]/20 rounded-xl p-4 text-center">
+  const cardsHtml = exercises.map(ex => {
+    let dateLabel = '';
+    if (ex.last_logged) {
+      const d = parseUtc(ex.last_logged);
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      dateLabel = `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+    }
+    return `
+    <div class="border-2 border-acid/20 rounded-xl p-4 text-center">
       <div class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-2 truncate">${ex.exercise_name}</div>
-      <div class="text-2xl font-black text-[#EC4899] leading-none">${ex.best_weight}<span class="text-sm text-ink/40">kg</span></div>
+      <div class="text-2xl font-black text-acid leading-none">${ex.best_weight}<span class="text-sm text-ink/40">kg</span></div>
       <div class="text-xs font-bold text-white/30 mt-1">E1RM ${ex.best_e1rm}kg</div>
+      ${dateLabel ? `<div class="text-[10px] text-ink/25 mt-1">${dateLabel}</div>` : ''}
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   document.getElementById('drawer-content').innerHTML = `
     <div class="flex items-center justify-between px-5 pt-6 pb-4">
@@ -1134,7 +1211,7 @@ async function renderDashboard() {
           <div class="flex flex-wrap gap-1.5">
             <span class="text-xs font-bold text-canvas bg-electric rounded px-2 py-0.5">PR</span>
             ${weekSummary.prsThisWeek.map(pr => `
-              <span class="text-xs font-bold bg-[#EC4899]/20 text-[#EC4899] rounded px-2 py-1">${pr.exercise_name} ${pr.weight_kg}kg</span>
+              <span class="text-xs font-bold bg-acid/20 text-acid rounded px-2 py-1">${pr.exercise_name} ${pr.weight_kg}kg</span>
             `).join('')}
           </div>
         ` : ''}
@@ -1146,15 +1223,15 @@ async function renderDashboard() {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" class="text-ink/30"><path d="M11 9H9V2H7v7H5V2H3v7c0 2.12 1.66 3.84 3.75 3.97V22h2.5v-9.03C11.34 12.84 13 11.12 13 9V2h-2v7zm5-3v8h2.5v8H21V2c-2.76 0-5 2.24-5 4z"/></svg>
           <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Today's Nutrition</h3>
         </div>
-        <div class="grid grid-cols-4 gap-2">
-          <div>
-            <div class="flex items-center gap-1 mb-0.5">
-              <svg class="flex-shrink-0" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#CCFF00" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12c2-2.96 0-7-1-8 0 3.038-1.773 4.741-3 6-1.226 1.26-2 3.24-2 5a6 6 0 1 0 12 0c0-1.532-1.056-3.94-2-5-1.786 3-2.791 3-4 2z"/></svg>
-              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">kcal</span>
-            </div>
-            <span class="text-lg font-black leading-none block">${Math.round(nTotals.calories)} <span class="text-xs text-ink/30">/ ${Math.round(nTargets.calories)}</span></span>
-            <div class="h-[3px] bg-ink/10 rounded-full mt-1 overflow-hidden"><div class="h-full rounded-full" style="width:${miniPct(nTotals.calories, nTargets.calories)}%;background:#CCFF00"></div></div>
+        <div class="mb-3">
+          <div class="flex items-baseline gap-1.5 mb-1">
+            <svg class="flex-shrink-0 self-center" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#CCFF00" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12c2-2.96 0-7-1-8 0 3.038-1.773 4.741-3 6-1.226 1.26-2 3.24-2 5a6 6 0 1 0 12 0c0-1.532-1.056-3.94-2-5-1.786 3-2.791 3-4 2z"/></svg>
+            <span class="text-2xl font-black leading-none">${Math.round(nTotals.calories)}</span>
+            <span class="text-sm text-ink/30">/ ${Math.round(nTargets.calories)} kcal</span>
           </div>
+          <div class="h-[3px] bg-ink/10 rounded-full overflow-hidden"><div class="h-full rounded-full" style="width:${miniPct(nTotals.calories, nTargets.calories)}%;background:#CCFF00"></div></div>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
           <div>
             <div class="flex items-center gap-1 mb-0.5">
               <span class="text-[10px] font-black text-orange-500">F</span>
@@ -1339,8 +1416,8 @@ function showMilestoneCelebration(milestone) {
   celebration.id = 'milestone-celebration';
   celebration.className = 'fixed inset-0 z-[90] flex items-center justify-center pointer-events-none';
   celebration.innerHTML = `
-    <div class="bg-[#1a1a1a] border-2 border-[#EC4899]/30 text-white rounded-xl px-8 py-6 text-center animate-pr-pop backdrop-blur-xl pointer-events-auto" onclick="this.parentElement.remove()">
-      <div class="text-[10px] font-bold uppercase tracking-widest text-[#EC4899] mb-3">Milestone Unlocked</div>
+    <div class="bg-[#1a1a1a] border-2 border-acid/30 text-white rounded-xl px-8 py-6 text-center animate-pr-pop backdrop-blur-xl pointer-events-auto" onclick="this.parentElement.remove()">
+      <div class="text-[10px] font-bold uppercase tracking-widest text-acid mb-3">Milestone Unlocked</div>
       <div class="text-2xl font-black uppercase tracking-tight">${milestone.label}</div>
     </div>
   `;
@@ -1395,47 +1472,54 @@ async function renderStats() {
         <p class="text-sm font-bold text-ink/40 mt-1">${new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</p>
       </div>
 
-      <div class="border-2 border-ink/10 rounded-xl p-5 mb-5">
-        <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-4">All Time</h3>
-        <div class="grid grid-cols-2 gap-4">
+      <div class="border-2 border-ink/10 rounded-xl p-4 mb-5">
+        <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-3">All Time</h3>
+        <div class="grid grid-cols-4 gap-2">
           <div>
-            <div class="flex items-center gap-1.5 mb-1">
-              <span class="w-2 h-2 rounded-full bg-acid flex-shrink-0"></span>
-              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">workouts</span>
+            <div class="flex items-center gap-1 mb-0.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-acid flex-shrink-0"></span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">done</span>
             </div>
-            <span class="text-3xl font-black leading-none block">${summary.totalWorkouts}</span>
+            <span class="text-lg font-black leading-none block">${summary.totalWorkouts}</span>
           </div>
           <div>
-            <div class="flex items-center gap-1.5 mb-1">
-              <span class="w-2 h-2 rounded-full bg-electric flex-shrink-0"></span>
+            <div class="flex items-center gap-1 mb-0.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-electric flex-shrink-0"></span>
               <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">sets</span>
             </div>
-            <span class="text-3xl font-black leading-none block">${summary.totalSets}</span>
+            <span class="text-lg font-black leading-none block">${summary.totalSets}</span>
           </div>
           <div>
-            <div class="flex items-center gap-1.5 mb-1">
-              <span class="w-2 h-2 rounded-full bg-[#06B6D4] flex-shrink-0"></span>
-              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">volume (kg)</span>
+            <div class="flex items-center gap-1 mb-0.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#06B6D4] flex-shrink-0"></span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">volume</span>
             </div>
-            <span class="text-3xl font-black leading-none block">${formatVolume(summary.totalVolume)}</span>
+            <span class="text-lg font-black leading-none block">${formatVolume(summary.totalVolume)}</span>
           </div>
           <div>
-            <div class="flex items-center gap-1.5 mb-1">
-              <span class="w-2 h-2 rounded-full bg-[#F97316] flex-shrink-0"></span>
-              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">avg duration</span>
+            <div class="flex items-center gap-1 mb-0.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#F97316] flex-shrink-0"></span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">time</span>
             </div>
-            <span class="text-3xl font-black leading-none block">${summary.avgDuration ? formatDuration(summary.avgDuration) : '—'}</span>
+            <span class="text-lg font-black leading-none block">${summary.avgDuration ? formatDuration(summary.avgDuration) : '—'}</span>
           </div>
         </div>
       </div>
 
-      ${weightHistory.length >= 2 ? `
-        <div class="border-2 border-ink/10 rounded-xl p-5 mb-5">
-          <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-3">Body Weight</h3>
+      <div class="border-2 border-ink/10 rounded-xl p-5 mb-5">
+        <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-3">Body Weight</h3>
+        ${weightHistory.length >= 2 ? `
           ${buildWeightTrend(tdeeData)}
           <canvas id="weight-chart" class="w-full mt-3" height="160"></canvas>
-        </div>
-      ` : ''}
+        ` : weightHistory.length === 1 ? `
+          <div class="flex flex-col items-center py-4">
+            <span class="text-2xl font-black">${weightHistory[0].weight_kg}<span class="text-sm text-ink/40 ml-0.5">kg</span></span>
+            <p class="text-xs text-ink/30 mt-2 text-center">Log another entry to start tracking trends</p>
+          </div>
+        ` : `
+          <p class="text-sm text-ink/30 py-4 text-center">Log your weight to start tracking</p>
+        `}
+      </div>
 
       ${exerciseBrowserHtml}
     </div>
@@ -1469,7 +1553,7 @@ async function renderWorkouts() {
     let bgClass = 'bg-white/10';
     if (completed) {
       badge = '<span class="text-xs font-bold text-canvas bg-acid rounded px-2 py-0.5">Done</span>';
-      bgClass = 'bg-white/8';
+      bgClass = 'bg-white/8 border border-ink/10';
     } else if (skipped) {
       badge = '<span class="text-xs font-bold text-ink/40 bg-white/10 rounded px-2 py-0.5">Skipped</span>';
       bgClass = 'bg-white/5';
@@ -1562,10 +1646,7 @@ async function changeWeek(dir) {
     }
   }
 
-  const [progress] = await Promise.all([
-    api('PUT', '/progress', { cycle: newCycle, week: newWeek }),
-    new Promise(r => setTimeout(r, 300)),
-  ]);
+  const progress = await api('PUT', '/progress', { cycle: newCycle, week: newWeek });
   state.progress = progress;
   renderWorkouts();
 }
@@ -1968,19 +2049,22 @@ async function renderExercise(index) {
         : `${loggedSet.weight_kg}kg &times; ${loggedSet.reps}`;
       const isCompleted = state.currentSession && state.currentSession.completed_at;
       const displayWeight = loggedSet.assistance_kg || loggedSet.weight_kg;
-      const actionButton = isCompleted
-        ? `<button onclick="showEditSetModal(${loggedSet.id}, '${exercise.id}', ${s}, ${displayWeight}, ${loggedSet.reps}, ${!!exercise.isAssisted})" class="w-6 h-6 rounded border-2 border-ink/20 flex items-center justify-center flex-shrink-0 active:opacity-60 transition-all duration-200">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          </button>`
-        : `<button onclick="deleteSet(${loggedSet.id}, '${exercise.id}')" class="w-6 h-6 rounded border-2 border-acid bg-acid flex items-center justify-center flex-shrink-0 active:opacity-60 transition-all duration-200">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          </button>`;
       setRowsHtml.push(`
-        <div class="flex items-center gap-3 py-2.5 ${s < totalSets ? 'border-b border-ink/10' : ''}">
-          <span class="w-10 text-xs font-bold text-ink/40 uppercase">Set ${s}</span>
-          <span class="flex-1 font-bold text-sm">${loggedDisplay}</span>
-          <span class="text-[10px] font-bold text-ink/30 uppercase">${rpeLabel}</span>
-          ${actionButton}
+        <div class="swipe-container ${s < totalSets ? 'border-b border-ink/10' : ''}">
+          <div class="swipe-actions">
+            <button onclick="showEditSetModal(${loggedSet.id}, '${exercise.id}', ${s}, ${displayWeight}, ${loggedSet.reps}, ${!!exercise.isAssisted})" class="bg-white/15 text-white h-full"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+            ${!isCompleted ? `<button onclick="deleteSet(${loggedSet.id}, '${exercise.id}')" class="bg-red-500/80 text-white h-full"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>` : ''}
+          </div>
+          <div class="swipe-content">
+            <div class="flex items-center gap-3 py-2.5">
+              <span class="w-10 text-xs font-bold text-ink/40 uppercase">Set ${s}</span>
+              <span class="flex-1 font-bold text-sm">${loggedDisplay}</span>
+              <span class="text-[10px] font-bold text-ink/30 uppercase">${rpeLabel}</span>
+              <div class="w-6 h-6 rounded border-2 border-acid bg-acid flex items-center justify-center flex-shrink-0">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+            </div>
+          </div>
         </div>
       `);
     } else {
@@ -2139,6 +2223,7 @@ async function renderExercise(index) {
       </div>
     </div>
   `;
+  requestAnimationFrame(() => initAllSwipeRows(document.getElementById('app')));
 }
 
 function clearSuggested(input) {
@@ -2198,10 +2283,10 @@ function showPrCelebration(exerciseName, weight) {
   celebration.id = 'pr-celebration';
   celebration.className = 'fixed inset-0 z-[90] flex items-center justify-center pointer-events-none';
   celebration.innerHTML = `
-    <div class="bg-[#1a1a1a] border-2 border-[#EC4899]/30 text-white rounded-xl px-8 py-6 text-center animate-pr-pop backdrop-blur-xl pointer-events-auto" onclick="this.parentElement.remove()">
-      <div class="text-4xl font-black text-[#EC4899] mb-2">NEW PR</div>
+    <div class="bg-[#1a1a1a] border-2 border-acid/30 text-white rounded-xl px-8 py-6 text-center animate-pr-pop backdrop-blur-xl pointer-events-auto" onclick="this.parentElement.remove()">
+      <div class="text-4xl font-black text-acid mb-2">NEW PR</div>
       <div class="text-lg font-bold">${exerciseName}</div>
-      <div class="text-3xl font-black text-[#EC4899] mt-1">${weight}kg</div>
+      <div class="text-3xl font-black text-acid mt-1">${weight}kg</div>
     </div>
   `;
   document.body.appendChild(celebration);
@@ -2518,9 +2603,9 @@ async function renderExerciseStats(exerciseName) {
       ${prHtml}
       ${e1rmHtml}
 
-      ${history.length >= 2 ? `
-        <div class="border-2 border-ink/10 rounded-xl p-4 mb-5">
-          <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-3">Progress Over Time</h3>
+      <div class="border-2 border-ink/10 rounded-xl p-4 mb-5">
+        <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-3">Progress Over Time</h3>
+        ${history.length >= 2 ? `
           <canvas id="progress-chart" class="w-full" height="200"></canvas>
           <div class="flex items-center justify-center gap-4 mt-3">
             <div class="flex items-center gap-1.5">
@@ -2532,8 +2617,16 @@ async function renderExerciseStats(exerciseName) {
               <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Est. 1RM</span>
             </div>
           </div>
-        </div>
-      ` : ''}
+        ` : history.length === 1 ? `
+          <div class="flex flex-col items-center py-6">
+            <div class="w-3 h-3 rounded-full bg-acid mb-3"></div>
+            <span class="text-lg font-black">${history[0].maxWeight}<span class="text-sm text-ink/40">kg</span></span>
+            <p class="text-xs text-ink/30 mt-2 text-center">Complete more sessions to see a trend</p>
+          </div>
+        ` : `
+          <p class="text-sm text-ink/30 py-6 text-center">Complete a session to start tracking progress</p>
+        `}
+      </div>
 
       <div class="border-2 border-ink/10 rounded-xl p-4">
         <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-2">All Sessions</h3>
@@ -2865,7 +2958,10 @@ async function refreshNutritionContent() {
   const macroEl = document.getElementById('nutrition-macro-bar');
   if (macroEl) macroEl.innerHTML = buildCompactMacroBar(logData.totals, targets);
   const logEl = document.getElementById('nutrition-log-section');
-  if (logEl) logEl.innerHTML = buildTimeGroupedLog(logData.entries);
+  if (logEl) {
+    logEl.innerHTML = buildTimeGroupedLog(logData.entries);
+    requestAnimationFrame(() => initAllSwipeRows(logEl));
+  }
   const label = document.getElementById('nutrition-date-label');
   if (label) label.textContent = getNutritionDateLabel();
 }
@@ -2912,37 +3008,108 @@ function buildCompactMacroBar(totals, targets) {
 
 // ─── Time-Grouped Log ───────────────────────────────────────────────────────
 function buildTimeGroupedLog(entries) {
-  if (!entries || entries.length === 0) {
-    return '<p class="text-sm text-ink/30 py-8 text-center">No entries yet today.</p>';
+  const groups = { morning: [], afternoon: [], evening: [] };
+  if (entries && entries.length > 0) {
+    entries.forEach(e => {
+      const dt = parseUtc(e.logged_at);
+      const hour = dt.getHours();
+      if (hour < 12) groups.morning.push(e);
+      else if (hour < 18) groups.afternoon.push(e);
+      else groups.evening.push(e);
+    });
   }
 
-  const groups = { morning: [], afternoon: [], evening: [] };
-  entries.forEach(e => {
-    const dt = parseUtc(e.logged_at);
-    const hour = dt.getHours();
-    if (hour < 12) groups.morning.push(e);
-    else if (hour < 18) groups.afternoon.push(e);
-    else groups.evening.push(e);
-  });
-
   const labels = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' };
+  const allGroups = ['morning', 'afternoon', 'evening'];
   let html = '';
-  for (const [key, items] of Object.entries(groups)) {
-    if (items.length === 0) continue;
+  for (const key of allGroups) {
+    const items = groups[key];
     html += `<div class="mb-4">
       <h4 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-2">${labels[key]}</h4>
-      ${items.map(e => `
-        <div class="flex items-center justify-between py-2.5 border-b border-ink/5 last:border-0">
-          <button onclick="showEditLogEntryModal(${e.id}, '${e.name.replace(/'/g, "\\'")}', ${e.servings}, ${e.food_id || 'null'}, ${e.meal_id || 'null'})" class="flex-1 min-w-0 mr-3 text-left active:bg-ink/5 transition-colors duration-200 rounded-lg -ml-1 pl-1">
-            <span class="font-bold text-[14px] block truncate flex items-center gap-1">${e.meal_id ? getMealIcon(e.name) : ''}${e.name}</span>
-            <span class="text-[11px] text-ink/40">${Math.round(e.calories)} cal · <span class="text-[#F59E0B]">${Math.round(e.fat)}f</span> · <span class="text-[#3B82F6]">${Math.round(e.carbs)}c</span> · <span class="text-[#7C3AED]">${Math.round(e.protein)}p</span>${e.food_id ? ` · ${e.servings}g` : e.servings !== 1 ? ` · ${e.servings}x` : ''}</span>
-          </button>
-          <button onclick="deleteLogEntry(${e.id})" class="text-ink/20 hover:text-red-500 text-xs font-bold transition-colors duration-200 flex-shrink-0">&times;</button>
+      ${items.length === 0 ? '<p class="text-xs text-ink/20 py-2">No entries</p>' : items.map(e => {
+        const otherGroups = allGroups.filter(g => g !== key);
+        return `
+        <div class="swipe-container border-b border-ink/5 last:border-0">
+          <div class="swipe-actions">
+            <button onclick="showMoveEntryPicker(${e.id}, '${key}')" class="bg-electric/80 text-white"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+            <button onclick="showEditLogEntryModal(${e.id}, '${e.name.replace(/'/g, "\\'")}', ${e.servings}, ${e.food_id || 'null'}, ${e.meal_id || 'null'})" class="bg-white/15 text-white"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+            <button onclick="deleteLogEntry(${e.id})" class="bg-red-500/80 text-white"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+          </div>
+          <div class="swipe-content">
+            <div class="py-2.5">
+              <div class="flex items-center">
+                <div class="flex-1 min-w-0 mr-3">
+                  <span class="font-bold text-[14px] block truncate flex items-center gap-1">${e.meal_id ? getMealIcon(e.name) : ''}${e.name}</span>
+                  <span class="text-[11px] text-ink/40">${Math.round(e.calories)} cal · <span class="text-[#F59E0B]">${Math.round(e.fat)}f</span> · <span class="text-[#3B82F6]">${Math.round(e.carbs)}c</span> · <span class="text-[#7C3AED]">${Math.round(e.protein)}p</span>${e.food_id ? ` · ${e.servings}g` : e.servings !== 1 ? ` · ${e.servings}x` : ''}</span>
+                </div>
+              </div>${e.meal_id ? `
+              <button class="text-[10px] text-ink/30 mt-1 flex items-center gap-1" onclick="toggleMealDetails(this, ${e.meal_id}, ${e.servings})">
+                Details <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="transition-transform duration-200"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <div class="meal-expand hidden"></div>` : ''}
+            </div>
+          </div>
         </div>
-      `).join('')}
+      `}).join('')}
     </div>`;
   }
   return html;
+}
+
+function showMoveEntryPicker(entryId, currentGroup) {
+  const labels = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' };
+  const others = ['morning', 'afternoon', 'evening'].filter(g => g !== currentGroup);
+  const modal = document.createElement('div');
+  modal.id = 'move-entry-modal';
+  modal.className = 'fixed inset-0 z-[80] flex items-end';
+  modal.innerHTML = `
+    <div class="absolute inset-0 bg-black/60" onclick="document.getElementById('move-entry-modal')?.remove()"></div>
+    <div class="relative w-full bg-[#1a1a1a] rounded-t-2xl p-5" style="padding-bottom: calc(2rem + env(safe-area-inset-bottom))">
+      <h2 class="text-lg font-black uppercase tracking-tight mb-4">Move to</h2>
+      <div class="flex gap-2">
+        ${others.map(g => `
+          <button onclick="moveLogEntry(${entryId}, '${g}')" class="flex-1 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">
+            ${labels[g]}
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  closeOpenSwipe();
+}
+
+async function moveLogEntry(entryId, timeGroup) {
+  document.getElementById('move-entry-modal')?.remove();
+  await api('PUT', `/nutrition/log/${entryId}/move`, { timeGroup });
+  refreshNutritionContent();
+}
+
+async function toggleMealDetails(btn, mealId, servings) {
+  const details = btn.nextElementSibling;
+  if (!details.classList.contains('hidden')) {
+    details.classList.add('hidden');
+    btn.querySelector('svg').style.transform = '';
+    return;
+  }
+  if (!details.innerHTML) {
+    if (!_searchMeals) _searchMeals = await api('GET', '/nutrition/meals');
+    const meal = _searchMeals.find(m => m.id === mealId);
+    if (meal && meal.foods) {
+      details.innerHTML = meal.foods.map(f => {
+        const grams = Math.round(f.servings * (f.serving_size || 100) * servings);
+        const cal = Math.round(f.calories * grams / 100);
+        return `<div class="flex items-center justify-between py-1 text-[11px]">
+          <span class="text-ink/40 truncate flex-1 mr-2">${f.name}</span>
+          <span class="text-ink/30 flex-shrink-0">${grams}g · ${cal} cal</span>
+        </div>`;
+      }).join('');
+    } else {
+      details.innerHTML = '<p class="text-[11px] text-ink/20 py-1">Details unavailable</p>';
+    }
+  }
+  details.classList.remove('hidden');
+  btn.querySelector('svg').style.transform = 'rotate(180deg)';
 }
 
 // ─── Bottom Search Bar + Inline Search ──────────────────────────────────────
@@ -3140,14 +3307,14 @@ async function lookupBarcodeForForm(barcode) {
     if (localFood) {
       showScanToast('Found in your library — fields filled', 'success');
       const nameEl = document.getElementById('food-name');
-      const proEl = document.getElementById('food-protein');
-      const carbEl = document.getElementById('food-carbs');
+      const proEl = document.getElementById('food-pro');
+      const carbEl = document.getElementById('food-carb');
       const fatEl = document.getElementById('food-fat');
       if (nameEl) nameEl.value = localFood.name;
       if (proEl) proEl.value = localFood.protein;
       if (carbEl) carbEl.value = localFood.carbs;
       if (fatEl) fatEl.value = localFood.fat;
-      calcFoodCalories();
+      calcFieldCalories('food');
       return;
     }
   } catch (e) {}
@@ -3165,14 +3332,14 @@ async function lookupBarcodeForForm(barcode) {
       if (name || pro > 0 || carb > 0 || fat > 0) {
         showScanToast('Imported from Open Food Facts', 'info');
         const nameEl = document.getElementById('food-name');
-        const proEl = document.getElementById('food-protein');
-        const carbEl = document.getElementById('food-carbs');
+        const proEl = document.getElementById('food-pro');
+        const carbEl = document.getElementById('food-carb');
         const fatEl = document.getElementById('food-fat');
         if (nameEl && name) nameEl.value = name;
         if (proEl) proEl.value = pro;
         if (carbEl) carbEl.value = carb;
         if (fatEl) fatEl.value = fat;
-        calcFoodCalories();
+        calcFieldCalories('food');
         return;
       }
     }
@@ -3345,27 +3512,7 @@ function showScanFoodPopup({ barcode, name, protein, carbs, fat, notFound }) {
           <input id="scan-food-name" type="text" value="${(name || '').replace(/"/g, '&quot;')}" placeholder="e.g. Chicken Breast"
             class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
         </div>
-        <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Per 100g</p>
-        <div>
-          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Calories (auto)</label>
-          <div class="w-full h-10 px-3 border-2 border-ink/10 rounded-lg bg-ink/5 flex items-center justify-center font-bold text-sm text-ink/60">
-            <span id="scan-food-cal">${cal}</span>
-          </div>
-        </div>
-        <div class="grid grid-cols-3 gap-2">
-          <div>
-            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Fat</label>
-            <input id="scan-food-fat" type="text" inputmode="decimal" value="${fat || ''}" placeholder="0" oninput="calcScanFoodCal()"              class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
-          </div>
-          <div>
-            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Carbs</label>
-            <input id="scan-food-carb" type="text" inputmode="decimal" value="${carbs || ''}" placeholder="0" oninput="calcScanFoodCal()"              class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
-          </div>
-          <div>
-            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Protein</label>
-            <input id="scan-food-pro" type="text" inputmode="decimal" value="${protein || ''}" placeholder="0" oninput="calcScanFoodCal()"              class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
-          </div>
-        </div>
+        ${buildFoodFields('scan-food', {protein, carbs, fat}, {compact: true})}
         <div class="border-t border-ink/10 pt-3">
           <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Grams to log</label>
           <input id="scan-food-grams" type="text" inputmode="decimal" value="100" placeholder="100"
@@ -3380,13 +3527,6 @@ function showScanFoodPopup({ barcode, name, protein, carbs, fat, notFound }) {
   if (notFound || !name) requestAnimationFrame(() => document.getElementById('scan-food-name')?.focus());
 }
 
-function calcScanFoodCal() {
-  const p = parseNum(document.getElementById('scan-food-pro')?.value) || 0;
-  const c = parseNum(document.getElementById('scan-food-carb')?.value) || 0;
-  const f = parseNum(document.getElementById('scan-food-fat')?.value) || 0;
-  const el = document.getElementById('scan-food-cal');
-  if (el) el.textContent = Math.round(p * 4 + c * 4 + f * 9);
-}
 
 async function saveScanFood() {
   const nameEl = document.getElementById('scan-food-name');
@@ -3486,7 +3626,7 @@ async function prefillMealInlineCreator() {
     if (carbEl) carbEl.value = s.carbs || '';
     if (fatEl) fatEl.value = s.fat || '';
     if (barcodeEl) barcodeEl.value = s.barcode || '';
-    calcInlineFoodCalories();
+    calcFieldCalories('inline-food');
     if (s.notFound) {
       showScanToast('Not found online — barcode saved', 'warn');
     } else {
@@ -3551,6 +3691,7 @@ async function renderNutrition() {
 
   initWeekPicker();
   showNutritionSearchBar();
+  requestAnimationFrame(() => initAllSwipeRows(document.getElementById('nutrition-log-section')));
 }
 
 function buildWeightTrend(tdeeData) {
@@ -3901,6 +4042,7 @@ async function renderNutritionAdd(initialTab) {
       </div>
     </div>
   `;
+  requestAnimationFrame(() => initAllSwipeRows(document.getElementById('library-content')));
 }
 
 function switchLibraryTab(tab) {
@@ -3909,6 +4051,7 @@ function switchLibraryTab(tab) {
   const content = document.getElementById('library-content');
   if (!content || !window._libraryData) return;
   content.innerHTML = tab === 'foods' ? buildFoodsTab(window._libraryData.foods) : buildMealsTab(window._libraryData.meals);
+  requestAnimationFrame(() => initAllSwipeRows(content));
   // Update hash without triggering navigation
   history.replaceState(null, '', tab === 'foods' ? '#nutrition/foods' : '#nutrition/add');
 }
@@ -3917,17 +4060,17 @@ function buildFoodsTab(foods) {
   const foodsHtml = foods.length > 0 ? foods.map(f => {
     const servingLabel = f.serving_unit ? `1 ${f.serving_unit} = ${f.serving_size}g` : 'per 100g';
     return `
-    <div class="food-item flex items-center justify-between py-3 border-b border-ink/5 last:border-0" data-name="${f.name.toLowerCase()}">
-      <button onclick="showFoodServingsModal(${f.id}, '${f.name.replace(/'/g, "\\'")}', ${f.calories}, ${f.protein}, ${f.carbs}, ${f.fat}, ${f.serving_size ? `'${f.serving_unit}'` : 'null'}, ${f.serving_size || 'null'})"
-        class="flex-1 min-w-0 mr-2 text-left active:bg-ink/5 transition-colors duration-200">
-        <span class="font-bold text-[14px] block truncate">${f.name}</span>
-        <span class="text-[11px] text-ink/40">${servingLabel} · ${Math.round(f.calories)} cal · <span class="text-[#F59E0B]">${Math.round(f.fat)}f</span> · <span class="text-[#3B82F6]">${Math.round(f.carbs)}c</span> · <span class="text-[#7C3AED]">${Math.round(f.protein)}p</span></span>
-      </button>
-      <div class="flex items-center gap-1 flex-shrink-0">
-        <button onclick="navigate('#nutrition/food/${f.id}')" class="w-8 h-8 flex items-center justify-center text-ink/30 active:text-ink transition-colors duration-200">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 1.5l2.5 2.5M1 13l1-4L10.5 0.5l2.5 2.5L4.5 12z"/></svg>
+    <div class="food-item swipe-container border-b border-ink/5 last:border-0" data-name="${f.name.toLowerCase()}">
+      <div class="swipe-actions">
+        <button onclick="navigate('#nutrition/food/${f.id}')" class="bg-white/15 text-white"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        <button onclick="deleteFood(${f.id})" class="bg-red-500/80 text-white"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+      </div>
+      <div class="swipe-content">
+        <button onclick="showFoodServingsModal(${f.id}, '${f.name.replace(/'/g, "\\'")}', ${f.calories}, ${f.protein}, ${f.carbs}, ${f.fat}, ${f.serving_size ? `'${f.serving_unit}'` : 'null'}, ${f.serving_size || 'null'})"
+          class="w-full py-3 text-left active:bg-ink/5 transition-colors duration-200">
+          <span class="font-bold text-[14px] block truncate">${f.name}</span>
+          <span class="text-[11px] text-ink/40">${servingLabel} · ${Math.round(f.calories)} cal · <span class="text-[#F59E0B]">${Math.round(f.fat)}f</span> · <span class="text-[#3B82F6]">${Math.round(f.carbs)}c</span> · <span class="text-[#7C3AED]">${Math.round(f.protein)}p</span></span>
         </button>
-        <button onclick="deleteFood(${f.id})" class="w-8 h-8 flex items-center justify-center text-ink/20 hover:text-red-500 transition-colors duration-200">&times;</button>
       </div>
     </div>`;
   }).join('') : '<p class="text-sm text-ink/30 py-4">No foods yet.</p>';
@@ -3948,15 +4091,14 @@ function buildFoodsTab(foods) {
 
 function buildMealsTab(meals) {
   const mealsHtml = meals.length > 0 ? meals.map(m => `
-    <div class="border-2 border-ink/10 rounded-xl p-4 mb-2">
+    <div class="swipe-container border-2 border-ink/10 rounded-xl mb-2 overflow-hidden">
+      <div class="swipe-actions">
+        <button onclick="navigate('#nutrition/meal/${m.id}')" class="bg-white/15 text-white"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        <button onclick="deleteMeal(${m.id})" class="bg-red-500/80 text-white"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+      </div>
+      <div class="swipe-content p-4">
       <div class="flex items-center justify-between mb-1">
         <h3 class="font-bold text-[15px] truncate flex-1 mr-2 flex items-center gap-1.5">${getMealIcon(m.name)}${m.name}</h3>
-        <div class="flex items-center gap-1 flex-shrink-0">
-          <button onclick="navigate('#nutrition/meal/${m.id}')" class="w-8 h-8 flex items-center justify-center text-ink/30 active:text-ink transition-colors duration-200">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 1.5l2.5 2.5M1 13l1-4L10.5 0.5l2.5 2.5L4.5 12z"/></svg>
-          </button>
-          <button onclick="deleteMeal(${m.id})" class="w-8 h-8 flex items-center justify-center text-ink/20 hover:text-red-500 transition-colors duration-200">&times;</button>
-        </div>
       </div>
       <button onclick="this.nextElementSibling.classList.toggle('hidden');this.querySelector('svg:last-child').style.transform=this.nextElementSibling.classList.contains('hidden')?'':'rotate(180deg)'" class="flex items-center gap-1 text-xs text-ink/40 mb-3 active:text-ink/60 transition-colors duration-200">
         <svg class="inline -mt-0.5" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#CCFF00" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12c2-2.96 0-7-1-8 0 3.038-1.773 4.741-3 6-1.226 1.26-2 3.24-2 5a6 6 0 1 0 12 0c0-1.532-1.056-3.94-2-5-1.786 3-2.791 3-4 2z"/></svg>
@@ -3977,6 +4119,7 @@ function buildMealsTab(meals) {
       <button onclick="quickLogMeal(${m.id})" class="w-full py-2 bg-white/10 text-white rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20">
         Log Meal
       </button>
+      </div>
     </div>
   `).join('') : '<p class="text-sm text-ink/30 py-4">No meals yet.</p>';
 
@@ -4002,49 +4145,39 @@ async function quickLogMeal(mealId) {
 
 function showFoodServingsModal(foodId, foodName, cal, pro, carb, fat, servingName, servingGrams) {
   const hasServing = servingName && servingGrams;
+  const defaultGrams = servingGrams || 100;
   const modal = document.createElement('div');
   modal.id = 'servings-modal';
   modal.className = 'fixed inset-0 z-[80] flex items-center justify-center';
 
-  if (hasServing) {
-    const perServingCal = Math.round(cal * servingGrams / 100);
-    modal.innerHTML = `
-      <div class="absolute inset-0 bg-black/60" onclick="closeFoodServingsModal()"></div>
-      <div class="relative bg-[#1a1a1a] rounded-xl mx-4 p-5 max-w-sm w-full">
-        <h2 class="text-lg font-black uppercase tracking-tight mb-1">${foodName}</h2>
-        <p class="text-xs text-ink/40 mb-1">${perServingCal} cal per ${servingName} (${servingGrams}g)</p>
-        <p id="food-grams-equiv" class="text-xs text-ink/30 mb-4">= ${servingGrams}g</p>
-        <div class="mb-4">
-          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Servings</label>
-          <input id="food-servings-input" type="text" inputmode="decimal" value="1"
-            data-serving-grams="${servingGrams}"
-            oninput="document.getElementById('food-grams-equiv').textContent = '= ' + Math.round((parseNum(this.value)||0) * ${servingGrams}) + 'g'"
-            class="w-full h-12 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
-        </div>
-        <div class="flex gap-2">
-          <button onclick="closeFoodServingsModal()" class="flex-1 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">Cancel</button>
-          <button onclick="confirmLogFood(${foodId}, true, ${servingGrams})" class="flex-1 py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-acid/20 active:text-acid">Log</button>
-        </div>
+  const iCal = Math.round(cal * defaultGrams / 100);
+  const iFat = Math.round(fat * defaultGrams / 100 * 10) / 10;
+  const iCarb = Math.round(carb * defaultGrams / 100 * 10) / 10;
+  const iPro = Math.round(pro * defaultGrams / 100 * 10) / 10;
+
+  modal.innerHTML = `
+    <div class="absolute inset-0 bg-black/60" onclick="closeFoodServingsModal()"></div>
+    <div class="relative bg-[#1a1a1a] rounded-xl mx-4 p-5 max-w-sm w-full">
+      <h2 class="text-lg font-black uppercase tracking-tight mb-1">${foodName}</h2>
+      ${hasServing ? `<p class="text-xs text-ink/40 mb-4">1 ${servingName} = ${servingGrams}g</p>` : `<p class="text-xs text-ink/40 mb-4">${Math.round(cal)} cal per 100g</p>`}
+      <div class="mb-4">
+        <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Grams</label>
+        <input id="food-servings-input" type="text" inputmode="decimal" value="${defaultGrams}"
+          oninput="updateServingsPreview(this.value, ${cal}, ${pro}, ${carb}, ${fat})"
+          class="w-full h-12 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
       </div>
-    `;
-  } else {
-    modal.innerHTML = `
-      <div class="absolute inset-0 bg-black/60" onclick="closeFoodServingsModal()"></div>
-      <div class="relative bg-[#1a1a1a] rounded-xl mx-4 p-5 max-w-sm w-full">
-        <h2 class="text-lg font-black uppercase tracking-tight mb-1">${foodName}</h2>
-        <p class="text-xs text-ink/40 mb-4">${Math.round(cal)} cal per 100g</p>
-        <div class="mb-4">
-          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Grams</label>
-          <input id="food-servings-input" type="text" inputmode="decimal" value="100"
-            class="w-full h-12 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
-        </div>
-        <div class="flex gap-2">
-          <button onclick="closeFoodServingsModal()" class="flex-1 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">Cancel</button>
-          <button onclick="confirmLogFood(${foodId}, false, null)" class="flex-1 py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-acid/20 active:text-acid">Log</button>
-        </div>
+      <div class="grid grid-cols-4 gap-2 mb-4">
+        <div class="text-center"><p class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-0.5">Cal</p><p id="sp-cal" class="font-bold text-sm">${iCal}</p></div>
+        <div class="text-center"><p class="text-[10px] font-bold uppercase tracking-widest text-[#F59E0B] mb-0.5">Fat</p><p id="sp-fat" class="font-bold text-sm text-[#F59E0B]">${iFat}</p></div>
+        <div class="text-center"><p class="text-[10px] font-bold uppercase tracking-widest text-[#3B82F6] mb-0.5">Carbs</p><p id="sp-carb" class="font-bold text-sm text-[#3B82F6]">${iCarb}</p></div>
+        <div class="text-center"><p class="text-[10px] font-bold uppercase tracking-widest text-[#7C3AED] mb-0.5">Pro</p><p id="sp-pro" class="font-bold text-sm text-[#7C3AED]">${iPro}</p></div>
       </div>
-    `;
-  }
+      <div class="flex gap-2">
+        <button onclick="closeFoodServingsModal()" class="flex-1 py-3 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-white/20 active:text-white">Cancel</button>
+        <button onclick="confirmLogFood(${foodId}, false, null)" class="flex-1 py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-sm text-center transition-colors duration-200 active:bg-acid/20 active:text-acid">Log</button>
+      </div>
+    </div>
+  `;
 
   document.body.appendChild(modal);
   requestAnimationFrame(() => document.getElementById('food-servings-input')?.select());
@@ -4069,20 +4202,52 @@ async function confirmLogFood(foodId, hasServing, servingGrams) {
   }
 }
 
-function calcFoodCalories() {
-  const p = parseNum(document.getElementById('food-protein')?.value) || 0;
-  const c = parseNum(document.getElementById('food-carbs')?.value) || 0;
-  const f = parseNum(document.getElementById('food-fat')?.value) || 0;
-  const el = document.getElementById('food-calories');
+function calcFieldCalories(prefix) {
+  const p = parseNum(document.getElementById(`${prefix}-pro`)?.value) || 0;
+  const c = parseNum(document.getElementById(`${prefix}-carb`)?.value) || 0;
+  const f = parseNum(document.getElementById(`${prefix}-fat`)?.value) || 0;
+  const el = document.getElementById(`${prefix}-cal`);
   if (el) el.textContent = Math.round(p * 4 + c * 4 + f * 9);
 }
 
-function calcInlineFoodCalories() {
-  const p = parseNum(document.getElementById('inline-food-pro')?.value) || 0;
-  const c = parseNum(document.getElementById('inline-food-carb')?.value) || 0;
-  const f = parseNum(document.getElementById('inline-food-fat')?.value) || 0;
-  const el = document.getElementById('inline-food-cal');
-  if (el) el.textContent = Math.round(p * 4 + c * 4 + f * 9);
+function buildFoodFields(prefix, food, options = {}) {
+  const h = options.compact ? 'h-10' : 'h-12';
+  const ts = options.compact ? 'text-sm' : '';
+  const cal = Math.round((food.protein||0)*4 + (food.carbs||0)*4 + (food.fat||0)*9);
+  return `
+    <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-1">Per 100g</p>
+    <div class="grid grid-cols-4 gap-2">
+      <div>
+        <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Cal</label>
+        <div class="${h} px-1 border-2 border-ink/10 rounded-lg bg-ink/5 flex items-center justify-center font-bold ${ts} text-ink/60">
+          <span id="${prefix}-cal">${cal}</span>
+        </div>
+      </div>
+      <div>
+        <label class="text-[10px] font-bold uppercase tracking-widest text-[#F59E0B] block mb-1">Fat</label>
+        <input id="${prefix}-fat" type="text" inputmode="decimal" value="${food.fat || ''}" placeholder="0" oninput="calcFieldCalories('${prefix}')"
+          class="w-full ${h} px-1 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold ${ts} focus:border-[#F59E0B] focus:outline-none transition-colors duration-200">
+      </div>
+      <div>
+        <label class="text-[10px] font-bold uppercase tracking-widest text-[#3B82F6] block mb-1">Carbs</label>
+        <input id="${prefix}-carb" type="text" inputmode="decimal" value="${food.carbs || ''}" placeholder="0" oninput="calcFieldCalories('${prefix}')"
+          class="w-full ${h} px-1 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold ${ts} focus:border-[#3B82F6] focus:outline-none transition-colors duration-200">
+      </div>
+      <div>
+        <label class="text-[10px] font-bold uppercase tracking-widest text-[#7C3AED] block mb-1">Pro</label>
+        <input id="${prefix}-pro" type="text" inputmode="decimal" value="${food.protein || ''}" placeholder="0" oninput="calcFieldCalories('${prefix}')"
+          class="w-full ${h} px-1 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold ${ts} focus:border-[#7C3AED] focus:outline-none transition-colors duration-200">
+      </div>
+    </div>`;
+}
+
+function updateServingsPreview(value, cal, pro, carb, fat) {
+  const g = parseNum(value) || 0;
+  const e = (id) => document.getElementById(id);
+  if (e('sp-cal')) e('sp-cal').textContent = Math.round(cal * g / 100);
+  if (e('sp-fat')) e('sp-fat').textContent = Math.round(fat * g / 100 * 10) / 10;
+  if (e('sp-carb')) e('sp-carb').textContent = Math.round(carb * g / 100 * 10) / 10;
+  if (e('sp-pro')) e('sp-pro').textContent = Math.round(pro * g / 100 * 10) / 10;
 }
 
 // ─── View: Food Form ────────────────────────────────────────────────────────
@@ -4116,27 +4281,7 @@ async function renderFoodForm(id) {
             class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent font-bold focus:border-acid focus:outline-none transition-colors duration-200">
         </div>
 
-        <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mt-2">Nutrition per 100g</p>
-        <div>
-          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Calories (auto)</label>
-          <div class="w-full h-12 px-3 border-2 border-ink/10 rounded-lg bg-ink/5 flex items-center justify-center font-bold text-ink/60">
-            <span id="food-calories">${Math.round((food.protein||0)*4 + (food.carbs||0)*4 + (food.fat||0)*9)}</span>
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Fat (g)</label>
-            <input id="food-fat" type="text" inputmode="decimal" value="${food.fat}" placeholder="0" oninput="calcFoodCalories()"              class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold focus:border-acid focus:outline-none transition-colors duration-200">
-          </div>
-          <div>
-            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Carbs (g)</label>
-            <input id="food-carbs" type="text" inputmode="decimal" value="${food.carbs}" placeholder="0" oninput="calcFoodCalories()"              class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold focus:border-acid focus:outline-none transition-colors duration-200">
-          </div>
-          <div>
-            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Protein (g)</label>
-            <input id="food-protein" type="text" inputmode="decimal" value="${food.protein}" placeholder="0" oninput="calcFoodCalories()"              class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold focus:border-acid focus:outline-none transition-colors duration-200">
-          </div>
-        </div>
+        ${buildFoodFields('food', food)}
 
         <div class="border-t border-ink/10 pt-4">
           <div class="flex items-center justify-between mb-3">
@@ -4182,8 +4327,8 @@ async function renderFoodForm(id) {
 
 async function saveFood(id) {
   const hasServing = document.getElementById('food-has-serving')?.checked;
-  const protein = parseNum(document.getElementById('food-protein').value) || 0;
-  const carbs = parseNum(document.getElementById('food-carbs').value) || 0;
+  const protein = parseNum(document.getElementById('food-pro').value) || 0;
+  const carbs = parseNum(document.getElementById('food-carb').value) || 0;
   const fat = parseNum(document.getElementById('food-fat').value) || 0;
   const nameEl = document.getElementById('food-name');
   const data = {
@@ -4437,27 +4582,7 @@ function showInlineFoodCreator() {
         <input id="inline-food-name" type="text" placeholder="e.g. Chicken Breast"
           class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
       </div>
-      <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Nutrition per 100g</p>
-      <div>
-        <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Calories (auto)</label>
-        <div class="w-full h-10 px-3 border-2 border-ink/10 rounded-lg bg-ink/5 flex items-center justify-center font-bold text-sm text-ink/60">
-          <span id="inline-food-cal">0</span>
-        </div>
-      </div>
-      <div class="grid grid-cols-2 gap-2">
-        <div>
-          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Fat (g)</label>
-          <input id="inline-food-fat" type="text" inputmode="decimal" placeholder="0" oninput="calcInlineFoodCalories()"            class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
-        </div>
-        <div>
-          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Carbs (g)</label>
-          <input id="inline-food-carb" type="text" inputmode="decimal" placeholder="0" oninput="calcInlineFoodCalories()"            class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
-        </div>
-        <div>
-          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Protein (g)</label>
-          <input id="inline-food-pro" type="text" inputmode="decimal" placeholder="0" oninput="calcInlineFoodCalories()"            class="w-full h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
-        </div>
-      </div>
+      ${buildFoodFields('inline-food', {protein: 0, carbs: 0, fat: 0}, {compact: true})}
       <div class="border-t border-ink/10 pt-3">
         <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-2">Custom Serving (optional)</p>
         <div class="grid grid-cols-2 gap-2">
