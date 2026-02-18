@@ -198,7 +198,7 @@ async function drawerShowOverview() {
   document.getElementById('drawer-content').innerHTML = `
     <div class="flex items-center justify-between px-5 pt-6 pb-4">
       <h2 class="text-lg font-black uppercase tracking-tight">You</h2>
-      <button onclick="closeDrawer()" class="w-8 h-8 flex items-center justify-center text-white/40 hover:text-white transition-colors duration-200">
+      <button onclick="closeDrawer()" class="w-8 h-8 flex items-center justify-center text-ink/40 hover:text-white transition-colors duration-200">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
@@ -234,7 +234,7 @@ async function drawerShowOverview() {
   document.getElementById('drawer-content').innerHTML = `
     <div class="flex items-center justify-between px-5 pt-6 pb-4">
       <h2 class="text-lg font-black uppercase tracking-tight">You</h2>
-      <button onclick="closeDrawer()" class="w-8 h-8 flex items-center justify-center text-white/40 hover:text-white transition-colors duration-200">
+      <button onclick="closeDrawer()" class="w-8 h-8 flex items-center justify-center text-ink/40 hover:text-white transition-colors duration-200">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
@@ -242,21 +242,21 @@ async function drawerShowOverview() {
       <div class="grid grid-cols-3 gap-3 mb-5">
         <div class="border-2 border-white/10 rounded-xl p-3 text-center">
           <span class="text-2xl font-black leading-none block text-acid">${profile.current_weight_kg || '--'}</span>
-          <span class="text-[10px] font-bold uppercase tracking-widest text-white/40 mt-1 block">kg</span>
+          <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mt-1 block">kg</span>
         </div>
         <div class="border-2 border-white/10 rounded-xl p-3 text-center">
           <span class="text-2xl font-black leading-none block">${profile.age || '--'}</span>
-          <span class="text-[10px] font-bold uppercase tracking-widest text-white/40 mt-1 block">age</span>
+          <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mt-1 block">age</span>
         </div>
         <div class="border-2 border-white/10 rounded-xl p-3 text-center">
           <span class="text-2xl font-black leading-none block">${streakData.streak || 0}</span>
-          <span class="text-[10px] font-bold uppercase tracking-widest text-white/40 mt-1 block">wk streak</span>
+          <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mt-1 block">wk streak</span>
         </div>
       </div>
 
       ${recentMilestones.length > 0 ? `
         <div class="mb-4" onclick="drawerShowMilestones()">
-          <span class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-2">Recent Milestones</span>
+          <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-2">Recent Milestones</span>
           <div class="flex flex-wrap gap-1.5">
             ${recentMilestones.map(m => `<span class="text-xs font-bold bg-[#EC4899]/20 text-[#EC4899] rounded px-2 py-1">${m.label}</span>`).join('')}
           </div>
@@ -265,7 +265,7 @@ async function drawerShowOverview() {
 
       ${recentPrs.length > 0 ? `
         <div class="mb-4" onclick="drawerShowPRWall()">
-          <span class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-2">Recent PRs</span>
+          <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-2">Recent PRs</span>
           <div class="flex flex-wrap gap-1.5">
             ${recentPrs.map(pr => `<span class="text-xs font-bold bg-electric/20 text-electric rounded px-2 py-1">${pr.exercise_name} ${pr.weight_kg}kg</span>`).join('')}
           </div>
@@ -274,7 +274,7 @@ async function drawerShowOverview() {
 
       <button onclick="drawerShowMilestones()" class="w-full border-2 border-white/10 rounded-xl p-4 mb-3 text-left active:bg-white/5 transition-colors duration-200">
         <div class="flex items-center justify-between mb-2">
-          <span class="text-[10px] font-bold uppercase tracking-widest text-white/40">Milestones</span>
+          <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Milestones</span>
           <span class="text-xs font-bold bg-[#EC4899] text-canvas rounded px-2 py-0.5">${earnedCount}/${totalCount}</span>
         </div>
         <div class="h-1.5 bg-white/10 rounded-full overflow-hidden">
@@ -284,7 +284,7 @@ async function drawerShowOverview() {
 
       <button onclick="drawerShowPRWall()" class="w-full border-2 border-white/10 rounded-xl p-4 mb-5 text-left active:bg-white/5 transition-colors duration-200">
         <div class="flex items-center justify-between">
-          <span class="text-[10px] font-bold uppercase tracking-widest text-white/40">PR Wall</span>
+          <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">PR Wall</span>
           <span class="text-xs font-bold bg-[#EC4899] text-canvas rounded px-2 py-0.5">${prCount} PRs</span>
         </div>
       </button>
@@ -323,16 +323,16 @@ async function drawerShowMilestones() {
 
   document.getElementById('drawer-content').innerHTML = `
     <div class="flex items-center justify-between px-5 pt-6 pb-4">
-      <button onclick="drawerShowOverview()" class="text-sm font-bold text-white/40 uppercase tracking-widest flex items-center gap-1 active:text-white transition-colors duration-200">
+      <button onclick="drawerShowOverview()" class="text-sm font-bold text-ink/40 uppercase tracking-widest flex items-center gap-1 active:text-white transition-colors duration-200">
         <span class="text-lg leading-none">&larr;</span> Back
       </button>
-      <button onclick="closeDrawer()" class="w-8 h-8 flex items-center justify-center text-white/40 hover:text-white transition-colors duration-200">
+      <button onclick="closeDrawer()" class="w-8 h-8 flex items-center justify-center text-ink/40 hover:text-white transition-colors duration-200">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
     <div class="px-5 overflow-y-auto" style="max-height: calc(100vh - 80px - env(safe-area-inset-top) - env(safe-area-inset-bottom))">
       <h1 class="text-2xl font-black uppercase tracking-tight leading-none mb-2">Milestones</h1>
-      <p class="text-sm font-bold text-white/40 mb-5">${earned.length} of ${MILESTONES.length} unlocked</p>
+      <p class="text-sm font-bold text-ink/40 mb-5">${earned.length} of ${MILESTONES.length} unlocked</p>
       <div class="grid grid-cols-3 gap-2 mb-5">
         ${milestonesHtml}
       </div>
@@ -343,10 +343,10 @@ async function drawerShowMilestones() {
 async function drawerShowPRWall() {
   document.getElementById('drawer-content').innerHTML = `
     <div class="flex items-center justify-between px-5 pt-6 pb-4">
-      <button onclick="drawerShowOverview()" class="text-sm font-bold text-white/40 uppercase tracking-widest flex items-center gap-1 active:text-white transition-colors duration-200">
+      <button onclick="drawerShowOverview()" class="text-sm font-bold text-ink/40 uppercase tracking-widest flex items-center gap-1 active:text-white transition-colors duration-200">
         <span class="text-lg leading-none">&larr;</span> Back
       </button>
-      <button onclick="closeDrawer()" class="w-8 h-8 flex items-center justify-center text-white/40 hover:text-white transition-colors duration-200">
+      <button onclick="closeDrawer()" class="w-8 h-8 flex items-center justify-center text-ink/40 hover:text-white transition-colors duration-200">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
@@ -359,24 +359,24 @@ async function drawerShowPRWall() {
 
   const cardsHtml = exercises.map(ex => `
     <div class="border-2 border-[#EC4899]/20 rounded-xl p-4 text-center">
-      <div class="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-2 truncate">${ex.exercise_name}</div>
-      <div class="text-2xl font-black text-[#EC4899] leading-none">${ex.best_weight}<span class="text-sm text-white/40">kg</span></div>
+      <div class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-2 truncate">${ex.exercise_name}</div>
+      <div class="text-2xl font-black text-[#EC4899] leading-none">${ex.best_weight}<span class="text-sm text-ink/40">kg</span></div>
       <div class="text-xs font-bold text-white/30 mt-1">E1RM ${ex.best_e1rm}kg</div>
     </div>
   `).join('');
 
   document.getElementById('drawer-content').innerHTML = `
     <div class="flex items-center justify-between px-5 pt-6 pb-4">
-      <button onclick="drawerShowOverview()" class="text-sm font-bold text-white/40 uppercase tracking-widest flex items-center gap-1 active:text-white transition-colors duration-200">
+      <button onclick="drawerShowOverview()" class="text-sm font-bold text-ink/40 uppercase tracking-widest flex items-center gap-1 active:text-white transition-colors duration-200">
         <span class="text-lg leading-none">&larr;</span> Back
       </button>
-      <button onclick="closeDrawer()" class="w-8 h-8 flex items-center justify-center text-white/40 hover:text-white transition-colors duration-200">
+      <button onclick="closeDrawer()" class="w-8 h-8 flex items-center justify-center text-ink/40 hover:text-white transition-colors duration-200">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
     <div class="px-5 overflow-y-auto" style="max-height: calc(100vh - 80px - env(safe-area-inset-top) - env(safe-area-inset-bottom))">
       <h1 class="text-2xl font-black uppercase tracking-tight leading-none mb-2">PR Wall</h1>
-      <p class="text-sm font-bold text-white/40 mb-5">${exercises.length} exercise${exercises.length !== 1 ? 's' : ''} tracked</p>
+      <p class="text-sm font-bold text-ink/40 mb-5">${exercises.length} exercise${exercises.length !== 1 ? 's' : ''} tracked</p>
       <div class="grid grid-cols-2 gap-3 mb-5">
         ${cardsHtml}
       </div>
@@ -395,15 +395,15 @@ async function drawerShowProfile() {
 
   function genderBtn(val, label) {
     const active = profile.gender === val;
-    return `<button onclick="document.querySelectorAll('.gender-btn').forEach(b=>b.className='gender-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 rounded-lg text-white/40 transition-colors duration-200');this.className='gender-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid rounded-lg transition-colors duration-200'" class="gender-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 ${active ? 'border-acid text-acid' : 'border-white/20 text-white/40'} rounded-lg transition-colors duration-200" data-val="${val}">${label}</button>`;
+    return `<button onclick="document.querySelectorAll('.gender-btn').forEach(b=>b.className='gender-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-ink/15 rounded-lg text-ink/40 transition-colors duration-200');this.className='gender-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid rounded-lg transition-colors duration-200'" class="gender-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 ${active ? 'border-acid text-acid' : 'border-ink/15 text-ink/40'} rounded-lg transition-colors duration-200" data-val="${val}">${label}</button>`;
   }
 
   document.getElementById('drawer-content').innerHTML = `
     <div class="flex items-center justify-between px-5 pt-6 pb-4">
-      <button onclick="drawerShowOverview()" class="text-sm font-bold text-white/40 uppercase tracking-widest flex items-center gap-1 active:text-white transition-colors duration-200">
+      <button onclick="drawerShowOverview()" class="text-sm font-bold text-ink/40 uppercase tracking-widest flex items-center gap-1 active:text-white transition-colors duration-200">
         <span class="text-lg leading-none">&larr;</span> Back
       </button>
-      <button onclick="closeDrawer()" class="w-8 h-8 flex items-center justify-center text-white/40 hover:text-white transition-colors duration-200">
+      <button onclick="closeDrawer()" class="w-8 h-8 flex items-center justify-center text-ink/40 hover:text-white transition-colors duration-200">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
@@ -412,25 +412,25 @@ async function drawerShowProfile() {
 
       <div class="space-y-4 mb-6">
         <div>
-          <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-2">Gender</label>
+          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-2">Gender</label>
           <div class="flex gap-2">${genderBtn('male', 'Male')}${genderBtn('female', 'Female')}</div>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-1">Age</label>
+            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Age</label>
             <input id="drawer-age" type="number" inputmode="numeric" value="${profile.age}"
-              class="w-full h-12 px-3 border-2 border-white/20 rounded-lg bg-transparent text-center text-white font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
+              class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center text-white font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
           </div>
           <div>
-            <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-1">Height (cm)</label>
+            <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Height (cm)</label>
             <input id="drawer-height" type="text" inputmode="decimal" value="${profile.height_cm}"
-              class="w-full h-12 px-3 border-2 border-white/20 rounded-lg bg-transparent text-center text-white font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
+              class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center text-white font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
           </div>
         </div>
         <div>
-          <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-1">Current Weight (kg)</label>
+          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Current Weight (kg)</label>
           <input id="drawer-weight" type="text" inputmode="decimal" value="${profile.current_weight_kg || ''}" placeholder="e.g. 82.5"
-            class="w-full h-12 px-3 border-2 border-white/20 rounded-lg bg-transparent text-center text-white font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200 placeholder:text-white/20">
+            class="w-full h-12 px-3 border-2 border-ink/15 rounded-lg bg-transparent text-center text-white font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200 placeholder:text-white/20">
         </div>
       </div>
 
@@ -440,7 +440,7 @@ async function drawerShowProfile() {
 
       ${weightHistory.length >= 2 ? `
         <div class="border-t border-white/10 pt-5 mb-5">
-          <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-3">Weight Trend</label>
+          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-3">Weight Trend</label>
           <div class="border-2 border-white/10 rounded-xl p-3 mb-4" style="height:200px">
             <canvas id="weight-trend-chart"></canvas>
           </div>
@@ -448,7 +448,7 @@ async function drawerShowProfile() {
       ` : ''}
       ${recentHistory.length > 0 ? `
         <div class="${weightHistory.length < 2 ? 'border-t border-white/10 pt-5' : ''} mb-5">
-          <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-3">Weight History</label>
+          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-3">Weight History</label>
           <div class="space-y-1">
             ${recentHistory.slice().reverse().map(w => {
               const d = new Date(w.logged_at);
@@ -457,7 +457,7 @@ async function drawerShowProfile() {
               return `
                 <div class="flex items-center justify-between py-1.5">
                   <div class="flex items-center gap-3">
-                    <span class="text-sm font-bold text-white/40">${dateLabel}</span>
+                    <span class="text-sm font-bold text-ink/40">${dateLabel}</span>
                     <span class="text-sm font-black text-white">${w.weight_kg} kg</span>
                   </div>
                   <button onclick="drawerDeleteWeight(${w.id})" class="w-7 h-7 flex items-center justify-center text-white/20 hover:text-red-400 transition-colors duration-200 text-lg leading-none">&times;</button>
@@ -589,7 +589,7 @@ async function drawerShowNutritionGoals() {
 
   function activityBtn(val, label) {
     const active = profile.activity_level === val;
-    return `<button onclick="document.querySelectorAll('.activity-btn').forEach(b=>b.className='activity-btn w-full py-2 px-3 text-left text-sm font-bold uppercase tracking-tight border-2 border-white/20 rounded-lg text-white/40 transition-colors duration-200 mb-1');this.className='activity-btn w-full py-2 px-3 text-left text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid rounded-lg transition-colors duration-200 mb-1';saveActivityLevel('${val}')" class="activity-btn w-full py-2 px-3 text-left text-sm font-bold uppercase tracking-tight border-2 ${active ? 'border-acid text-acid' : 'border-white/20 text-white/40'} rounded-lg transition-colors duration-200 mb-1" data-val="${val}">${label}</button>`;
+    return `<button onclick="document.querySelectorAll('.activity-btn').forEach(b=>b.className='activity-btn w-full py-2 px-3 text-left text-sm font-bold uppercase tracking-tight border-2 border-ink/15 rounded-lg text-ink/40 transition-colors duration-200 mb-1');this.className='activity-btn w-full py-2 px-3 text-left text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid rounded-lg transition-colors duration-200 mb-1';saveActivityLevel('${val}')" class="activity-btn w-full py-2 px-3 text-left text-sm font-bold uppercase tracking-tight border-2 ${active ? 'border-acid text-acid' : 'border-ink/15 text-ink/40'} rounded-lg transition-colors duration-200 mb-1" data-val="${val}">${label}</button>`;
   }
 
   const today = new Date().toISOString().split('T')[0];
@@ -634,31 +634,31 @@ async function drawerShowNutritionGoals() {
 
     breakdownHtml = `
       <div class="border-t border-white/10 pt-5 mb-5">
-        <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-3">Calculation Breakdown</label>
+        <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-3">Calculation Breakdown</label>
         <div class="space-y-2">
           <div class="flex justify-between text-sm">
-            <span class="text-white/40 font-bold">BMR</span>
+            <span class="text-ink/40 font-bold">BMR</span>
             <span class="text-white font-bold tabular-nums">${tdeeData.bmr.toLocaleString()} kcal</span>
           </div>
           <div class="flex justify-between text-sm">
-            <span class="text-white/40 font-bold">TDEE (\u00d7${actMult.toFixed(2)})</span>
+            <span class="text-ink/40 font-bold">TDEE (\u00d7${actMult.toFixed(2)})</span>
             <span class="text-white font-bold tabular-nums">${tdeeData.base_tdee.toLocaleString()} kcal</span>
           </div>
           <div class="flex justify-between text-sm">
-            <span class="text-white/40 font-bold">${phaseLabel}</span>
+            <span class="text-ink/40 font-bold">${phaseLabel}</span>
             <span class="text-acid font-bold tabular-nums">${phaseCalLabel}</span>
           </div>
           <div class="border-t border-white/10 pt-2 mt-2"></div>
           <div class="flex justify-between text-sm">
-            <span class="text-white/40 font-bold">Fat (25%)</span>
+            <span class="text-ink/40 font-bold">Fat (25%)</span>
             <span class="text-white font-bold tabular-nums">${tdeeData.fat_g}g</span>
           </div>
           <div class="flex justify-between text-sm">
-            <span class="text-white/40 font-bold">Carbs (fill)</span>
+            <span class="text-ink/40 font-bold">Carbs (fill)</span>
             <span class="text-white font-bold tabular-nums">${tdeeData.carbs_g}g</span>
           </div>
           <div class="flex justify-between text-sm">
-            <span class="text-white/40 font-bold">Protein (2.2g/kg)</span>
+            <span class="text-ink/40 font-bold">Protein (2.2g/kg)</span>
             <span class="text-white font-bold tabular-nums">${tdeeData.protein_g}g</span>
           </div>
         </div>
@@ -668,10 +668,10 @@ async function drawerShowNutritionGoals() {
 
   document.getElementById('drawer-content').innerHTML = `
     <div class="flex items-center justify-between px-5 pt-6 pb-4">
-      <button onclick="drawerShowOverview()" class="text-sm font-bold text-white/40 uppercase tracking-widest flex items-center gap-1 active:text-white transition-colors duration-200">
+      <button onclick="drawerShowOverview()" class="text-sm font-bold text-ink/40 uppercase tracking-widest flex items-center gap-1 active:text-white transition-colors duration-200">
         <span class="text-lg leading-none">&larr;</span> Back
       </button>
-      <button onclick="closeDrawer()" class="w-8 h-8 flex items-center justify-center text-white/40 hover:text-white transition-colors duration-200">
+      <button onclick="closeDrawer()" class="w-8 h-8 flex items-center justify-center text-ink/40 hover:text-white transition-colors duration-200">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
@@ -679,13 +679,13 @@ async function drawerShowNutritionGoals() {
       <h1 class="text-2xl font-black uppercase tracking-tight leading-none mb-5">Nutrition Goals</h1>
 
       <div class="mb-5">
-        <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-2">Activity Level</label>
+        <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-2">Activity Level</label>
         ${Object.entries(activityLabels).map(([k, v]) => activityBtn(k, v)).join('')}
       </div>
 
       <div class="border-t border-white/10 pt-5 mb-5">
         <div class="flex items-center justify-between mb-3">
-          <label class="text-[10px] font-bold uppercase tracking-widest text-white/40">Phase Schedule</label>
+          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Phase Schedule</label>
           <span class="text-xs font-black uppercase tracking-tight ${phaseColors[phasesData.active_phase] || 'text-white/60'}">Active: ${phasesData.active_phase}</span>
         </div>
         ${stabHtml}
@@ -693,33 +693,33 @@ async function drawerShowNutritionGoals() {
           ${phasesHtml || '<p class="text-sm text-white/20 italic">No phases scheduled</p>'}
         </div>
         <div id="add-phase-area">
-          <button onclick="showAddPhaseForm()" id="add-phase-btn" class="w-full py-2 border-2 border-dashed border-white/20 rounded-lg text-white/40 text-sm font-bold uppercase tracking-tight hover:border-acid hover:text-acid transition-colors duration-200">
+          <button onclick="showAddPhaseForm()" id="add-phase-btn" class="w-full py-2 border-2 border-dashed border-ink/15 rounded-lg text-ink/40 text-sm font-bold uppercase tracking-tight hover:border-acid hover:text-acid transition-colors duration-200">
             + Add Phase
           </button>
           <div id="add-phase-form" class="hidden">
-            <div class="space-y-3 border-2 border-white/20 rounded-lg p-3">
+            <div class="space-y-3 border-2 border-ink/15 rounded-lg p-3">
               <div>
-                <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-2">Phase Type</label>
+                <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-2">Phase Type</label>
                 <div class="flex gap-2">
-                  <button onclick="document.querySelectorAll('.new-phase-btn').forEach(b=>b.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 rounded-lg text-white/40 transition-colors duration-200');this.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid rounded-lg transition-colors duration-200'" class="new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 rounded-lg text-white/40 transition-colors duration-200" data-val="cut">Cut</button>
-                  <button onclick="document.querySelectorAll('.new-phase-btn').forEach(b=>b.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 rounded-lg text-white/40 transition-colors duration-200');this.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid rounded-lg transition-colors duration-200'" class="new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 rounded-lg text-white/40 transition-colors duration-200" data-val="maintain">Maintain</button>
-                  <button onclick="document.querySelectorAll('.new-phase-btn').forEach(b=>b.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 rounded-lg text-white/40 transition-colors duration-200');this.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid rounded-lg transition-colors duration-200'" class="new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-white/20 rounded-lg text-white/40 transition-colors duration-200" data-val="bulk">Bulk</button>
+                  <button onclick="document.querySelectorAll('.new-phase-btn').forEach(b=>b.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-ink/15 rounded-lg text-ink/40 transition-colors duration-200');this.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid rounded-lg transition-colors duration-200'" class="new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-ink/15 rounded-lg text-ink/40 transition-colors duration-200" data-val="cut">Cut</button>
+                  <button onclick="document.querySelectorAll('.new-phase-btn').forEach(b=>b.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-ink/15 rounded-lg text-ink/40 transition-colors duration-200');this.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid rounded-lg transition-colors duration-200'" class="new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-ink/15 rounded-lg text-ink/40 transition-colors duration-200" data-val="maintain">Maintain</button>
+                  <button onclick="document.querySelectorAll('.new-phase-btn').forEach(b=>b.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-ink/15 rounded-lg text-ink/40 transition-colors duration-200');this.className='new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-acid text-acid rounded-lg transition-colors duration-200'" class="new-phase-btn flex-1 py-2 text-sm font-bold uppercase tracking-tight border-2 border-ink/15 rounded-lg text-ink/40 transition-colors duration-200" data-val="bulk">Bulk</button>
                 </div>
               </div>
               <div class="space-y-3">
                 <div>
-                  <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-1">Start</label>
-                  <input id="new-phase-start" type="date" class="w-full h-10 px-2 border-2 border-white/20 rounded-lg bg-transparent text-white text-sm font-bold focus:border-acid focus:outline-none transition-colors duration-200">
+                  <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Start</label>
+                  <input id="new-phase-start" type="date" class="w-full h-10 px-2 border-2 border-ink/15 rounded-lg bg-transparent text-white text-sm font-bold focus:border-acid focus:outline-none transition-colors duration-200">
                 </div>
                 <div>
-                  <label class="text-[10px] font-bold uppercase tracking-widest text-white/40 block mb-1">End</label>
-                  <input id="new-phase-end" type="date" class="w-full h-10 px-2 border-2 border-white/20 rounded-lg bg-transparent text-white text-sm font-bold focus:border-acid focus:outline-none transition-colors duration-200">
+                  <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">End</label>
+                  <input id="new-phase-end" type="date" class="w-full h-10 px-2 border-2 border-ink/15 rounded-lg bg-transparent text-white text-sm font-bold focus:border-acid focus:outline-none transition-colors duration-200">
                 </div>
               </div>
               <div id="phase-error" class="text-red-400 text-xs font-bold hidden"></div>
               <div class="flex gap-2">
                 <button onclick="addPhase()" class="flex-1 py-2 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-sm transition-colors duration-200 active:bg-acid/20 active:text-acid">Add</button>
-                <button onclick="hideAddPhaseForm()" class="flex-1 py-2 border-2 border-white/20 rounded-lg text-white/40 font-bold uppercase tracking-tight text-sm transition-colors duration-200">Cancel</button>
+                <button onclick="hideAddPhaseForm()" class="flex-1 py-2 border-2 border-ink/15 rounded-lg text-ink/40 font-bold uppercase tracking-tight text-sm transition-colors duration-200">Cancel</button>
               </div>
             </div>
           </div>
@@ -914,7 +914,7 @@ function updateTimerDisplay() {
     progress.classList.remove('timer-done');
     bar.className = 'bg-[#1a1a1a] text-white';
     label.className = 'text-xs font-bold uppercase tracking-widest text-white/60';
-    if (dismiss) dismiss.className = 'text-xs font-bold uppercase tracking-widest text-white/40 hover:text-white transition-colors duration-200';
+    if (dismiss) dismiss.className = 'text-xs font-bold uppercase tracking-widest text-ink/40 hover:text-white transition-colors duration-200';
   }
 }
 
@@ -1029,7 +1029,7 @@ async function renderDashboard() {
           </div>
           <div class="flex items-baseline gap-2 flex-shrink-0">
             <span class="workout-elapsed text-sm font-bold tabular-nums text-[#F97316]">${getElapsedText()}</span>
-            <span class="text-[10px] text-white/40 font-bold uppercase tracking-widest whitespace-nowrap">C${state.progress.cycle} &middot; W${state.progress.week}${deload ? ' &middot; Deload' : ''}</span>
+            <span class="text-[10px] text-ink/40 font-bold uppercase tracking-widest whitespace-nowrap">C${state.progress.cycle} &middot; W${state.progress.week}${deload ? ' &middot; Deload' : ''}</span>
           </div>
         </div>
         <button onclick="event.stopPropagation(); resumeWorkout()" class="w-full mt-4 py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-acid/20 active:text-acid">
@@ -1042,10 +1042,10 @@ async function renderDashboard() {
       <div class="bg-white/10 text-white rounded-xl p-5 mb-3 cursor-pointer active:bg-white/20 transition-colors duration-200" onclick="startWorkoutFlow('${nextWorkout.templateId}')">
         <div class="flex items-baseline justify-between gap-2 mb-1">
           <div class="flex items-baseline gap-2 min-w-0">
-            <span class="text-[10px] font-bold uppercase tracking-widest text-white/40 whitespace-nowrap flex-shrink-0">Next Up</span>
+            <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40 whitespace-nowrap flex-shrink-0">Next Up</span>
             <h2 class="text-xl font-black uppercase tracking-tight leading-tight truncate">${nextWorkout.name.split('(')[0].trim()}</h2>
           </div>
-          <span class="text-[10px] text-white/40 font-bold uppercase tracking-widest whitespace-nowrap flex-shrink-0">${durationEstimate && durationEstimate.estimatedMinutes ? `~${durationEstimate.estimatedMinutes}m &middot; ` : ''}C${state.progress.cycle} &middot; W${state.progress.week}${deload ? ' &middot; Deload' : ''}</span>
+          <span class="text-[10px] text-ink/40 font-bold uppercase tracking-widest whitespace-nowrap flex-shrink-0">${durationEstimate && durationEstimate.estimatedMinutes ? `~${durationEstimate.estimatedMinutes}m &middot; ` : ''}C${state.progress.cycle} &middot; W${state.progress.week}${deload ? ' &middot; Deload' : ''}</span>
         </div>
         <button onclick="event.stopPropagation(); startWorkoutFlow('${nextWorkout.templateId}', true)" class="w-full mt-4 py-3 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-center text-lg transition-colors duration-200 active:bg-acid/20 active:text-acid">
           Start Workout
@@ -1095,7 +1095,7 @@ async function renderDashboard() {
           <div>
             <div class="flex items-center gap-1 mb-0.5">
               <span class="w-1.5 h-1.5 rounded-full bg-acid flex-shrink-0"></span>
-              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">done</span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">done</span>
             </div>
             <span class="text-lg font-black leading-none block">${doneCount} <span class="text-xs text-ink/30">/ ${weekSummary.totalWorkouts}</span></span>
             <div class="h-[3px] bg-ink/10 rounded-full mt-1 overflow-hidden"><div class="h-full rounded-full" style="width:${weekSummary.totalWorkouts > 0 ? (doneCount / weekSummary.totalWorkouts) * 100 : 0}%;background:#CCFF00"></div></div>
@@ -1103,14 +1103,14 @@ async function renderDashboard() {
           <div>
             <div class="flex items-center gap-1 mb-0.5">
               <span class="w-1.5 h-1.5 rounded-full bg-electric flex-shrink-0"></span>
-              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">sets</span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">sets</span>
             </div>
             <span class="text-lg font-black leading-none block">${weekSummary.totalSets}</span>
           </div>
           <div>
             <div class="flex items-center gap-1 mb-0.5">
               <span class="w-1.5 h-1.5 rounded-full bg-[#06B6D4] flex-shrink-0"></span>
-              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">volume</span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">volume</span>
             </div>
             <span class="text-lg font-black leading-none block">${formatVolume(weekSummary.totalVolume)}</span>
             ${weekSummary.prevWeekVolume > 0 && weekSummary.totalVolume > 0 ? (() => {
@@ -1124,7 +1124,7 @@ async function renderDashboard() {
           <div>
             <div class="flex items-center gap-1 mb-0.5">
               <span class="w-1.5 h-1.5 rounded-full bg-[#F97316] flex-shrink-0"></span>
-              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">time</span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">time</span>
             </div>
             <span class="text-lg font-black leading-none block">${weekSummary.totalDuration ? formatDuration(weekSummary.totalDuration) : '—'}</span>
           </div>
@@ -1150,7 +1150,7 @@ async function renderDashboard() {
           <div>
             <div class="flex items-center gap-1 mb-0.5">
               <svg class="flex-shrink-0" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#CCFF00" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12c2-2.96 0-7-1-8 0 3.038-1.773 4.741-3 6-1.226 1.26-2 3.24-2 5a6 6 0 1 0 12 0c0-1.532-1.056-3.94-2-5-1.786 3-2.791 3-4 2z"/></svg>
-              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">kcal</span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">kcal</span>
             </div>
             <span class="text-lg font-black leading-none block">${Math.round(nTotals.calories)} <span class="text-xs text-ink/30">/ ${Math.round(nTargets.calories)}</span></span>
             <div class="h-[3px] bg-ink/10 rounded-full mt-1 overflow-hidden"><div class="h-full rounded-full" style="width:${miniPct(nTotals.calories, nTargets.calories)}%;background:#CCFF00"></div></div>
@@ -1158,7 +1158,7 @@ async function renderDashboard() {
           <div>
             <div class="flex items-center gap-1 mb-0.5">
               <span class="text-[10px] font-black text-orange-500">F</span>
-              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">fat</span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">fat</span>
             </div>
             <span class="text-lg font-black leading-none block">${Math.round(nTotals.fat)}<span class="text-xs text-ink/30">g</span></span>
             <div class="h-[3px] bg-ink/10 rounded-full mt-1 overflow-hidden"><div class="h-full rounded-full" style="width:${miniPct(nTotals.fat, nTargets.fat)}%;background:#F59E0B"></div></div>
@@ -1166,7 +1166,7 @@ async function renderDashboard() {
           <div>
             <div class="flex items-center gap-1 mb-0.5">
               <span class="text-[10px] font-black text-blue-500">C</span>
-              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">carbs</span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">carbs</span>
             </div>
             <span class="text-lg font-black leading-none block">${Math.round(nTotals.carbs)}<span class="text-xs text-ink/30">g</span></span>
             <div class="h-[3px] bg-ink/10 rounded-full mt-1 overflow-hidden"><div class="h-full rounded-full" style="width:${miniPct(nTotals.carbs, nTargets.carbs)}%;background:#3B82F6"></div></div>
@@ -1174,7 +1174,7 @@ async function renderDashboard() {
           <div>
             <div class="flex items-center gap-1 mb-0.5">
               <span class="text-[10px] font-black text-electric">P</span>
-              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">protein</span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">protein</span>
             </div>
             <span class="text-lg font-black leading-none block">${Math.round(nTotals.protein)}<span class="text-xs text-ink/30">g</span></span>
             <div class="h-[3px] bg-ink/10 rounded-full mt-1 overflow-hidden"><div class="h-full rounded-full" style="width:${miniPct(nTotals.protein, nTargets.protein)}%;background:#7C3AED"></div></div>
@@ -1465,13 +1465,13 @@ async function renderWorkouts() {
     const completed = statusData.completed.includes(wo.templateId);
     const skipped = statusData.skipped.includes(wo.templateId);
     const isActive = wo.templateId === activeTemplateId;
-    let badge = `<span class="text-sm text-white/40">${wo.exercises.length} exercises</span>`;
+    let badge = `<span class="text-sm text-ink/40">${wo.exercises.length} exercises</span>`;
     let bgClass = 'bg-white/10';
     if (completed) {
       badge = '<span class="text-xs font-bold text-canvas bg-acid rounded px-2 py-0.5">Done</span>';
       bgClass = 'bg-white/8';
     } else if (skipped) {
-      badge = '<span class="text-xs font-bold text-white/40 bg-white/10 rounded px-2 py-0.5">Skipped</span>';
+      badge = '<span class="text-xs font-bold text-ink/40 bg-white/10 rounded px-2 py-0.5">Skipped</span>';
       bgClass = 'bg-white/5';
     } else if (isActive) {
       badge = `<span class="text-xs font-bold text-white bg-white/15 rounded px-2 py-0.5 flex items-center gap-1.5">In Progress <span class="workout-elapsed tabular-nums text-[#F97316]">${getElapsedText()}</span></span>`;
@@ -2074,28 +2074,28 @@ async function renderExercise(index) {
           <div>
             <div class="flex items-center gap-1 mb-0.5">
               <span class="w-1.5 h-1.5 rounded-full bg-ink/25 flex-shrink-0"></span>
-              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">warm</span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">warm</span>
             </div>
             <span class="font-black text-lg leading-none">${exercise.warmupSets}</span>
           </div>
           <div>
             <div class="flex items-center gap-1 mb-0.5">
               <span class="w-1.5 h-1.5 rounded-full bg-acid flex-shrink-0"></span>
-              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">work</span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">work</span>
             </div>
             <span class="font-black text-lg leading-none">${exercise.workingSets}</span>
           </div>
           <div>
             <div class="flex items-center gap-1 mb-0.5">
               <span class="w-1.5 h-1.5 rounded-full bg-electric flex-shrink-0"></span>
-              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">reps</span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">reps</span>
             </div>
             <span class="font-black text-lg leading-none">${exercise.reps}</span>
           </div>
           <div>
             <div class="flex items-center gap-1 mb-0.5">
               <span class="w-1.5 h-1.5 rounded-full bg-[#06B6D4] flex-shrink-0"></span>
-              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">rest</span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">rest</span>
             </div>
             <span class="font-black text-lg leading-none">${exercise.rest}</span>
           </div>
@@ -2103,7 +2103,7 @@ async function renderExercise(index) {
         ${showTechnique ? `<div class="mt-3 pt-3 border-t border-ink/10">
           <div class="flex items-center gap-1.5">
             <span class="w-1.5 h-1.5 rounded-full bg-electric flex-shrink-0"></span>
-            <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">Last Set</span>
+            <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Last Set</span>
             <span class="font-bold text-electric text-sm">${technique}</span>
           </div>
         </div>` : ''}
@@ -3039,7 +3039,7 @@ function filterNutritionSearch(query) {
           <span class="font-bold text-[14px] block truncate flex items-center gap-1.5">${getMealIcon(m.name)}<span class="truncate">${m.name}</span></span>
           <span class="text-[11px] text-ink/40">${m.foods.length} foods · ${Math.round(m.totalCalories)} cal</span>
         </div>
-        <span class="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-400 flex-shrink-0">Meal</span>
+        <span class="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-400 flex-shrink-0">Meal</span>
       </button>`).join('');
   }
 
@@ -4298,28 +4298,28 @@ function renderMealFormInner(id, mealName, allFoods) {
           <div>
             <div class="flex items-center justify-center gap-1 mb-0.5">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#CCFF00" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12c2-2.96 0-7-1-8 0 3.038-1.773 4.741-3 6-1.226 1.26-2 3.24-2 5a6 6 0 1 0 12 0c0-1.532-1.056-3.94-2-5-1.786 3-2.791 3-4 2z"/></svg>
-              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">kcal</span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">kcal</span>
             </div>
             <span class="text-lg font-black block">${Math.round(totalCal)}</span>
           </div>
           <div>
             <div class="flex items-center justify-center gap-1 mb-0.5">
               <span class="text-[10px] font-black text-[#F59E0B]">F</span>
-              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">fat</span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">fat</span>
             </div>
             <span class="text-lg font-black block">${Math.round(totalFat)}<span class="text-xs text-ink/30">g</span></span>
           </div>
           <div>
             <div class="flex items-center justify-center gap-1 mb-0.5">
               <span class="text-[10px] font-black text-[#3B82F6]">C</span>
-              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">carbs</span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">carbs</span>
             </div>
             <span class="text-lg font-black block">${Math.round(totalCarb)}<span class="text-xs text-ink/30">g</span></span>
           </div>
           <div>
             <div class="flex items-center justify-center gap-1 mb-0.5">
               <span class="text-[10px] font-black text-[#7C3AED]">P</span>
-              <span class="text-[9px] font-bold uppercase tracking-widest text-ink/40">protein</span>
+              <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">protein</span>
             </div>
             <span class="text-lg font-black block">${Math.round(totalPro)}<span class="text-xs text-ink/30">g</span></span>
           </div>
