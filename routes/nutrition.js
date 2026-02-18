@@ -281,7 +281,7 @@ router.put('/log/:id/move', (req, res) => {
   if (hour === undefined) return res.status(400).json({ error: 'Invalid timeGroup' });
 
   // Preserve the date, change the time
-  const date = entry.logged_at.split('T')[0] || entry.logged_at.split(' ')[0];
+  const date = entry.logged_at.substring(0, 10);
   const newTimestamp = `${date} ${String(hour).padStart(2, '0')}:00:00`;
   run(`UPDATE daily_log SET logged_at = ? WHERE id = ?`, [newTimestamp, req.params.id]);
   const updated = get(`SELECT * FROM daily_log WHERE id = ?`, [req.params.id]);
