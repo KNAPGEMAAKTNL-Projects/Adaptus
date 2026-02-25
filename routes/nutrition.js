@@ -486,9 +486,14 @@ router.get('/adaptive-tdee', (req, res) => {
   const base_tdee = Math.round(bmr * activityMult);
   const formula_calories = Math.round(base_tdee * phaseMult);
 
-  // Weight trend: 7d avg vs previous 7d avg
-  const avg7 = get(`SELECT AVG(weight_kg) as avg_weight, COUNT(*) as count FROM body_weight WHERE logged_at >= datetime('now', '-7 days')`);
-  const avg7prev = get(`SELECT AVG(weight_kg) as avg_weight, COUNT(*) as count FROM body_weight WHERE logged_at >= datetime('now', '-14 days') AND logged_at < datetime('now', '-7 days')`);
+  // Week-by-week: use last completed Mon–Sun week and the one before it
+  // date('now','weekday 0','-13 days') = Monday of last completed week (SQLite weekday 0 = Sunday, so -13 days from last Sunday = Monday)
+  const lastWeekStart = get(`SELECT date('now', 'weekday 0', '-13 days') as d`).d;   // Monday of last completed week
+  const lastWeekEnd = get(`SELECT date('now', 'weekday 0', '-7 days') as d`).d;      // Sunday end of last completed week (+1 for < comparison = Monday of current week)
+  const prevWeekStart = get(`SELECT date('now', 'weekday 0', '-20 days') as d`).d;   // Monday of the week before that
+
+  const avg7 = get(`SELECT AVG(weight_kg) as avg_weight, COUNT(*) as count FROM body_weight WHERE date(logged_at) >= ? AND date(logged_at) <= ?`, [lastWeekStart, lastWeekEnd]);
+  const avg7prev = get(`SELECT AVG(weight_kg) as avg_weight, COUNT(*) as count FROM body_weight WHERE date(logged_at) >= ? AND date(logged_at) < ?`, [prevWeekStart, lastWeekStart]);
   const weight_trend = {
     current: weight_kg,
     avg_7d: avg7?.avg_weight ? Math.round(avg7.avg_weight * 10) / 10 : null,
@@ -534,10 +539,11 @@ router.get('/adaptive-tdee', (req, res) => {
   const calorieLogs = all(`
     SELECT date, SUM(calories) as total_cal
     FROM daily_log
-    WHERE date >= date('now', '-7 days')
+    WHERE date >= ? AND date <= ?
     GROUP BY date
-  `);
-  const hasEnoughCalories = calorieLogs.length >= 7;
+    HAVING total_cal >= 2000
+  `, [lastWeekStart, lastWeekEnd]);
+  const hasEnoughCalories = calorieLogs.length >= 5;
   const hasEnoughWeight = (avg7?.count || 0) >= 2 && (avg7prev?.count || 0) >= 2;
 
   if (hasEnoughCalories && hasEnoughWeight && avg7?.avg_weight && avg7prev?.avg_weight) {

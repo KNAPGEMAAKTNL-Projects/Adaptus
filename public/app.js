@@ -3473,6 +3473,20 @@ function closeNutritionSearch() {
 
 // ─── Barcode Scanner ──────────────────────────────────────────────────────
 let _barcodeScanner = null;
+let _torchEnabled = false;
+let _torchTrack = null;
+
+function toggleBarcodeTorch() {
+  if (!_torchTrack) return;
+  _torchEnabled = !_torchEnabled;
+  _torchTrack.applyConstraints({ advanced: [{ torch: _torchEnabled }] }).catch(() => {});
+  const btn = document.getElementById('barcode-torch-btn');
+  if (btn) {
+    btn.style.color = _torchEnabled ? 'var(--acid, #c8ff2d)' : '';
+    btn.style.background = _torchEnabled ? 'rgba(200,255,45,0.15)' : '';
+    btn.style.borderRadius = _torchEnabled ? '8px' : '';
+  }
+}
 
 function _openScannerModal(callback) {
   const libLoaded = typeof Html5Qrcode !== 'undefined';
@@ -3482,9 +3496,14 @@ function _openScannerModal(callback) {
   modal.innerHTML = `
     <div class="flex items-center justify-between px-4 pt-6 pb-3" style="padding-top: calc(env(safe-area-inset-top) + 1.5rem)">
       <h2 class="text-lg font-black uppercase tracking-tight">Scan Barcode</h2>
-      <button onclick="closeBarcodeScanner()" class="w-8 h-8 flex items-center justify-center text-ink/40 hover:text-ink transition-colors duration-200">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
+      <div class="flex items-center gap-1">
+        <button id="barcode-torch-btn" onclick="toggleBarcodeTorch()" class="w-8 h-8 items-center justify-center text-ink/40 hover:text-ink transition-colors duration-200" style="display:none">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </button>
+        <button onclick="closeBarcodeScanner()" class="w-8 h-8 flex items-center justify-center text-ink/40 hover:text-ink transition-colors duration-200">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
     </div>
     <div class="flex-1 flex flex-col items-center justify-center px-4">
       <div id="barcode-reader" class="w-full max-w-sm rounded-xl overflow-hidden"></div>
@@ -3578,6 +3597,8 @@ function closeBarcodeScanner() {
     try { _barcodeScanner.stop().catch(() => {}); } catch (e) {}
     _barcodeScanner = null;
   }
+  _torchEnabled = false;
+  _torchTrack = null;
   document.getElementById('barcode-scanner-modal')?.remove();
 }
 
@@ -3643,12 +3664,23 @@ function startBarcodeCamera(onScanCallback) {
       qrbox: { width: 280, height: 160 },
       aspectRatio: 1.777,
     };
-    const onSuccess = (decodedText, decodedResult) => {
+    const onSuccess = async (decodedText, decodedResult) => {
       if (_scanHandled) return;
       _scanHandled = true;
       const fmt = decodedResult?.result?.format?.formatName || 'unknown';
       try { _barcodeScanner?.stop().catch(() => {}); } catch (e) {}
       setStatus(`Scanned: ${decodedText} (${fmt})`);
+
+      // Check local DB — skip confirmation for known barcodes
+      try {
+        const knownFood = await api('GET', `/nutrition/foods/barcode/${encodeURIComponent(decodedText)}`);
+        if (knownFood) {
+          _barcodeScanner = null;
+          onScanCallback(decodedText);
+          return;
+        }
+      } catch (e) {}
+
       const confirmDiv = document.getElementById('barcode-confirm');
       if (confirmDiv) {
         confirmDiv.innerHTML = `
@@ -3679,7 +3711,24 @@ function startBarcodeCamera(onScanCallback) {
     // Start with the identified main camera, or fall back to environment facingMode
     const camConfig = cameraId || { facingMode: 'environment' };
     _barcodeScanner.start(camConfig, scanConfig, onSuccess, () => {})
-      .then(() => setStatus('Point camera at a barcode'))
+      .then(() => {
+        setStatus('Point camera at a barcode');
+        // Check torch capability on the active video track
+        try {
+          const videoEl = document.querySelector('#barcode-reader video');
+          if (videoEl && videoEl.srcObject) {
+            const track = videoEl.srcObject.getVideoTracks()[0];
+            if (track) {
+              const caps = track.getCapabilities ? track.getCapabilities() : {};
+              if (caps.torch) {
+                _torchTrack = track;
+                const torchBtn = document.getElementById('barcode-torch-btn');
+                if (torchBtn) torchBtn.style.display = 'flex';
+              }
+            }
+          }
+        } catch (e) {}
+      })
       .catch(err => {
         setStatus(`Camera error: ${err?.message || err}<br><span class="text-xs text-ink/30">Close and reopen the app, or check Settings &gt; Safari &gt; Camera</span>`);
       });
