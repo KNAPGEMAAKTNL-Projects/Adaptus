@@ -3581,10 +3581,7 @@ function closeBarcodeScanner() {
   document.getElementById('barcode-scanner-modal')?.remove();
 }
 
-let _scannerCameraIdx = 0;
-let _scannerCameras = [];
-
-function startBarcodeCamera(onScanCallback, cameraId) {
+function startBarcodeCamera(onScanCallback) {
   const status = document.getElementById('barcode-status');
   const setStatus = (msg) => { if (status) status.innerHTML = msg; };
 
@@ -3600,114 +3597,93 @@ function startBarcodeCamera(onScanCallback, cameraId) {
 
   setStatus('Requesting camera access...');
 
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-    .then(stream => {
+  // Find the main back camera by enumerating devices and picking the best match
+  const pickMainCamera = async () => {
+    try {
+      // Request permission first so labels are populated
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
       stream.getTracks().forEach(t => t.stop());
-      setStatus('Starting scanner...');
 
-      const formats = [
-        Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.UPC_A, Html5QrcodeSupportedFormats.UPC_E,
-      ];
-      _barcodeScanner = new Html5Qrcode('barcode-reader', { formatsToSupport: formats });
+      const cameras = await Html5Qrcode.getCameras();
+      if (!cameras || cameras.length === 0) return null;
 
-      let _scanHandled = false;
-      const scanConfig = {
-        fps: 10,
-        qrbox: { width: 280, height: 160 },
-        aspectRatio: 1.777,
-      };
-      const onSuccess = (decodedText, decodedResult) => {
-        if (_scanHandled) return;
-        _scanHandled = true;
-        const fmt = decodedResult?.result?.format?.formatName || 'unknown';
-        // Stop camera immediately on successful scan
-        try { _barcodeScanner?.stop().catch(() => {}); } catch (e) {}
-        setStatus(`Scanned: ${decodedText} (${fmt})`);
-        const confirmDiv = document.getElementById('barcode-confirm');
-        if (confirmDiv) {
-          confirmDiv.innerHTML = `
-            <div class="text-center mt-4">
-              <p class="text-2xl font-black tabular-nums text-acid mb-1">${decodedText}</p>
-              <p class="text-xs text-ink/40 mb-4">Format: ${fmt}</p>
-              <div class="flex gap-2 justify-center">
-                <button id="barcode-rescan-btn" class="px-4 py-2.5 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm transition-colors duration-200 active:bg-white/20">Rescan</button>
-                <button id="barcode-use-btn" class="px-4 py-2.5 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-sm transition-colors duration-200 active:bg-acid/20 active:text-acid">Use This</button>
-              </div>
-            </div>`;
-          document.getElementById('barcode-rescan-btn').onclick = () => {
-            _scanHandled = false;
-            confirmDiv.innerHTML = '';
-            document.getElementById('barcode-reader').innerHTML = '';
-            startBarcodeCamera(onScanCallback);
-          };
-          document.getElementById('barcode-use-btn').onclick = () => {
-            _barcodeScanner = null;
-            onScanCallback(decodedText);
-          };
-        } else {
+      // Filter to back-facing cameras (labels containing "back", "rear", "environment", or lacking "front"/"user")
+      const backCameras = cameras.filter(c => {
+        const label = (c.label || '').toLowerCase();
+        if (label.includes('front') || label.includes('user')) return false;
+        return label.includes('back') || label.includes('rear') || label.includes('environment') || cameras.length === 1;
+      });
+
+      const pool = backCameras.length > 0 ? backCameras : cameras;
+
+      // Prefer the main camera: avoid macro, ultrawide, telephoto
+      const main = pool.find(c => {
+        const label = (c.label || '').toLowerCase();
+        return !label.includes('macro') && !label.includes('ultra') && !label.includes('tele') && !label.includes('wide');
+      });
+
+      return (main || pool[0]).id;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  pickMainCamera().then(cameraId => {
+    setStatus('Starting scanner...');
+
+    const formats = [
+      Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.UPC_A, Html5QrcodeSupportedFormats.UPC_E,
+    ];
+    _barcodeScanner = new Html5Qrcode('barcode-reader', { formatsToSupport: formats });
+
+    let _scanHandled = false;
+    const scanConfig = {
+      fps: 10,
+      qrbox: { width: 280, height: 160 },
+      aspectRatio: 1.777,
+    };
+    const onSuccess = (decodedText, decodedResult) => {
+      if (_scanHandled) return;
+      _scanHandled = true;
+      const fmt = decodedResult?.result?.format?.formatName || 'unknown';
+      try { _barcodeScanner?.stop().catch(() => {}); } catch (e) {}
+      setStatus(`Scanned: ${decodedText} (${fmt})`);
+      const confirmDiv = document.getElementById('barcode-confirm');
+      if (confirmDiv) {
+        confirmDiv.innerHTML = `
+          <div class="text-center mt-4">
+            <p class="text-2xl font-black tabular-nums text-acid mb-1">${decodedText}</p>
+            <p class="text-xs text-ink/40 mb-4">Format: ${fmt}</p>
+            <div class="flex gap-2 justify-center">
+              <button id="barcode-rescan-btn" class="px-4 py-2.5 border-2 border-ink/15 rounded-lg font-bold uppercase tracking-tight text-sm transition-colors duration-200 active:bg-white/20">Rescan</button>
+              <button id="barcode-use-btn" class="px-4 py-2.5 bg-acid text-canvas rounded-lg font-bold uppercase tracking-tight text-sm transition-colors duration-200 active:bg-acid/20 active:text-acid">Use This</button>
+            </div>
+          </div>`;
+        document.getElementById('barcode-rescan-btn').onclick = () => {
+          _scanHandled = false;
+          confirmDiv.innerHTML = '';
+          document.getElementById('barcode-reader').innerHTML = '';
+          startBarcodeCamera(onScanCallback);
+        };
+        document.getElementById('barcode-use-btn').onclick = () => {
           _barcodeScanner = null;
           onScanCallback(decodedText);
-        }
-      };
-
-      // Enumerate cameras so user can switch between them
-      const startWithCamera = (camConfig) => {
-        _barcodeScanner.start(camConfig, scanConfig, onSuccess, () => {})
-          .then(() => {
-            setStatus('Point camera at a barcode');
-            // Show switch button if multiple cameras available
-            if (_scannerCameras.length > 1) {
-              showCameraSwitchBtn(onScanCallback);
-            } else {
-              Html5Qrcode.getCameras().then(cameras => {
-                _scannerCameras = cameras;
-                if (cameras.length > 1) showCameraSwitchBtn(onScanCallback);
-              }).catch(() => {});
-            }
-          })
-          .catch(err => {
-            setStatus(`Scanner start error: ${err?.message || err}<br><span class="text-xs text-ink/30">Trying front camera...</span>`);
-            _barcodeScanner.start({ facingMode: 'user' }, scanConfig, onSuccess, () => {})
-              .then(() => setStatus('Point camera at a barcode'))
-              .catch(err2 => {
-                setStatus(`Camera error: ${err2?.message || err2}<br><span class="text-xs text-ink/30">Close and reopen the app, or check Settings &gt; Safari &gt; Camera</span>`);
-              });
-          });
-      };
-
-      if (cameraId) {
-        startWithCamera(cameraId);
+        };
       } else {
-        startWithCamera({ facingMode: 'environment' });
+        _barcodeScanner = null;
+        onScanCallback(decodedText);
       }
-    })
-    .catch(err => {
-      setStatus(`Camera permission denied: ${err?.message || err}<br><span class="text-xs text-ink/30">Go to Settings &gt; Safari &gt; Camera &gt; Allow</span>`);
-    });
-}
+    };
 
-function showCameraSwitchBtn(onScanCallback) {
-  const existing = document.getElementById('camera-switch-btn');
-  if (existing) return;
-  const container = document.getElementById('barcode-status')?.parentElement;
-  if (!container) return;
-  const btn = document.createElement('button');
-  btn.id = 'camera-switch-btn';
-  btn.className = 'mt-3 px-4 py-2 bg-white/10 rounded-lg font-bold text-xs uppercase tracking-widest flex items-center gap-2 mx-auto transition-colors duration-200 active:bg-white/20';
-  btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/><path d="M13 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5"/><polyline points="16 5 19 2 22 5"/><polyline points="8 19 5 22 2 19"/></svg> Switch Camera';
-  btn.onclick = async () => {
-    btn.remove();
-    if (_scannerCameras.length === 0) {
-      try { _scannerCameras = await Html5Qrcode.getCameras(); } catch (e) { return; }
-    }
-    if (_scannerCameras.length < 2) return;
-    _scannerCameraIdx = (_scannerCameraIdx + 1) % _scannerCameras.length;
-    try { await _barcodeScanner?.stop(); } catch (e) {}
-    document.getElementById('barcode-reader').innerHTML = '';
-    startBarcodeCamera(onScanCallback, _scannerCameras[_scannerCameraIdx].id);
-  };
-  container.appendChild(btn);
+    // Start with the identified main camera, or fall back to environment facingMode
+    const camConfig = cameraId || { facingMode: 'environment' };
+    _barcodeScanner.start(camConfig, scanConfig, onSuccess, () => {})
+      .then(() => setStatus('Point camera at a barcode'))
+      .catch(err => {
+        setStatus(`Camera error: ${err?.message || err}<br><span class="text-xs text-ink/30">Close and reopen the app, or check Settings &gt; Safari &gt; Camera</span>`);
+      });
+  });
 }
 
 function showScanToast(message, type = 'success') {
