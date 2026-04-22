@@ -1,0 +1,3 @@
+Nutrition:
+- The Person icon in the top right is covering the Trends page icon, please fix
+- I found the issue with the camera, it's not scanning anything with the regular camera, so it needs to switch cameras during scanning to the macro camera, and then it scans things. I feel like it should be able to use both. ALso, once it scans something I feel like it should stop using the camera, and show a snapshot of the barcode on the spot instead. 
