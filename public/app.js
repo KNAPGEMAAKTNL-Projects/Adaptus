@@ -1175,6 +1175,26 @@ function parseUtc(dateStr) {
 }
 
 // ─── Rest Timer ──────────────────────────────────────────────────────────────
+// Wall-clock based: store endsAt and re-derive `seconds` on every tick. iOS
+// throttles/pauses JS in backgrounded PWAs, so a `seconds--` counter would
+// literally pause for the duration of the app switch and resume where it left
+// off. By comparing against Date.now() we stay correct no matter how long the
+// user was away.
+function _restTimerTick() {
+  if (!state.restTimer.active || !state.restTimer.endsAt) return;
+  const remaining = Math.max(0, Math.ceil((state.restTimer.endsAt - Date.now()) / 1000));
+  state.restTimer.seconds = remaining;
+  updateTimerDisplay();
+  if (remaining <= 0 && !state.restTimer.done) {
+    clearInterval(state.restTimer.intervalId);
+    state.restTimer.intervalId = null;
+    state.restTimer.active = false;
+    state.restTimer.done = true;
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    updateTimerDisplay();
+  }
+}
+
 function startRestTimer(restStr) {
   const total = parseRestSeconds(restStr);
   clearInterval(state.restTimer.intervalId);
@@ -1183,20 +1203,24 @@ function startRestTimer(restStr) {
     seconds: total,
     total: total,
     done: false,
-    intervalId: setInterval(() => {
-      state.restTimer.seconds--;
-      updateTimerDisplay();
-      if (state.restTimer.seconds <= 0) {
-        clearInterval(state.restTimer.intervalId);
-        state.restTimer.active = false;
-        state.restTimer.done = true;
-        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-        updateTimerDisplay();
-      }
-    }, 1000),
+    endsAt: Date.now() + total * 1000,
+    intervalId: setInterval(_restTimerTick, 1000),
   };
   updateTimerDisplay();
 }
+
+// When the PWA returns to foreground, snap the display to the correct value
+// immediately rather than waiting up to a second for the next interval tick.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  if (state.restTimer && state.restTimer.active && state.restTimer.endsAt) {
+    _restTimerTick();
+  }
+  // Also nudge the workout-elapsed display so it doesn't show a stale value
+  if (typeof updateWorkoutTimer === 'function' && state.currentSession?.started_at && !state.currentSession.completed_at) {
+    updateWorkoutTimer();
+  }
+});
 
 function updateTimerDisplay() {
   const el = document.getElementById('rest-timer');
@@ -1237,7 +1261,7 @@ function updateTimerDisplay() {
 
 function dismissTimer() {
   clearInterval(state.restTimer.intervalId);
-  state.restTimer = { active: false, seconds: 0, total: 0, intervalId: null, done: false };
+  state.restTimer = { active: false, seconds: 0, total: 0, intervalId: null, done: false, endsAt: null };
   const el = document.getElementById('rest-timer');
   if (el) el.classList.add('hidden');
   const bar = document.getElementById('timer-bar');
