@@ -479,12 +479,13 @@ router.get('/balance', (req, res) => {
     GROUP BY date
   `, [anchor, today]);
 
-  // Diff from target. Days with zero entries are NOT counted as -target —
-  // they're treated as un-logged (otherwise unlogged days would dominate).
+  // Diff from target. Days under 2000 kcal are skipped — those are forgotten-
+  // log days, not real under-eating. Same threshold the adaptive TDEE uses.
+  const MIN_LOGGED_KCAL = 2000;
   let kcal = 0, protein = 0, carbs = 0, fat = 0;
   let logged_days = 0;
   for (const row of dailyTotals) {
-    if ((row.cal || 0) <= 0) continue;
+    if ((row.cal || 0) < MIN_LOGGED_KCAL) continue;
     logged_days += 1;
     kcal    += (row.cal || 0) - targets.calories;
     protein += (row.p   || 0) - targets.protein;
