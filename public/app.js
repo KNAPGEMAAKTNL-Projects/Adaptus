@@ -3507,6 +3507,10 @@ function closeNutritionSearch() {
 let _barcodeScanner = null;
 let _torchEnabled = false;
 let _torchTrack = null;
+let _scannerCameras = [];         // ordered list of back-facing camera ids+labels
+let _scannerCameraIdx = 0;        // active index into _scannerCameras
+let _scannerCallback = null;      // current onScan callback (for switching)
+const SCANNER_CAM_STORAGE = 'adaptus.scannerCameraId';
 
 function toggleBarcodeTorch() {
   if (!_torchTrack) return;
@@ -3529,6 +3533,9 @@ function _openScannerModal(callback) {
     <div class="flex items-center justify-between px-4 pt-6 pb-3" style="padding-top: calc(env(safe-area-inset-top) + 1.5rem)">
       <h2 class="text-lg font-black uppercase tracking-tight">Scan Barcode</h2>
       <div class="flex items-center gap-1">
+        <button id="barcode-switch-btn" onclick="cycleBarcodeCamera()" class="w-8 h-8 items-center justify-center text-ink/40 hover:text-ink transition-colors duration-200" style="display:none" title="Switch camera">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/></svg>
+        </button>
         <button id="barcode-torch-btn" onclick="toggleBarcodeTorch()" class="w-8 h-8 items-center justify-center text-ink/40 hover:text-ink transition-colors duration-200" style="display:none">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
         </button>
@@ -3631,12 +3638,67 @@ function closeBarcodeScanner() {
   }
   _torchEnabled = false;
   _torchTrack = null;
+  _scannerCallback = null;
   document.getElementById('barcode-scanner-modal')?.remove();
+}
+
+// Build the ordered list of back-facing cameras and pick a starting index.
+// Order: simple "Back Camera" first (iOS composite), then dual/triple, then
+// other back cameras, then fronts. We expose the full list so the user can
+// cycle if the chosen one can't focus on barcodes at typical distance.
+async function _enumerateScannerCameras() {
+  // Permission request so labels populate
+  const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+  stream.getTracks().forEach(t => t.stop());
+
+  const cameras = await Html5Qrcode.getCameras();
+  if (!cameras || cameras.length === 0) return [];
+
+  const norm = (c) => (c.label || '').toLowerCase().trim();
+  const isFront = (c) => /front|user/.test(norm(c));
+  const score = (c) => {
+    const l = norm(c);
+    if (l === 'back camera') return 0;
+    if (/back (dual|triple)/.test(l)) return 1;
+    if (l.includes('back') && !l.includes('ultra') && !l.includes('tele') && !l.includes('macro')) return 2;
+    if (l.includes('back') || l.includes('rear') || l.includes('environment')) return 3;
+    if (!isFront(c)) return 4;
+    return 9;
+  };
+  return cameras.slice().sort((a, b) => score(a) - score(b));
+}
+
+function cycleBarcodeCamera() {
+  if (!_scannerCameras.length || !_scannerCallback) return;
+  _scannerCameraIdx = (_scannerCameraIdx + 1) % _scannerCameras.length;
+  const next = _scannerCameras[_scannerCameraIdx];
+  try { localStorage.setItem(SCANNER_CAM_STORAGE, next.id); } catch (e) {}
+  showScanToast(`Camera: ${next.label || 'unnamed'}`, 'info');
+  // Stop and restart with the new camera id
+  const cb = _scannerCallback;
+  if (_barcodeScanner) {
+    try {
+      _barcodeScanner.stop().then(() => {
+        _barcodeScanner = null;
+        document.getElementById('barcode-reader').innerHTML = '';
+        startBarcodeCamera(cb);
+      }).catch(() => {
+        _barcodeScanner = null;
+        document.getElementById('barcode-reader').innerHTML = '';
+        startBarcodeCamera(cb);
+      });
+    } catch (e) {
+      _barcodeScanner = null;
+      document.getElementById('barcode-reader').innerHTML = '';
+      startBarcodeCamera(cb);
+    }
+  }
 }
 
 function startBarcodeCamera(onScanCallback) {
   const status = document.getElementById('barcode-status');
   const setStatus = (msg) => { if (status) status.innerHTML = msg; };
+  _scannerCallback = onScanCallback;
 
   if (typeof Html5Qrcode === 'undefined') {
     setStatus('Scanner library not loaded. Try again in a moment.');
@@ -3650,58 +3712,31 @@ function startBarcodeCamera(onScanCallback) {
 
   setStatus('Requesting camera access...');
 
-  // Find the main back camera by enumerating devices and picking the best match.
-  // iOS Safari labels (typical):
-  //   - "Back Camera"              ← composite, smart auto-switching, our preferred default
-  //   - "Back Dual Wide Camera"    ← also fine, auto-switches at distance
-  //   - "Back Triple Camera"       ← also fine
-  //   - "Back Ultra Wide Camera"   ← AVOID — focuses too close, only useful for macro
-  //   - "Back Telephoto Camera"    ← AVOID — narrow FOV
-  // The previous filter excluded "wide", which threw out the dual-wide composite and
-  // fell back to whatever cameras[0] happened to be — often the dedicated ultra-wide.
-  const pickMainCamera = async () => {
-    try {
-      // Request permission first so labels are populated
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      stream.getTracks().forEach(t => t.stop());
+  const ensureCameras = _scannerCameras.length > 0
+    ? Promise.resolve(_scannerCameras)
+    : _enumerateScannerCameras().then(list => { _scannerCameras = list; return list; }).catch(() => []);
 
-      const cameras = await Html5Qrcode.getCameras();
-      if (!cameras || cameras.length === 0) return null;
-
-      // Filter to back-facing cameras
-      const backCameras = cameras.filter(c => {
-        const label = (c.label || '').toLowerCase();
-        if (label.includes('front') || label.includes('user')) return false;
-        return label.includes('back') || label.includes('rear') || label.includes('environment') || cameras.length === 1;
-      });
-
-      const pool = backCameras.length > 0 ? backCameras : cameras;
-      const norm = (c) => (c.label || '').toLowerCase().trim();
-
-      // Preference order — first match wins
-      const candidates = [
-        // 1. Exact "back camera" — iOS composite, smart auto-switch
-        pool.find(c => norm(c) === 'back camera'),
-        // 2. "back dual"/"back triple" composites
-        pool.find(c => /back (dual|triple)/.test(norm(c)) && !norm(c).includes('telephoto')),
-        // 3. Any back camera that isn't ultra-wide / telephoto / macro
-        pool.find(c => {
-          const l = norm(c);
-          return l.includes('back') && !l.includes('ultra') && !l.includes('tele') && !l.includes('macro');
-        }),
-        // 4. First back-facing of any kind
-        pool[0],
-      ];
-
-      const main = candidates.find(Boolean);
-      return main ? main.id : null;
-    } catch (e) {
-      return null;
+  ensureCameras.then(cameras => {
+    // First open of this session — pick previously-saved camera if it still exists,
+    // otherwise the highest-scored one (index 0)
+    if (cameras.length > 0 && _scannerCameraIdx === 0) {
+      try {
+        const savedId = localStorage.getItem(SCANNER_CAM_STORAGE);
+        if (savedId) {
+          const idx = cameras.findIndex(c => c.id === savedId);
+          if (idx >= 0) _scannerCameraIdx = idx;
+        }
+      } catch (e) {}
     }
-  };
 
-  pickMainCamera().then(cameraId => {
-    setStatus('Starting scanner...');
+    const active = cameras[_scannerCameraIdx];
+    const cameraId = active ? active.id : null;
+
+    // Show the switch button if we have multiple cameras
+    const switchBtn = document.getElementById('barcode-switch-btn');
+    if (switchBtn) switchBtn.style.display = cameras.length > 1 ? 'flex' : 'none';
+
+    setStatus(active ? `Starting: ${active.label || 'camera'}...` : 'Starting scanner...');
 
     const formats = [
       Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
@@ -3721,6 +3756,11 @@ function startBarcodeCamera(onScanCallback) {
       const fmt = decodedResult?.result?.format?.formatName || 'unknown';
       try { _barcodeScanner?.stop().catch(() => {}); } catch (e) {}
       setStatus(`Scanned: ${decodedText} (${fmt})`);
+
+      // Persist the camera that worked so future scans default to it
+      if (active) {
+        try { localStorage.setItem(SCANNER_CAM_STORAGE, active.id); } catch (e) {}
+      }
 
       // Check local DB — skip confirmation for known barcodes
       try {
@@ -3759,13 +3799,13 @@ function startBarcodeCamera(onScanCallback) {
       }
     };
 
-    // Start with the identified main camera, or fall back to environment facingMode
+    // Start with the chosen camera id, or fall back to environment facingMode
     const camConfig = cameraId || { facingMode: 'environment' };
     _barcodeScanner.start(camConfig, scanConfig, onSuccess, () => {})
       .then(() => {
-        setStatus('Point camera at a barcode');
-        // Check torch capability on the active video track + lock zoom/focus to
-        // discourage iOS composite cameras from snapping to the macro lens
+        setStatus(active ? `${active.label || 'Camera'} — point at a barcode` : 'Point camera at a barcode');
+        // Check torch capability on the active video track. Don't pin zoom/focus —
+        // it interferes with auto-focus on iOS composite cameras.
         try {
           const videoEl = document.querySelector('#barcode-reader video');
           if (videoEl && videoEl.srcObject) {
@@ -3777,17 +3817,12 @@ function startBarcodeCamera(onScanCallback) {
                 const torchBtn = document.getElementById('barcode-torch-btn');
                 if (torchBtn) torchBtn.style.display = 'flex';
               }
-              // Lock zoom to 1× and force continuous focus — keeps the wide lens engaged
-              const advanced = [];
-              if (caps.zoom) advanced.push({ zoom: caps.zoom.min ?? 1 });
-              if (caps.focusMode && caps.focusMode.includes('continuous')) advanced.push({ focusMode: 'continuous' });
-              if (advanced.length) track.applyConstraints({ advanced }).catch(() => {});
             }
           }
         } catch (e) {}
       })
       .catch(err => {
-        setStatus(`Camera error: ${err?.message || err}<br><span class="text-xs text-ink/30">Close and reopen the app, or check Settings &gt; Safari &gt; Camera</span>`);
+        setStatus(`Camera error: ${err?.message || err}<br><span class="text-xs text-ink/30">Tap the switch button to try a different camera, or check Settings &gt; Safari &gt; Camera</span>`);
       });
   });
 }
