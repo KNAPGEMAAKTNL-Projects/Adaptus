@@ -1302,13 +1302,14 @@ function navigateToCurrentExercise() {
 async function renderDashboard() {
   const week = await getWeekData();
   const today = new Date().toISOString().split('T')[0];
-  const [weekSummary, streakData, statusData, weightData, nutritionLog, nutritionTargets] = await Promise.all([
+  const [weekSummary, streakData, statusData, weightData, nutritionLog, nutritionTargets, balanceData] = await Promise.all([
     api('GET', `/stats/week-summary?cycle=${state.progress.cycle}&week=${state.progress.week}`),
     api('GET', '/stats/streak'),
     api('GET', `/workouts/status?cycle=${state.progress.cycle}&week=${state.progress.week}`),
     api('GET', '/weight/summary').catch(() => ({ current: null })),
     api('GET', `/nutrition/log?date=${today}`).catch(() => ({ totals: { calories: 0, protein: 0, carbs: 0, fat: 0 }, entries: [] })),
     cachedApi('GET', '/nutrition/targets').catch(() => null),
+    api('GET', '/nutrition/balance').catch(() => null),
   ]);
 
   const deload = isDeloadWeek(state.progress.week);
@@ -1477,7 +1478,7 @@ async function renderDashboard() {
               <span class="text-[10px] font-black text-orange-500">F</span>
               <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">fat</span>
             </div>
-            <span class="text-lg font-black leading-none block">${Math.round(nTotals.fat)}<span class="text-xs text-ink/30">g</span></span>
+            <span class="text-lg font-black leading-none block">${Math.round(nTotals.fat)}<span class="text-xs text-ink/30"> / ${Math.round(nTargets.fat || 0)}g</span></span>
             <div class="h-[3px] bg-ink/10 rounded-full mt-1 overflow-hidden"><div class="h-full rounded-full" style="width:${miniPct(nTotals.fat, nTargets.fat)}%;background:#F59E0B"></div></div>
           </div>
           <div>
@@ -1485,7 +1486,7 @@ async function renderDashboard() {
               <span class="text-[10px] font-black text-blue-500">C</span>
               <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">carbs</span>
             </div>
-            <span class="text-lg font-black leading-none block">${Math.round(nTotals.carbs)}<span class="text-xs text-ink/30">g</span></span>
+            <span class="text-lg font-black leading-none block">${Math.round(nTotals.carbs)}<span class="text-xs text-ink/30"> / ${Math.round(nTargets.carbs || 0)}g</span></span>
             <div class="h-[3px] bg-ink/10 rounded-full mt-1 overflow-hidden"><div class="h-full rounded-full" style="width:${miniPct(nTotals.carbs, nTargets.carbs)}%;background:#3B82F6"></div></div>
           </div>
           <div>
@@ -1493,11 +1494,12 @@ async function renderDashboard() {
               <span class="text-[10px] font-black text-electric">P</span>
               <span class="text-[10px] font-bold uppercase tracking-widest text-ink/40">protein</span>
             </div>
-            <span class="text-lg font-black leading-none block">${Math.round(nTotals.protein)}<span class="text-xs text-ink/30">g</span></span>
+            <span class="text-lg font-black leading-none block">${Math.round(nTotals.protein)}<span class="text-xs text-ink/30"> / ${Math.round(nTargets.protein || 0)}g</span></span>
             <div class="h-[3px] bg-ink/10 rounded-full mt-1 overflow-hidden"><div class="h-full rounded-full" style="width:${miniPct(nTotals.protein, nTargets.protein)}%;background:#7C3AED"></div></div>
           </div>
         </div>
       </button>
+      ${balanceData ? buildBalanceCard(balanceData) : ''}
       ` : ''}
 
       <div class="grid grid-cols-2 gap-3 mb-3">
@@ -1558,6 +1560,61 @@ async function confirmWeightLog() {
   if (!weight || weight <= 0) return;
   closeWeightModal();
   await api('POST', '/weight', { weightKg: weight });
+  renderDashboard();
+}
+
+// ─── Cumulative kcal balance card (home) ───────────────────────────────────
+function buildBalanceCard(b) {
+  if (!b) return '';
+  // Format a signed integer with thin space + sign (e.g. +1240, -340)
+  const fmt = (n) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(Math.round(n)).toLocaleString()}`;
+  const fmtG = (n) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(Math.round(n))}g`;
+  const kcalColor = b.kcal > 0 ? 'text-green-500' : b.kcal < 0 ? 'text-red-500' : 'text-ink/40';
+  const dateLabel = (() => {
+    try {
+      const d = new Date(b.anchor_date + 'T00:00:00');
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    } catch (e) { return b.anchor_date; }
+  })();
+  const subline = b.logged_days === 0
+    ? `Since ${dateLabel} · no logged days yet`
+    : `Since ${dateLabel} · ${b.logged_days} day${b.logged_days === 1 ? '' : 's'} logged`;
+  return `
+    <div class="border-2 border-ink/10 rounded-xl p-4 mb-3">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-ink/30"><path d="M12 2v20M5 9l7-7 7 7M5 15l7 7 7-7"/></svg>
+          <h3 class="text-[10px] font-bold uppercase tracking-widest text-ink/40">Balance</h3>
+        </div>
+        <button onclick="resetKcalBalance(event)" class="text-[10px] font-bold uppercase tracking-widest text-ink/30 active:text-ink transition-colors duration-200 px-2 py-1 -mr-2">Reset</button>
+      </div>
+      <div class="flex items-baseline gap-2 mb-1">
+        <span class="text-2xl font-black leading-none ${kcalColor}">${fmt(b.kcal)}</span>
+        <span class="text-xs text-ink/30">kcal</span>
+      </div>
+      <p class="text-[10px] text-ink/30 mb-3">${subline}</p>
+      <div class="grid grid-cols-3 gap-2">
+        <div class="text-[11px]">
+          <span class="text-orange-500 font-black mr-1">F</span>
+          <span class="font-bold tabular-nums">${fmtG(b.fat)}</span>
+        </div>
+        <div class="text-[11px]">
+          <span class="text-blue-500 font-black mr-1">C</span>
+          <span class="font-bold tabular-nums">${fmtG(b.carbs)}</span>
+        </div>
+        <div class="text-[11px]">
+          <span class="text-electric font-black mr-1">P</span>
+          <span class="font-bold tabular-nums">${fmtG(b.protein)}</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function resetKcalBalance(e) {
+  if (e) { e.preventDefault(); e.stopPropagation(); }
+  if (!confirm('Reset cumulative balance to today? This zeros the running tally.')) return;
+  await api('POST', '/nutrition/balance/reset');
   renderDashboard();
 }
 

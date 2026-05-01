@@ -104,6 +104,13 @@ async function initDb() {
     // Column already exists
   }
 
+  // Migration: add cumulative kcal balance anchor to user_profile
+  try {
+    db.run(`ALTER TABLE user_profile ADD COLUMN kcal_balance_anchor TEXT`);
+  } catch (e) {
+    // Column already exists
+  }
+
   // ─── Nutrition tables ───────────────────────────────────────────────────
   db.run(`
     CREATE TABLE IF NOT EXISTS foods (

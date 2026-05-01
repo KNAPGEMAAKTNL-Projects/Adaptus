@@ -446,6 +446,75 @@ router.delete('/phases/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+// ─── Cumulative kcal/macro balance ────────────────────────────────────────
+// Running tally of (consumed - target) per completed day, since the user's
+// chosen anchor date. Today is excluded because it's still in progress —
+// otherwise the balance would tick downward through the morning before the
+// user has eaten. Reset bumps anchor to today.
+
+function _ensureBalanceAnchor() {
+  const profile = get(`SELECT kcal_balance_anchor FROM user_profile WHERE id = 1`);
+  if (profile && profile.kcal_balance_anchor) return profile.kcal_balance_anchor;
+  const today = get(`SELECT date('now') as d`).d;
+  run(`UPDATE user_profile SET kcal_balance_anchor = ? WHERE id = 1`, [today]);
+  return today;
+}
+
+// GET /balance — cumulative diff (consumed - target) since anchor, excluding today
+router.get('/balance', (req, res) => {
+  const anchor = _ensureBalanceAnchor();
+  const today = get(`SELECT date('now') as d`).d;
+  const targets = get(`SELECT calories, protein, carbs, fat FROM nutrition_targets WHERE id = 1`)
+    || { calories: 0, protein: 0, carbs: 0, fat: 0 };
+
+  // Per-day totals between anchor and yesterday (inclusive)
+  const dailyTotals = all(`
+    SELECT date,
+      ROUND(SUM(calories), 1) as cal,
+      ROUND(SUM(protein), 1) as p,
+      ROUND(SUM(carbs), 1) as c,
+      ROUND(SUM(fat), 1) as f
+    FROM daily_log
+    WHERE date >= ? AND date < ?
+    GROUP BY date
+  `, [anchor, today]);
+
+  // Diff from target. Days with zero entries are NOT counted as -target —
+  // they're treated as un-logged (otherwise unlogged days would dominate).
+  let kcal = 0, protein = 0, carbs = 0, fat = 0;
+  let logged_days = 0;
+  for (const row of dailyTotals) {
+    if ((row.cal || 0) <= 0) continue;
+    logged_days += 1;
+    kcal    += (row.cal || 0) - targets.calories;
+    protein += (row.p   || 0) - targets.protein;
+    carbs   += (row.c   || 0) - targets.carbs;
+    fat     += (row.f   || 0) - targets.fat;
+  }
+
+  // Days from anchor to yesterday (calendar days), for context
+  const span = get(`SELECT (julianday(?) - julianday(?)) as days`, [today, anchor]);
+  const days_in_range = Math.max(0, Math.round(span?.days || 0));
+
+  res.json({
+    anchor_date: anchor,
+    days_in_range,
+    logged_days,
+    kcal: Math.round(kcal),
+    protein: Math.round(protein * 10) / 10,
+    carbs: Math.round(carbs * 10) / 10,
+    fat: Math.round(fat * 10) / 10,
+    targets,
+  });
+});
+
+// POST /balance/reset — set anchor to today (or a specific date if passed)
+router.post('/balance/reset', (req, res) => {
+  const date = (req.body && req.body.date) || get(`SELECT date('now') as d`).d;
+  run(`UPDATE user_profile SET kcal_balance_anchor = ? WHERE id = 1`, [date]);
+  res.json({ anchor_date: date });
+});
+
 // ─── Adaptive TDEE ─────────────────────────────────────────────────────────
 
 const ACTIVITY_MULTIPLIERS = { sedentary: 1.2, light: 1.375, moderate: 1.55, very_active: 1.725, extra_active: 1.9 };
