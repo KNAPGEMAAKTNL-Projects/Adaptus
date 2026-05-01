@@ -3510,7 +3510,7 @@ let _torchTrack = null;
 let _scannerCameras = [];         // ordered list of back-facing camera ids+labels
 let _scannerCameraIdx = 0;        // active index into _scannerCameras
 let _scannerCallback = null;      // current onScan callback (for switching)
-const SCANNER_CAM_STORAGE = 'adaptus.scannerCameraId';
+const SCANNER_CAM_STORAGE = 'adaptus.scannerCameraId.v2';
 
 function toggleBarcodeTorch() {
   if (!_torchTrack) return;
@@ -3656,14 +3656,19 @@ async function _enumerateScannerCameras() {
 
   const norm = (c) => (c.label || '').toLowerCase().trim();
   const isFront = (c) => /front|user/.test(norm(c));
+  // On this phone the "wide" lens is the only one that focuses + scans barcodes
+  // reliably (composite "Back Camera" doesn't refocus close enough). Rank wide
+  // variants first so the scanner boots straight to a working camera.
   const score = (c) => {
     const l = norm(c);
-    if (l === 'back camera') return 0;
-    if (/back (dual|triple)/.test(l)) return 1;
-    if (l.includes('back') && !l.includes('ultra') && !l.includes('tele') && !l.includes('macro')) return 2;
-    if (l.includes('back') || l.includes('rear') || l.includes('environment')) return 3;
-    if (!isFront(c)) return 4;
-    return 9;
+    if (isFront(c)) return 9;
+    if (l.includes('ultra') && l.includes('wide')) return 0;   // ultra-wide (macro-capable, primary scanner)
+    if (l.includes('wide')) return 1;                          // any other wide variant
+    if (l === 'back camera') return 2;                         // composite fallback
+    if (/back (dual|triple)/.test(l)) return 3;
+    if (l.includes('back') && !l.includes('tele') && !l.includes('macro')) return 4;
+    if (l.includes('back') || l.includes('rear') || l.includes('environment')) return 5;
+    return 6;
   };
   return cameras.slice().sort((a, b) => score(a) - score(b));
 }
