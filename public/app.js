@@ -183,6 +183,8 @@ function startDrag(el, x, y) {
   clone.id = 'drag-clone';
   clone.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;z-index:200;opacity:0.85;pointer-events:none;transform:scale(1.03);box-shadow:0 8px 32px rgba(0,0,0,0.5);border-radius:8px;overflow:hidden;transition:none;`;
   document.body.appendChild(clone);
+  document.body.classList.add('dragging-entry');
+  if (window.getSelection) try { window.getSelection().removeAllRanges(); } catch (e) {}
 
   el.style.opacity = '0.2';
 
@@ -196,10 +198,27 @@ function startDrag(el, x, y) {
     if (g.dataset.timeGroup !== currentGroup) g.classList.add('drop-target');
   });
 
-  _dragState = { el, clone, entryId, currentGroup, offsetX, offsetY, targetGroup: null };
+  _dragState = { el, clone, entryId, currentGroup, offsetX, offsetY, targetGroup: null, lastY: y, scrollRAF: null };
 
   document.addEventListener('touchmove', onDragMove, { passive: false });
   document.addEventListener('touchend', onDragEnd, { passive: true });
+}
+
+const DRAG_SCROLL_EDGE = 90;       // px from viewport edge to start auto-scroll
+const DRAG_SCROLL_MAX_SPEED = 14;  // px per frame at the edge
+
+function _dragAutoScrollTick() {
+  if (!_dragState) return;
+  const y = _dragState.lastY;
+  const vh = window.innerHeight;
+  let dy = 0;
+  if (y < DRAG_SCROLL_EDGE) {
+    dy = -Math.round(DRAG_SCROLL_MAX_SPEED * (1 - y / DRAG_SCROLL_EDGE));
+  } else if (y > vh - DRAG_SCROLL_EDGE) {
+    dy = Math.round(DRAG_SCROLL_MAX_SPEED * (1 - (vh - y) / DRAG_SCROLL_EDGE));
+  }
+  if (dy !== 0) window.scrollBy(0, dy);
+  _dragState.scrollRAF = requestAnimationFrame(_dragAutoScrollTick);
 }
 
 function onDragMove(e) {
@@ -209,6 +228,17 @@ function onDragMove(e) {
   const { clone, offsetX, offsetY, currentGroup } = _dragState;
   clone.style.left = `${t.clientX - offsetX}px`;
   clone.style.top = `${t.clientY - offsetY}px`;
+  _dragState.lastY = t.clientY;
+
+  // Kick off the auto-scroll loop the first time finger gets near an edge
+  const vh = window.innerHeight;
+  const nearEdge = t.clientY < DRAG_SCROLL_EDGE || t.clientY > vh - DRAG_SCROLL_EDGE;
+  if (nearEdge && _dragState.scrollRAF == null) {
+    _dragState.scrollRAF = requestAnimationFrame(_dragAutoScrollTick);
+  } else if (!nearEdge && _dragState.scrollRAF != null) {
+    cancelAnimationFrame(_dragState.scrollRAF);
+    _dragState.scrollRAF = null;
+  }
 
   // Check which time group section the finger is over
   let hit = null;
@@ -228,13 +258,15 @@ function onDragMove(e) {
 
 function onDragEnd() {
   if (!_dragState) return;
-  const { el, clone, entryId, targetGroup } = _dragState;
+  const { el, clone, entryId, targetGroup, scrollRAF } = _dragState;
 
   document.removeEventListener('touchmove', onDragMove);
   document.removeEventListener('touchend', onDragEnd);
+  if (scrollRAF != null) cancelAnimationFrame(scrollRAF);
 
   clone.remove();
   el.style.opacity = '';
+  document.body.classList.remove('dragging-entry');
 
   // Clean up highlights
   document.querySelectorAll('[data-time-group]').forEach(g => {
@@ -3618,7 +3650,15 @@ function startBarcodeCamera(onScanCallback) {
 
   setStatus('Requesting camera access...');
 
-  // Find the main back camera by enumerating devices and picking the best match
+  // Find the main back camera by enumerating devices and picking the best match.
+  // iOS Safari labels (typical):
+  //   - "Back Camera"              ← composite, smart auto-switching, our preferred default
+  //   - "Back Dual Wide Camera"    ← also fine, auto-switches at distance
+  //   - "Back Triple Camera"       ← also fine
+  //   - "Back Ultra Wide Camera"   ← AVOID — focuses too close, only useful for macro
+  //   - "Back Telephoto Camera"    ← AVOID — narrow FOV
+  // The previous filter excluded "wide", which threw out the dual-wide composite and
+  // fell back to whatever cameras[0] happened to be — often the dedicated ultra-wide.
   const pickMainCamera = async () => {
     try {
       // Request permission first so labels are populated
@@ -3628,7 +3668,7 @@ function startBarcodeCamera(onScanCallback) {
       const cameras = await Html5Qrcode.getCameras();
       if (!cameras || cameras.length === 0) return null;
 
-      // Filter to back-facing cameras (labels containing "back", "rear", "environment", or lacking "front"/"user")
+      // Filter to back-facing cameras
       const backCameras = cameras.filter(c => {
         const label = (c.label || '').toLowerCase();
         if (label.includes('front') || label.includes('user')) return false;
@@ -3636,14 +3676,25 @@ function startBarcodeCamera(onScanCallback) {
       });
 
       const pool = backCameras.length > 0 ? backCameras : cameras;
+      const norm = (c) => (c.label || '').toLowerCase().trim();
 
-      // Prefer the main camera: avoid macro, ultrawide, telephoto
-      const main = pool.find(c => {
-        const label = (c.label || '').toLowerCase();
-        return !label.includes('macro') && !label.includes('ultra') && !label.includes('tele') && !label.includes('wide');
-      });
+      // Preference order — first match wins
+      const candidates = [
+        // 1. Exact "back camera" — iOS composite, smart auto-switch
+        pool.find(c => norm(c) === 'back camera'),
+        // 2. "back dual"/"back triple" composites
+        pool.find(c => /back (dual|triple)/.test(norm(c)) && !norm(c).includes('telephoto')),
+        // 3. Any back camera that isn't ultra-wide / telephoto / macro
+        pool.find(c => {
+          const l = norm(c);
+          return l.includes('back') && !l.includes('ultra') && !l.includes('tele') && !l.includes('macro');
+        }),
+        // 4. First back-facing of any kind
+        pool[0],
+      ];
 
-      return (main || pool[0]).id;
+      const main = candidates.find(Boolean);
+      return main ? main.id : null;
     } catch (e) {
       return null;
     }
@@ -3713,7 +3764,8 @@ function startBarcodeCamera(onScanCallback) {
     _barcodeScanner.start(camConfig, scanConfig, onSuccess, () => {})
       .then(() => {
         setStatus('Point camera at a barcode');
-        // Check torch capability on the active video track
+        // Check torch capability on the active video track + lock zoom/focus to
+        // discourage iOS composite cameras from snapping to the macro lens
         try {
           const videoEl = document.querySelector('#barcode-reader video');
           if (videoEl && videoEl.srcObject) {
@@ -3725,6 +3777,11 @@ function startBarcodeCamera(onScanCallback) {
                 const torchBtn = document.getElementById('barcode-torch-btn');
                 if (torchBtn) torchBtn.style.display = 'flex';
               }
+              // Lock zoom to 1× and force continuous focus — keeps the wide lens engaged
+              const advanced = [];
+              if (caps.zoom) advanced.push({ zoom: caps.zoom.min ?? 1 });
+              if (caps.focusMode && caps.focusMode.includes('continuous')) advanced.push({ focusMode: 'continuous' });
+              if (advanced.length) track.applyConstraints({ advanced }).catch(() => {});
             }
           }
         } catch (e) {}
@@ -3808,8 +3865,24 @@ function showScanFoodPopup({ barcode, name, protein, carbs, fat, notFound }) {
         </div>
         ${buildFoodFields('scan-food', {protein, carbs, fat}, {compact: true})}
         <div class="border-t border-ink/10 pt-3">
-          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Grams to log</label>
+          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Custom serving (optional)</label>
+          <p class="text-[10px] text-ink/30 mb-1.5">Saved on the food — e.g. "piece" / 65 g. Leave empty for grams-only.</p>
+          <div class="flex gap-2">
+            <input id="scan-food-serving-name" type="text" placeholder="piece"
+              oninput="onScanServingChange()"
+              class="flex-1 h-10 px-3 border-2 border-ink/15 rounded-lg bg-transparent font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
+            <div class="relative">
+              <input id="scan-food-serving-grams" type="text" inputmode="decimal" placeholder="grams"
+                oninput="onScanServingChange()"
+                class="w-28 h-10 pl-3 pr-7 border-2 border-ink/15 rounded-lg bg-transparent font-bold text-sm focus:border-acid focus:outline-none transition-colors duration-200">
+              <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-ink/30">g</span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <label class="text-[10px] font-bold uppercase tracking-widest text-ink/40 block mb-1"><span id="scan-food-grams-label">Grams to log</span></label>
           <input id="scan-food-grams" type="text" inputmode="decimal" value="100" placeholder="100"
+            oninput="this.dataset.userEdited = '1'"
             class="w-full h-12 border-2 border-ink/15 rounded-lg bg-transparent text-center font-bold text-xl focus:border-acid focus:outline-none transition-colors duration-200">
         </div>
       </div>
@@ -3821,6 +3894,27 @@ function showScanFoodPopup({ barcode, name, protein, carbs, fat, notFound }) {
   if (notFound || !name) requestAnimationFrame(() => document.getElementById('scan-food-name')?.focus());
 }
 
+
+// When the user fills in a custom serving, default "Grams to log" to that
+// serving size and switch the label to "Servings to log" so they can type "1".
+function onScanServingChange() {
+  const name = document.getElementById('scan-food-serving-name')?.value.trim();
+  const grams = parseNum(document.getElementById('scan-food-serving-grams')?.value);
+  const gramsInput = document.getElementById('scan-food-grams');
+  const gramsLabel = document.getElementById('scan-food-grams-label');
+  if (!gramsInput || !gramsLabel) return;
+  if (name && grams > 0) {
+    gramsLabel.textContent = `${name}s to log`;
+    if (gramsInput.dataset.userEdited !== '1') gramsInput.value = '1';
+    gramsInput.dataset.servingMode = '1';
+    gramsInput.dataset.servingGrams = String(grams);
+  } else {
+    gramsLabel.textContent = 'Grams to log';
+    gramsInput.dataset.servingMode = '';
+    gramsInput.dataset.servingGrams = '';
+    if (gramsInput.dataset.userEdited !== '1') gramsInput.value = '100';
+  }
+}
 
 async function saveScanFood() {
   const nameEl = document.getElementById('scan-food-name');
@@ -3834,17 +3928,29 @@ async function saveScanFood() {
   const fat = parseNum(document.getElementById('scan-food-fat')?.value) || 0;
   const cal = Math.round(pro * 4 + carb * 4 + fat * 9);
   const barcode = document.getElementById('scan-food-barcode')?.value || null;
-  const grams = parseNum(document.getElementById('scan-food-grams')?.value) || 100;
+
+  const servingName = document.getElementById('scan-food-serving-name')?.value.trim() || null;
+  const servingGrams = parseNum(document.getElementById('scan-food-serving-grams')?.value) || null;
+  const useServing = servingName && servingGrams > 0;
+
+  const gramsInput = document.getElementById('scan-food-grams');
+  const inputVal = parseNum(gramsInput?.value) || (useServing ? 1 : 100);
+  const grams = useServing ? inputVal * servingGrams : inputVal;
 
   try {
-    const food = await api('POST', '/nutrition/foods', { name, calories: cal, protein: pro, carbs: carb, fat: fat, barcode });
+    const food = await api('POST', '/nutrition/foods', {
+      name, calories: cal, protein: pro, carbs: carb, fat: fat, barcode,
+      servingName: useServing ? servingName : null,
+      servingGrams: useServing ? servingGrams : null,
+    });
     await api('POST', '/nutrition/log/food', {
       date: nutritionDate,
       foodId: food.id,
       grams: grams,
     });
     document.getElementById('scan-food-popup')?.remove();
-    showScanToast(`Logged ${grams}g`, 'success');
+    const toastLabel = useServing ? `${inputVal} ${servingName}${inputVal === 1 ? '' : 's'} (${Math.round(grams)}g)` : `${Math.round(grams)}g`;
+    showScanToast(`Logged ${toastLabel}`, 'success');
     refreshNutritionContent();
   } catch (e) {
     showScanToast('Failed to save: ' + e.message, 'warn');
@@ -4003,21 +4109,29 @@ function buildWeightTrend(tdeeData) {
     changeHtml = `<span class="text-sm font-bold ${color}">${sign}${wt.weekly_change_kg} kg/wk</span>`;
   }
   const isStabilizing = tdeeData.data_status === 'stabilization';
-  const statusLabel = isStabilizing ? 'Stabilizing' : (tdeeData.data_status === 'adaptive' ? 'Adaptive' : 'Estimated');
-  const statusColor = isStabilizing ? 'text-amber-500' : 'text-ink/20';
+  const isAdaptive = tdeeData.data_status === 'adaptive';
+  const statusLabel = isStabilizing ? 'Stabilizing' : (isAdaptive ? 'Adaptive' : 'Estimated');
+  const statusColor = isStabilizing ? 'text-amber-500' : (isAdaptive ? 'text-acid' : 'text-ink/20');
   const stabNote = isStabilizing && tdeeData.stabilization
     ? `<span class="text-[10px] font-bold text-amber-500/60 ml-1">${tdeeData.stabilization.days_remaining}d left</span>`
     : '';
+  // When the formula is still in charge, tell the user *why* and what to do
+  const gapNote = !isStabilizing && !isAdaptive && tdeeData.gap?.reason
+    ? `<p class="text-[10px] text-ink/30 mt-1">${tdeeData.gap.reason}</p>`
+    : '';
   return `
-    <div class="flex items-center justify-between p-3 border-2 border-ink/10 rounded-xl">
-      <div class="flex items-center gap-3">
-        <span class="text-lg font-black">${wt.current} <span class="text-sm font-bold text-ink/40">kg</span></span>
-        ${wt.avg_7d ? `<span class="text-xs text-ink/40">7d avg ${wt.avg_7d}</span>` : ''}
+    <div class="p-3 border-2 border-ink/10 rounded-xl">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="text-lg font-black">${wt.current} <span class="text-sm font-bold text-ink/40">kg</span></span>
+          ${wt.avg_7d ? `<span class="text-xs text-ink/40">7d avg ${wt.avg_7d}</span>` : ''}
+        </div>
+        <div class="flex items-center gap-2">
+          ${changeHtml}
+          <span class="text-[10px] font-bold uppercase tracking-widest ${statusColor}">${statusLabel}</span>${stabNote}
+        </div>
       </div>
-      <div class="flex items-center gap-2">
-        ${changeHtml}
-        <span class="text-[10px] font-bold uppercase tracking-widest ${statusColor}">${statusLabel}</span>${stabNote}
-      </div>
+      ${gapNote}
     </div>
   `;
 }

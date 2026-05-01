@@ -486,14 +486,15 @@ router.get('/adaptive-tdee', (req, res) => {
   const base_tdee = Math.round(bmr * activityMult);
   const formula_calories = Math.round(base_tdee * phaseMult);
 
-  // Week-by-week: use last completed Mon–Sun week and the one before it
-  // date('now','weekday 0','-13 days') = Monday of last completed week (SQLite weekday 0 = Sunday, so -13 days from last Sunday = Monday)
-  const lastWeekStart = get(`SELECT date('now', 'weekday 0', '-13 days') as d`).d;   // Monday of last completed week
-  const lastWeekEnd = get(`SELECT date('now', 'weekday 0', '-7 days') as d`).d;      // Sunday end of last completed week (+1 for < comparison = Monday of current week)
-  const prevWeekStart = get(`SELECT date('now', 'weekday 0', '-20 days') as d`).d;   // Monday of the week before that
+  // Rolling 7-day window — last 7 completed days vs the 7 before that.
+  // Excludes today (incomplete) so the inference doesn't shift mid-day as you log.
+  const lastWeekStart = get(`SELECT date('now', '-7 days') as d`).d;   // 7 days ago
+  const lastWeekEnd = get(`SELECT date('now', '-1 day') as d`).d;      // yesterday
+  const prevWeekStart = get(`SELECT date('now', '-14 days') as d`).d;  // 14 days ago
+  const prevWeekEnd = get(`SELECT date('now', '-8 days') as d`).d;     // 8 days ago
 
   const avg7 = get(`SELECT AVG(weight_kg) as avg_weight, COUNT(*) as count FROM body_weight WHERE date(logged_at) >= ? AND date(logged_at) <= ?`, [lastWeekStart, lastWeekEnd]);
-  const avg7prev = get(`SELECT AVG(weight_kg) as avg_weight, COUNT(*) as count FROM body_weight WHERE date(logged_at) >= ? AND date(logged_at) < ?`, [prevWeekStart, lastWeekStart]);
+  const avg7prev = get(`SELECT AVG(weight_kg) as avg_weight, COUNT(*) as count FROM body_weight WHERE date(logged_at) >= ? AND date(logged_at) <= ?`, [prevWeekStart, prevWeekEnd]);
   const weight_trend = {
     current: weight_kg,
     avg_7d: avg7?.avg_weight ? Math.round(avg7.avg_weight * 10) / 10 : null,
@@ -520,6 +521,7 @@ router.get('/adaptive-tdee', (req, res) => {
       phase_multiplier: phaseMult,
       formula_calories,
       inferred_tdee: null,
+      inferred_tdee_smoothed: null,
       adaptive_calories: null,
       final_calories: formula_calories,
       protein_g,
@@ -528,11 +530,15 @@ router.get('/adaptive-tdee', (req, res) => {
       weight_trend,
       data_status: 'stabilization',
       stabilization,
+      gap: null,
     });
   }
 
-  // Adaptive TDEE inference: need ≥7 days of calorie logs + ≥2 weeks of weight data
+  // Adaptive TDEE inference: need ≥4 days of calorie logs (≥2000 kcal each) + ≥2 weight entries in each rolling 7-day window
+  const CAL_DAYS_NEEDED = 4;
+  const WEIGHT_ENTRIES_NEEDED = 2;
   let inferred_tdee = null;
+  let inferred_tdee_smoothed = null;
   let adaptive_calories = null;
   let data_status = 'formula_only';
 
@@ -543,8 +549,8 @@ router.get('/adaptive-tdee', (req, res) => {
     GROUP BY date
     HAVING total_cal >= 2000
   `, [lastWeekStart, lastWeekEnd]);
-  const hasEnoughCalories = calorieLogs.length >= 5;
-  const hasEnoughWeight = (avg7?.count || 0) >= 2 && (avg7prev?.count || 0) >= 2;
+  const hasEnoughCalories = calorieLogs.length >= CAL_DAYS_NEEDED;
+  const hasEnoughWeight = (avg7?.count || 0) >= WEIGHT_ENTRIES_NEEDED && (avg7prev?.count || 0) >= WEIGHT_ENTRIES_NEEDED;
 
   if (hasEnoughCalories && hasEnoughWeight && avg7?.avg_weight && avg7prev?.avg_weight) {
     const avg_daily_intake = calorieLogs.reduce((s, d) => s + d.total_cal, 0) / calorieLogs.length;
@@ -552,9 +558,59 @@ router.get('/adaptive-tdee', (req, res) => {
     // 7700 kcal ≈ 1 kg body mass. Daily surplus/deficit from weight change:
     const daily_surplus = (weight_change_kg * 7700) / 7;
     inferred_tdee = Math.round(avg_daily_intake - daily_surplus);
-    adaptive_calories = Math.round(inferred_tdee * phaseMult);
+
+    // Persist one row per calendar day so we can chart drift + smooth over time.
+    const todayRow = get(`SELECT id FROM tdee_history WHERE date(calculated_at) = date('now')`);
+    if (!todayRow) {
+      run(
+        `INSERT INTO tdee_history (week_start, avg_calories, avg_weight, prev_avg_weight, inferred_tdee) VALUES (?, ?, ?, ?, ?)`,
+        [lastWeekStart, Math.round(avg_daily_intake), avg7.avg_weight, avg7prev.avg_weight, inferred_tdee]
+      );
+    } else {
+      run(
+        `UPDATE tdee_history SET week_start = ?, avg_calories = ?, avg_weight = ?, prev_avg_weight = ?, inferred_tdee = ? WHERE id = ?`,
+        [lastWeekStart, Math.round(avg_daily_intake), avg7.avg_weight, avg7prev.avg_weight, inferred_tdee, todayRow.id]
+      );
+    }
+
+    // EMA smoothing across last 14 daily inferences (α=0.2). Avoids whiplash from one bloated weigh-in.
+    const history = all(`SELECT inferred_tdee FROM tdee_history WHERE inferred_tdee IS NOT NULL ORDER BY calculated_at DESC LIMIT 14`);
+    if (history.length >= 2) {
+      const chronological = history.slice().reverse();
+      const alpha = 0.2;
+      let ema = chronological[0].inferred_tdee;
+      for (let i = 1; i < chronological.length; i++) {
+        ema = alpha * chronological[i].inferred_tdee + (1 - alpha) * ema;
+      }
+      inferred_tdee_smoothed = Math.round(ema);
+    } else {
+      inferred_tdee_smoothed = inferred_tdee;
+    }
+    adaptive_calories = Math.round(inferred_tdee_smoothed * phaseMult);
     data_status = 'adaptive';
   }
+
+  // Gap reporting — let the UI tell the user *why* we're still on the formula
+  const calMissing = Math.max(0, CAL_DAYS_NEEDED - calorieLogs.length);
+  const weightMissingLast = Math.max(0, WEIGHT_ENTRIES_NEEDED - (avg7?.count || 0));
+  const weightMissingPrev = Math.max(0, WEIGHT_ENTRIES_NEEDED - (avg7prev?.count || 0));
+  let gapReason = null;
+  if (data_status === 'formula_only') {
+    if (calMissing > 0) {
+      gapReason = `Need ${calMissing} more logged day${calMissing === 1 ? '' : 's'}`;
+    } else if (weightMissingLast > 0 || weightMissingPrev > 0) {
+      gapReason = 'Need more weigh-ins (≥2 in each of last 2 weeks)';
+    }
+  }
+  const gap = {
+    calorie_days_logged: calorieLogs.length,
+    calorie_days_needed: CAL_DAYS_NEEDED,
+    calorie_days_missing: calMissing,
+    weight_entries_last_7d: avg7?.count || 0,
+    weight_entries_prev_7d: avg7prev?.count || 0,
+    weight_entries_needed: WEIGHT_ENTRIES_NEEDED,
+    reason: gapReason,
+  };
 
   const final_calories = adaptive_calories || formula_calories;
   const protein_g = Math.round(weight_kg * 2.2);
@@ -569,6 +625,7 @@ router.get('/adaptive-tdee', (req, res) => {
     phase_multiplier: phaseMult,
     formula_calories,
     inferred_tdee,
+    inferred_tdee_smoothed,
     adaptive_calories,
     final_calories,
     protein_g,
@@ -577,6 +634,7 @@ router.get('/adaptive-tdee', (req, res) => {
     weight_trend,
     data_status,
     stabilization,
+    gap,
   });
 });
 

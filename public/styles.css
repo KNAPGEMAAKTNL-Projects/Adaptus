@@ -130,6 +130,17 @@ button, .no-select {
   position: relative;
   overflow: hidden;
 }
+.swipe-container[data-entry-id] {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+body.dragging-entry,
+body.dragging-entry * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
 .swipe-actions {
   position: absolute;
   top: 0;
