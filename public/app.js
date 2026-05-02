@@ -3392,16 +3392,20 @@ function buildTimeGroupedLog(entries) {
     html += `<div class="mb-4" data-time-group="${key}">
       <h4 class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-2">${labels[key]}</h4>
       ${items.length === 0 ? '<p class="text-xs text-ink/20 py-2">No entries</p>' : items.map(e => {
+        const consumed = !!e.consumed;
         return `
         <div class="swipe-container border-b border-ink/5 last:border-0" data-entry-id="${e.id}" data-entry-group="${key}">
           <div class="swipe-actions">
             <button onclick="showEditLogEntryModal(${e.id}, '${e.name.replace(/'/g, "\\'")}', ${e.servings}, ${e.food_id || 'null'}, ${e.meal_id || 'null'})" class="bg-white/15 text-white"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
             <button onclick="deleteLogEntry(${e.id})" class="bg-red-500/80 text-white"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
           </div>
-          <div class="swipe-content">
+          <div class="swipe-content${consumed ? ' is-consumed' : ''}">
             <div class="py-2.5">
               <div class="flex items-center">
-                <div class="flex-1 min-w-0 mr-3">
+                <button type="button" onclick="event.stopPropagation(); toggleEntryConsumed(${e.id}, this)" aria-label="Mark eaten" class="entry-check w-6 h-6 mr-3 rounded-full border-2 ${consumed ? 'bg-[#CCFF00] border-[#CCFF00]' : 'border-ink/25'} flex items-center justify-center flex-shrink-0 transition-colors duration-150">
+                  ${consumed ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0A0A0A" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+                </button>
+                <div class="entry-text flex-1 min-w-0 mr-3">
                   <span class="font-bold text-[14px] block truncate flex items-center gap-1">${e.meal_id ? getMealIcon(e.name) : ''}${e.name}</span>
                   <span class="text-[11px] text-ink/40">${Math.round(e.calories)} cal · <span class="text-[#F59E0B]">${Math.round(e.fat)}f</span> · <span class="text-[#3B82F6]">${Math.round(e.carbs)}c</span> · <span class="text-[#7C3AED]">${Math.round(e.protein)}p</span>${e.food_id ? ` · ${e.servings}g` : e.servings !== 1 ? ` · ${e.servings}x` : ''}</span>
                 </div>
@@ -3422,6 +3426,35 @@ function buildTimeGroupedLog(entries) {
 async function moveLogEntry(entryId, timeGroup) {
   await api('PUT', `/nutrition/log/${entryId}/move`, { timeGroup });
   refreshNutritionContent();
+}
+
+async function toggleEntryConsumed(entryId, btn) {
+  const container = btn.closest('.swipe-container');
+  const content = container?.querySelector('.swipe-content');
+  if (!content) return;
+  const newVal = !content.classList.contains('is-consumed');
+  _applyConsumedStyle(content, newVal);
+  try {
+    await api('PUT', `/nutrition/log/${entryId}/consumed`, { consumed: newVal });
+  } catch (e) {
+    _applyConsumedStyle(content, !newVal);
+  }
+}
+
+function _applyConsumedStyle(content, consumed) {
+  const btn = content.querySelector('.entry-check');
+  if (!btn) return;
+  if (consumed) {
+    content.classList.add('is-consumed');
+    btn.classList.add('bg-[#CCFF00]', 'border-[#CCFF00]');
+    btn.classList.remove('border-ink/25');
+    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0A0A0A" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  } else {
+    content.classList.remove('is-consumed');
+    btn.classList.remove('bg-[#CCFF00]', 'border-[#CCFF00]');
+    btn.classList.add('border-ink/25');
+    btn.innerHTML = '';
+  }
 }
 
 async function toggleMealDetails(btn, mealId, servings) {

@@ -111,6 +111,13 @@ async function initDb() {
     // Column already exists
   }
 
+  // Migration: add consumed flag to daily_log (planned vs actually eaten)
+  try {
+    db.run(`ALTER TABLE daily_log ADD COLUMN consumed INTEGER NOT NULL DEFAULT 0`);
+  } catch (e) {
+    // Column already exists
+  }
+
   // ─── Nutrition tables ───────────────────────────────────────────────────
   db.run(`
     CREATE TABLE IF NOT EXISTS foods (

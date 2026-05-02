@@ -172,6 +172,17 @@ body.dragging-entry * {
   transition: none;
 }
 
+/* Consumed state — strike + dim, totals unchanged */
+.swipe-content.is-consumed .entry-text {
+  opacity: 0.45;
+}
+.swipe-content.is-consumed .entry-text span {
+  text-decoration: line-through;
+}
+.swipe-content.is-consumed .meal-expand {
+  opacity: 0.45;
+}
+
 /* Drag-to-move: highlight time groups as drop targets */
 [data-time-group].drop-target {
   border: 2px dashed rgba(255, 255, 255, 0.15);

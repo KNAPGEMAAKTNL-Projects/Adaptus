@@ -288,6 +288,16 @@ router.put('/log/:id/move', (req, res) => {
   res.json(updated);
 });
 
+// PUT /log/:id/consumed — mark an entry as eaten / not eaten
+router.put('/log/:id/consumed', (req, res) => {
+  const v = req.body && req.body.consumed ? 1 : 0;
+  const entry = get(`SELECT * FROM daily_log WHERE id = ?`, [req.params.id]);
+  if (!entry) return res.status(404).json({ error: 'Entry not found' });
+  run(`UPDATE daily_log SET consumed = ? WHERE id = ?`, [v, req.params.id]);
+  const updated = get(`SELECT * FROM daily_log WHERE id = ?`, [req.params.id]);
+  res.json(updated);
+});
+
 // DELETE /log/:id — remove log entry
 router.delete('/log/:id', (req, res) => {
   run(`DELETE FROM daily_log WHERE id = ?`, [req.params.id]);
