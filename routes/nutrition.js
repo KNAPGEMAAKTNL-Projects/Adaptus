@@ -536,6 +536,41 @@ function calculateBMR(gender, weight_kg, height_cm, age) {
   return gender === 'female' ? base - 161 : base + 5;
 }
 
+// Returns the last completed Mon-Sun week and the one before it (YYYY-MM-DD).
+// On a Monday, "last completed week" is the week that ended yesterday (Sun).
+function getMonSunBounds(todayStr) {
+  const d = new Date(todayStr + 'T00:00:00Z');
+  const dow = d.getUTCDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  const daysToCurrentMon = (dow + 6) % 7; // Mon→0, Sun→6
+  const currentMon = new Date(d);
+  currentMon.setUTCDate(d.getUTCDate() - daysToCurrentMon);
+  const lastMon = new Date(currentMon); lastMon.setUTCDate(currentMon.getUTCDate() - 7);
+  const lastSun = new Date(currentMon); lastSun.setUTCDate(currentMon.getUTCDate() - 1);
+  const prevMon = new Date(lastMon);    prevMon.setUTCDate(lastMon.getUTCDate() - 7);
+  const prevSun = new Date(lastSun);    prevSun.setUTCDate(lastSun.getUTCDate() - 7);
+  const fmt = x => x.toISOString().slice(0, 10);
+  return {
+    lastWeekStart: fmt(lastMon),
+    lastWeekEnd:   fmt(lastSun),
+    prevWeekStart: fmt(prevMon),
+    prevWeekEnd:   fmt(prevSun),
+  };
+}
+
+// True if any phase boundary (start_date or end_date) lands in the last 7 days.
+// Used to suppress adaptive inference around phase transitions — glycogen/water
+// rebound makes the weight signal unreliable for ~a week.
+function recentPhaseBoundary(todayStr) {
+  const row = get(
+    `SELECT 1 AS hit FROM phases
+      WHERE (date(start_date) > date(?, '-7 days') AND date(start_date) <= date(?))
+         OR (date(end_date)   > date(?, '-7 days') AND date(end_date)   <= date(?))
+      LIMIT 1`,
+    [todayStr, todayStr, todayStr, todayStr]
+  );
+  return !!row;
+}
+
 function calculateTargets(profile, weight_kg, phase) {
   const bmr = calculateBMR(profile.gender, weight_kg, profile.height_cm, profile.age);
   const activityMult = ACTIVITY_MULTIPLIERS[profile.activity_level] || 1.55;
@@ -566,12 +601,11 @@ router.get('/adaptive-tdee', (req, res) => {
   const base_tdee = Math.round(bmr * activityMult);
   const formula_calories = Math.round(base_tdee * phaseMult);
 
-  // Rolling 7-day window — last 7 completed days vs the 7 before that.
-  // Excludes today (incomplete) so the inference doesn't shift mid-day as you log.
-  const lastWeekStart = get(`SELECT date('now', '-7 days') as d`).d;   // 7 days ago
-  const lastWeekEnd = get(`SELECT date('now', '-1 day') as d`).d;      // yesterday
-  const prevWeekStart = get(`SELECT date('now', '-14 days') as d`).d;  // 14 days ago
-  const prevWeekEnd = get(`SELECT date('now', '-8 days') as d`).d;     // 8 days ago
+  // Fixed Mon-Sun weeks (not rolling). Inference compares last completed
+  // ISO week against the one before it, so the number stays stable through
+  // the week instead of shifting every day.
+  const today = get(`SELECT date('now') as d`).d;
+  const { lastWeekStart, lastWeekEnd, prevWeekStart, prevWeekEnd } = getMonSunBounds(today);
 
   const avg7 = get(`SELECT AVG(weight_kg) as avg_weight, COUNT(*) as count FROM body_weight WHERE date(logged_at) >= ? AND date(logged_at) <= ?`, [lastWeekStart, lastWeekEnd]);
   const avg7prev = get(`SELECT AVG(weight_kg) as avg_weight, COUNT(*) as count FROM body_weight WHERE date(logged_at) >= ? AND date(logged_at) <= ?`, [prevWeekStart, prevWeekEnd]);
@@ -614,7 +648,34 @@ router.get('/adaptive-tdee', (req, res) => {
     });
   }
 
-  // Adaptive TDEE inference: need ≥4 days of calorie logs (≥2000 kcal each) + ≥2 weight entries in each rolling 7-day window
+  // Phase-transition blackout: glycogen/water rebound for ~7 days after any
+  // phase boundary makes weight change unreliable. Fall back to formula.
+  if (recentPhaseBoundary(today)) {
+    const protein_g = Math.round(weight_kg * 2.2);
+    const fat_g = Math.round((formula_calories * 0.25) / 9);
+    const carbs_g = Math.max(0, Math.round((formula_calories - protein_g * 4 - fat_g * 9) / 4));
+    return res.json({
+      bmr: Math.round(bmr),
+      base_tdee,
+      activity_multiplier: activityMult,
+      phase,
+      phase_multiplier: phaseMult,
+      formula_calories,
+      inferred_tdee: null,
+      inferred_tdee_smoothed: null,
+      adaptive_calories: null,
+      final_calories: formula_calories,
+      protein_g,
+      fat_g,
+      carbs_g,
+      weight_trend,
+      data_status: 'phase_transition',
+      stabilization,
+      gap: { reason: 'Phase boundary within last 7 days — using formula' },
+    });
+  }
+
+  // Adaptive TDEE inference: need ≥4 days of calorie logs (≥2000 kcal each) + ≥2 weight entries in each Mon-Sun window
   const CAL_DAYS_NEEDED = 4;
   const WEIGHT_ENTRIES_NEEDED = 2;
   let inferred_tdee = null;
@@ -634,27 +695,34 @@ router.get('/adaptive-tdee', (req, res) => {
 
   if (hasEnoughCalories && hasEnoughWeight && avg7?.avg_weight && avg7prev?.avg_weight) {
     const avg_daily_intake = calorieLogs.reduce((s, d) => s + d.total_cal, 0) / calorieLogs.length;
-    const weight_change_kg = avg7.avg_weight - avg7prev.avg_weight;
-    // 7700 kcal ≈ 1 kg body mass. Daily surplus/deficit from weight change:
+    const raw_change = avg7.avg_weight - avg7prev.avg_weight;
+    // Clamp weekly weight change to ±1% bodyweight before the 7700 kcal/kg calc.
+    // Anything beyond that is water/glycogen/gut content, not real body mass.
+    const max_real_change = 0.01 * weight_kg;
+    const weight_change_kg = Math.max(-max_real_change, Math.min(max_real_change, raw_change));
     const daily_surplus = (weight_change_kg * 7700) / 7;
-    inferred_tdee = Math.round(avg_daily_intake - daily_surplus);
+    // Floor at base_tdee × 0.7 — adaptive should never dip below physiologically
+    // plausible maintenance (a sedentary version of this user).
+    const tdee_floor = Math.round(base_tdee * 0.7);
+    inferred_tdee = Math.max(tdee_floor, Math.round(avg_daily_intake - daily_surplus));
 
-    // Persist one row per calendar day so we can chart drift + smooth over time.
-    const todayRow = get(`SELECT id FROM tdee_history WHERE date(calculated_at) = date('now')`);
-    if (!todayRow) {
+    // One row per Mon-Sun week (keyed by week_start). EMA over last 14 rows
+    // therefore spans 14 weeks, not 14 days.
+    const weekRow = get(`SELECT id FROM tdee_history WHERE week_start = ?`, [lastWeekStart]);
+    if (!weekRow) {
       run(
         `INSERT INTO tdee_history (week_start, avg_calories, avg_weight, prev_avg_weight, inferred_tdee) VALUES (?, ?, ?, ?, ?)`,
         [lastWeekStart, Math.round(avg_daily_intake), avg7.avg_weight, avg7prev.avg_weight, inferred_tdee]
       );
     } else {
       run(
-        `UPDATE tdee_history SET week_start = ?, avg_calories = ?, avg_weight = ?, prev_avg_weight = ?, inferred_tdee = ? WHERE id = ?`,
-        [lastWeekStart, Math.round(avg_daily_intake), avg7.avg_weight, avg7prev.avg_weight, inferred_tdee, todayRow.id]
+        `UPDATE tdee_history SET avg_calories = ?, avg_weight = ?, prev_avg_weight = ?, inferred_tdee = ? WHERE id = ?`,
+        [Math.round(avg_daily_intake), avg7.avg_weight, avg7prev.avg_weight, inferred_tdee, weekRow.id]
       );
     }
 
-    // EMA smoothing across last 14 daily inferences (α=0.2). Avoids whiplash from one bloated weigh-in.
-    const history = all(`SELECT inferred_tdee FROM tdee_history WHERE inferred_tdee IS NOT NULL ORDER BY calculated_at DESC LIMIT 14`);
+    // EMA smoothing across last 14 weekly inferences (α=0.2). Dampens single-week noise.
+    const history = all(`SELECT inferred_tdee FROM tdee_history WHERE inferred_tdee IS NOT NULL ORDER BY week_start DESC LIMIT 14`);
     if (history.length >= 2) {
       const chronological = history.slice().reverse();
       const alpha = 0.2;
@@ -662,7 +730,7 @@ router.get('/adaptive-tdee', (req, res) => {
       for (let i = 1; i < chronological.length; i++) {
         ema = alpha * chronological[i].inferred_tdee + (1 - alpha) * ema;
       }
-      inferred_tdee_smoothed = Math.round(ema);
+      inferred_tdee_smoothed = Math.max(tdee_floor, Math.round(ema));
     } else {
       inferred_tdee_smoothed = inferred_tdee;
     }
